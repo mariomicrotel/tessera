@@ -1,0 +1,47 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8090:8000"
+    volumes:
+      - .:/var/www/html
+      - vendor_data:/var/www/html/vendor
+      - node_modules_data:/var/www/html/node_modules
+    environment:
+      APP_ENV: local
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "
+        composer install --no-interaction --prefer-dist &&
+        php artisan key:generate --force &&
+        php artisan migrate --force &&
+        npm install &&
+        npm run build &&
+        php artisan serve --host=0.0.0.0 --port=8000
+      "
+
+  db:
+    image: mysql:8.0
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: ets_db
+      MYSQL_USER: ets_user
+      MYSQL_PASSWORD: secret
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-usecret", "-psecret"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  vendor_data:
+  node_modules_data:
+  db_data:

@@ -1,0 +1,63 @@
+<?php
+
+return [
+    'types' => [
+        'incasso_quota' => [
+            'label' => 'Ricevuta incasso quota',
+            'default_text' => '<p>{{nome-associazione}} attesta l\'avvenuto versamento della quota associativa.</p><p>Causale: {{causale}}.<br>Importo ricevuto: Euro {{amount}} in data {{data}}.<br>IBAN di riferimento: {{iban}}.</p>',
+            'placeholders' => [
+                'nome-associazione' => 'Nome associazione',
+                'receipt_number' => 'Numero ricevuta',
+                'data' => 'Data emissione (formattata)',
+                'amount' => 'Importo formattato (es. 50,00)',
+                'causale' => 'Causale pagamento',
+                'recipient_name' => 'Nome destinatario',
+                'recipient_cf' => 'Codice fiscale destinatario (se disponibile)',
+                'iban' => 'IBAN del conto di incasso (se disponibile)',
+                'anno' => 'Anno corrente',
+                'presidente' => 'Presidente (da cariche sociali)',
+                'sede' => 'Indirizzo sede (da impostazioni)',
+                'sede-legale' => 'Sede legale (da anagrafica sedi)',
+                'sede-operativa' => 'Sede operativa (da anagrafica sedi)',
+            ],
+        ],
+        'incasso_donazione' => [
+            'label' => 'Ricevuta incasso donazione',
+            'default_text' => '<p>L\'associazione {{nome-associazione}} dichiara di aver ricevuto una erogazione liberale da {{recipient_name}} pari a Euro {{amount}} in data {{data}}.<br>IBAN di riferimento: {{iban}}.</p><p>L\'associazione è ente del Terzo Settore iscritto al RUNTS.<br>Ai sensi dell\'art. 83 del D.Lgs. 117/2017, il donatore può beneficiare delle agevolazioni fiscali previste dalla normativa vigente.</p><p>Le somme ricevute saranno impiegate per il perseguimento delle finalità civiche, solidaristiche e di utilità sociale dell\'ente.</p>',
+            'placeholders' => [
+                'nome-associazione' => 'Nome associazione',
+                'receipt_number' => 'Numero ricevuta',
+                'data' => 'Data emissione (formattata)',
+                'amount' => 'Importo formattato (es. 50,00)',
+                'causale' => 'Causale pagamento',
+                'recipient_name' => 'Nome destinatario',
+                'recipient_cf' => 'Codice fiscale destinatario (se disponibile)',
+                'iban' => 'IBAN del conto di incasso (se disponibile)',
+                'anno' => 'Anno corrente',
+                'presidente' => 'Presidente (da cariche sociali)',
+                'sede' => 'Indirizzo sede (da impostazioni)',
+                'sede-legale' => 'Sede legale (da anagrafica sedi)',
+                'sede-operativa' => 'Sede operativa (da anagrafica sedi)',
+            ],
+        ],
+        'incasso_altro' => [
+            'label' => 'Ricevuta incasso generico',
+            'default_text' => '<p>{{nome-associazione}} attesta l\'avvenuto incasso per la seguente causale: {{causale}}.</p><p>Importo ricevuto: Euro {{amount}} in data {{data}}.<br>IBAN di riferimento: {{iban}}.</p>',
+            'placeholders' => [
+                'nome-associazione' => 'Nome associazione',
+                'receipt_number' => 'Numero ricevuta',
+                'data' => 'Data emissione (formattata)',
+                'amount' => 'Importo formattato (es. 50,00)',
+                'causale' => 'Causale pagamento',
+                'recipient_name' => 'Nome destinatario',
+                'recipient_cf' => 'Codice fiscale destinatario (se disponibile)',
+                'iban' => 'IBAN del conto di incasso (se disponibile)',
+                'anno' => 'Anno corrente',
+                'presidente' => 'Presidente (da cariche sociali)',
+                'sede' => 'Indirizzo sede (da impostazioni)',
+                'sede-legale' => 'Sede legale (da anagrafica sedi)',
+                'sede-operativa' => 'Sede operativa (da anagrafica sedi)',
+            ],
+        ],
+    ],
+];
