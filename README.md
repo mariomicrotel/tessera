@@ -4,7 +4,7 @@
 
 Progettata per semplificare l'amministrazione di organizzazioni non profit, con strumenti specifici per cooperative (capitale sociale, prestiti sociali, ristorni).
 
-**Repository:** [github.com/TUO_USERNAME/tessera](https://github.com/TUO_USERNAME/tessera)
+**Repository:** [github.com/mariomicrotel/tessera](https://github.com/mariomicrotel/tessera)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![PHP 8.4+](https://img.shields.io/badge/PHP-8.4+-777BB4?logo=php)](https://php.net)
