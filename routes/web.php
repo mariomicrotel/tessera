@@ -409,6 +409,9 @@ Route::middleware([
         Route::post('{asset}/dismetti', [DismissioneCespitiController::class, 'store'])->name('dismetti');
         Route::post('{asset}/preview-dismissione', [DismissioneCespitiController::class, 'preview'])->name('preview-dismissione');
 
+        // PDF Registro Cespiti
+        Route::get('registro-pdf', [CespitiController::class, 'registroPdf'])->name('registro-pdf');
+
         // CRUD cespiti
         Route::get('/', [CespitiController::class, 'index'])->name('index');
         Route::get('create', [CespitiController::class, 'create'])->name('create');

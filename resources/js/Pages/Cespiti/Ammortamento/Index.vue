@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { ChartBarIcon, TableCellsIcon, CheckCircleIcon } from '@heroicons/vue/24/outline';
+import { ChartBarIcon, TableCellsIcon, CheckCircleIcon, DocumentArrowDownIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     esercizio:  Number,
@@ -92,7 +92,12 @@ function fmt(n) {
                 </div>
 
                 <!-- Azioni principali -->
-                <div class="flex flex-wrap gap-3">
+                <div class="flex flex-wrap gap-3 items-center">
+                    <a :href="route('cespiti.registro-pdf') + '?esercizio=' + esercizio" target="_blank"
+                       class="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <DocumentArrowDownIcon class="size-4" />
+                        PDF Registro {{ esercizio }}
+                    </a>
                     <button @click="genera" :disabled="generaForm.processing"
                             class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition">
                         <TableCellsIcon class="size-4" />

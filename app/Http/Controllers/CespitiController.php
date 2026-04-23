@@ -4,13 +4,18 @@ namespace App\Http\Controllers;
 
 use App\Models\Asset;
 use App\Models\AssetCategory;
+use App\Models\AssetDepreciationSchedule;
 use App\Models\ContoContabile;
 use App\Models\Supplier;
 use App\Services\CespitiService;
+use App\Support\PdfLetterheadData;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Controller CRUD per il Registro Cespiti.
@@ -189,6 +194,101 @@ class CespitiController extends Controller
         } catch (\RuntimeException $e) {
             return back()->withInput()->with('flash', ['type' => 'error', 'message' => $e->getMessage()]);
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // PDF Registro Cespiti
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Genera e scarica il PDF del Registro Cespiti.
+     *
+     * Parametri GET accettati:
+     *   esercizio  (int)  — anno di riferimento (default: anno corrente)
+     *   stato      (string) — in_uso|dismesso|venduto (default: tutti)
+     *   categoria  (int)  — asset_category_id (default: tutte)
+     */
+    public function registroPdf(Request $request): \Illuminate\Http\Response
+    {
+        $esercizio = (int) ($request->esercizio ?? date('Y'));
+        $stato     = $request->stato ?? null;
+        $catId     = $request->categoria ? (int) $request->categoria : null;
+
+        // Query cespiti
+        $query = Asset::with(['category', 'depreciationSchedules' => function ($q) use ($esercizio) {
+            $q->where('esercizio', $esercizio);
+        }])
+        ->when($stato, fn ($q) => $q->where('stato', $stato))
+        ->when($catId, fn ($q) => $q->where('asset_category_id', $catId))
+        ->orderBy('asset_category_id')
+        ->orderBy('data_inizio_ammortamento')
+        ->orderBy('name');
+
+        $assets = $query->get();
+
+        // Costruisce i dati per il template, raggruppati per categoria
+        $gruppi = $assets->groupBy(function (Asset $a) {
+            return $a->category
+                ? "{$a->category->codice} — {$a->category->descrizione}"
+                : 'Senza categoria';
+        })->map(function (Collection $items) use ($esercizio) {
+            return $items->map(function (Asset $asset) use ($esercizio) {
+                // Fondo inizio anno = schedules definitive fino all'anno precedente
+                $fondoInizio = (float) $asset->depreciationSchedules()
+                    ->where('stato', AssetDepreciationSchedule::STATO_DEFINITIVO)
+                    ->where('esercizio', '<', $esercizio)
+                    ->sum('quota_registrata');
+
+                // Quota esercizio
+                $schedule    = $asset->depreciationSchedules->first();
+                $quota       = $schedule ? (float) ($schedule->quota_registrata ?? $schedule->quota_calcolata ?? 0) : 0;
+                $quotaStato  = $schedule ? ($schedule->stato === 'bozza' ? 'Bozza' : null) : null;
+
+                $fondoFine = round($fondoInizio + $quota, 2);
+                $vncFine   = max(0, round((float) $asset->costo_storico - $fondoFine, 2));
+
+                return [
+                    'codice'       => $asset->code,
+                    'nome'         => $asset->name,
+                    'matricola'    => $asset->matricola,
+                    'data_acquisto'=> $asset->purchase_date,
+                    'costo_storico'=> (float) $asset->costo_storico,
+                    'fondo_inizio' => $fondoInizio,
+                    'aliquota'     => $asset->aliquotaEffettiva() ?: null,
+                    'quota'        => $quota,
+                    'quota_stato'  => $quotaStato,
+                    'fondo_fine'   => $fondoFine,
+                    'vnc_fine'     => $vncFine,
+                    'stato'        => $asset->stato,
+                    'deducibilita' => (float) $asset->percentuale_deducibilita,
+                ];
+            });
+        });
+
+        // Filtri attivi (per intestazione PDF)
+        $filtriAttivi = [];
+        if ($stato) {
+            $filtriAttivi[] = 'Stato: ' . (Asset::STATI_LABEL[$stato] ?? $stato);
+        }
+        if ($catId) {
+            $cat = AssetCategory::find($catId);
+            if ($cat) $filtriAttivi[] = 'Categoria: ' . $cat->codice;
+        }
+
+        $pdf = Pdf::loadView('cespiti.registro-pdf', [
+            'esercizio'      => $esercizio,
+            'gruppi'         => $gruppi,
+            'totaleCespiti'  => $assets->count(),
+            'filtriAttivi'   => $filtriAttivi,
+            'letterhead'     => PdfLetterheadData::data(),
+        ])
+        ->setPaper('a4', 'landscape')
+        ->setOption('isHtml5ParserEnabled', true)
+        ->setOption('isRemoteEnabled', false);
+
+        $filename = "registro-cespiti-{$esercizio}.pdf";
+
+        return $pdf->download($filename);
     }
 
     // ─────────────────────────────────────────────────────────────────────────

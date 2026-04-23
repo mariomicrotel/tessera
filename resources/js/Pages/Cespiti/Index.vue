@@ -1,8 +1,8 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { PlusIcon, MagnifyingGlassIcon, TableCellsIcon } from '@heroicons/vue/24/outline';
+import { PlusIcon, MagnifyingGlassIcon, TableCellsIcon, DocumentArrowDownIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     assets: Object,
@@ -41,6 +41,15 @@ function statoBadgeClass(stato) {
 function fmt(n) {
     return Number(n ?? 0).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+// URL per il download del PDF con i filtri correnti applicati
+const pdfUrl = computed(() => {
+    const params = new URLSearchParams();
+    params.set('esercizio', new Date().getFullYear());
+    if (stato.value)     params.set('stato', stato.value);
+    if (categoria.value) params.set('categoria', categoria.value);
+    return route('cespiti.registro-pdf') + '?' + params.toString();
+});
 </script>
 
 <template>
@@ -53,11 +62,18 @@ function fmt(n) {
                     <TableCellsIcon class="size-6 text-gray-500" />
                     <h2 class="text-xl font-semibold text-gray-800 dark:text-gray-200">Registro Cespiti</h2>
                 </div>
-                <Link :href="route('cespiti.create')"
-                      class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition">
-                    <PlusIcon class="size-4" />
-                    Nuovo cespite
-                </Link>
+                <div class="flex items-center gap-2">
+                    <a :href="pdfUrl" target="_blank"
+                       class="inline-flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                        <DocumentArrowDownIcon class="size-4" />
+                        PDF Registro
+                    </a>
+                    <Link :href="route('cespiti.create')"
+                          class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition">
+                        <PlusIcon class="size-4" />
+                        Nuovo cespite
+                    </Link>
+                </div>
             </div>
         </template>
 
