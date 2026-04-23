@@ -1,8 +1,10 @@
-# 📊 ETS OK - ContabETS
+# 📊 Tessera - SaaS per Enti del Terzo Settore
 
-Software open source **multi-tenant** per la gestione di **Enti del Terzo Settore (ETS)** italiani e **Cooperative**: anagrafica soci e volontari, cassa, contabilità, organi e votazioni, patrimonio, documenti ed eventi.
+**Tessera** è una piattaforma SaaS **multi-tenant** per la gestione completa di **Enti del Terzo Settore (ETS)** italiani e **Cooperative**: anagrafica soci e volontari, cassa, contabilità, organi e votazioni, patrimonio, documenti ed eventi.
 
-**Repository:** [github.com/pfumarola/ETS-OK](https://github.com/pfumarola/ETS-OK)
+Progettata per semplificare l'amministrazione di organizzazioni non profit, con strumenti specifici per cooperative (capitale sociale, prestiti sociali, ristorni).
+
+**Repository:** [github.com/TUO_USERNAME/tessera](https://github.com/TUO_USERNAME/tessera)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![PHP 8.4+](https://img.shields.io/badge/PHP-8.4+-777BB4?logo=php)](https://php.net)

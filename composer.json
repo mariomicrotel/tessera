@@ -1,9 +1,9 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "infotelsistemi/gestionale-ets",
+    "name": "tessera/saas",
     "type": "project",
-    "description": "Infotel Sistemi - Piattaforma SaaS per la gestione di Enti del Terzo Settore.",
-    "keywords": ["laravel", "ets", "terzo-settore", "gestionale", "saas", "multi-tenant"],
+    "description": "Tessera - Piattaforma SaaS multi-tenant per la gestione di Enti del Terzo Settore italiani e Cooperative.",
+    "keywords": ["laravel", "ets", "terzo-settore", "cooperative", "gestionale", "saas", "multi-tenant", "italia"],
     "license": "GPL-3.0-or-later",
     "require": {
         "php": "^8.4",
