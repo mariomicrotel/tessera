@@ -366,4 +366,282 @@ class IvaController extends Controller
             return back()->with('flash', ['type' => 'error', 'message' => $e->getMessage()]);
         }
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Fatture Passive - CRUD
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Form creazione nuova fattura passiva.
+     */
+    public function fatturePassiveCreate(): Response
+    {
+        $tenant = app('current_tenant');
+
+        return Inertia::render('Iva/FatturePassive/Create', [
+            'suppliers'       => \App\Models\Supplier::orderBy('ragione_sociale')->get(),
+            'codiciIva'       => CodiceIva::attivi()->orderBy('percentuale')->get(),
+            'conti'           => \App\Models\Conto::where('tenant_id', $tenant->id)->orderBy('numero')->get(),
+            'tipiDocumento'   => FatturaPassiva::TIPI_DOCUMENTO,
+            'esigibilitaOpts' => FatturaPassiva::ESIGIBILITA_LABEL,
+        ]);
+    }
+
+    /**
+     * Salva nuova fattura passiva con le righe.
+     */
+    public function fatturePassiveStore(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'supplier_id'         => 'required|integer|exists:suppliers,id',
+            'numero_fattura'      => 'required|string|max:50',
+            'data_fattura'        => 'required|date',
+            'data_ricezione'      => 'required|date',
+            'data_registrazione'  => 'required|date',
+            'data_scadenza'       => 'required|date',
+            'esigibilita'         => ['required', 'in:immediata,differita,split_payment'],
+            'tipo_documento'      => ['required', 'in:' . implode(',', array_keys(FatturaPassiva::TIPI_DOCUMENTO))],
+            'note'                => 'nullable|string',
+            'righe'               => 'required|array|min:1',
+            'righe.*.codice_iva_id'            => 'required|integer|exists:codici_iva,id',
+            'righe.*.conto_id'                 => 'nullable|integer|exists:conti,id',
+            'righe.*.descrizione'              => 'required|string',
+            'righe.*.quantita'                 => 'required|numeric|min:0.01',
+            'righe.*.prezzo_unitario'          => 'required|numeric|min:0',
+            'righe.*.indetraibile_percentuale' => 'nullable|numeric|min:0|max:100',
+        ]);
+
+        $tenant = app('current_tenant');
+
+        // Crea fattura
+        $fattura = FatturaPassiva::create([
+            'tenant_id'           => $tenant->id,
+            'supplier_id'         => $validated['supplier_id'],
+            'numero_fattura'      => $validated['numero_fattura'],
+            'data_fattura'        => $validated['data_fattura'],
+            'data_ricezione'      => $validated['data_ricezione'],
+            'data_registrazione'  => $validated['data_registrazione'],
+            'data_scadenza'       => $validated['data_scadenza'],
+            'esigibilita'         => $validated['esigibilita'],
+            'tipo_documento'      => $validated['tipo_documento'],
+            'note'                => $validated['note'],
+            'stato_pagamento'     => FatturaPassiva::STATO_DA_PAGARE,
+        ]);
+
+        // Crea righe
+        foreach ($validated['righe'] as $rigaData) {
+            $qta = (float) $rigaData['quantita'];
+            $prezzo = (float) $rigaData['prezzo_unitario'];
+            $imponibile = round($qta * $prezzo, 2);
+
+            $codiceIva = CodiceIva::find($rigaData['codice_iva_id']);
+            $aliquota = $codiceIva ? (float) $codiceIva->percentuale : 0;
+            $iva = round($imponibile * $aliquota / 100, 2);
+
+            $indPct = (float) ($rigaData['indetraibile_percentuale'] ?? $codiceIva?->indetraibile_percentuale ?? 0);
+            $ivaInd = round($iva * $indPct / 100, 2);
+
+            $fattura->righe()->create([
+                'tenant_id'                => $tenant->id,
+                'codice_iva_id'            => $rigaData['codice_iva_id'],
+                'conto_id'                 => $rigaData['conto_id'],
+                'descrizione'              => $rigaData['descrizione'],
+                'quantita'                 => $qta,
+                'prezzo_unitario'          => $prezzo,
+                'imponibile'               => $imponibile,
+                'iva'                      => $iva,
+                'totale'                   => round($imponibile + $iva, 2),
+                'indetraibile_percentuale' => $indPct,
+                'iva_indetraibile'         => $ivaInd,
+            ]);
+        }
+
+        // Ricalcola totali
+        $fattura->ricalcolaTotali();
+        $fattura->save();
+
+        return redirect()->route('iva.fatture-passive.show', $fattura)->with('flash', [
+            'type'    => 'success',
+            'message' => "Fattura {$fattura->numero_fattura} creata con successo.",
+        ]);
+    }
+
+    /**
+     * Form modifica fattura passiva.
+     */
+    public function fatturePassiveEdit(FatturaPassiva $fatturaPassiva): Response
+    {
+        $tenant = app('current_tenant');
+        $fatturaPassiva->load('righe.codiceIva');
+
+        return Inertia::render('Iva/FatturePassive/Edit', [
+            'fattura'         => $fatturaPassiva,
+            'suppliers'       => \App\Models\Supplier::orderBy('ragione_sociale')->get(),
+            'codiciIva'       => CodiceIva::attivi()->orderBy('percentuale')->get(),
+            'conti'           => \App\Models\Conto::where('tenant_id', $tenant->id)->orderBy('numero')->get(),
+            'tipiDocumento'   => FatturaPassiva::TIPI_DOCUMENTO,
+            'esigibilitaOpts' => FatturaPassiva::ESIGIBILITA_LABEL,
+        ]);
+    }
+
+    /**
+     * Aggiorna fattura passiva.
+     */
+    public function fatturePassiveUpdate(Request $request, FatturaPassiva $fatturaPassiva): RedirectResponse
+    {
+        // Blocca modifica se fattura è read-only (agganciata a liquidazione definitiva)
+        if ($fatturaPassiva->isReadOnly()) {
+            return back()->with('flash', [
+                'type'    => 'error',
+                'message' => 'Impossibile modificare: fattura agganciata a liquidazione IVA definitiva.',
+            ]);
+        }
+
+        $validated = $request->validate([
+            'supplier_id'         => 'required|integer|exists:suppliers,id',
+            'numero_fattura'      => 'required|string|max:50',
+            'data_fattura'        => 'required|date',
+            'data_ricezione'      => 'required|date',
+            'data_registrazione'  => 'required|date',
+            'data_scadenza'       => 'required|date',
+            'esigibilita'         => ['required', 'in:immediata,differita,split_payment'],
+            'tipo_documento'      => ['required', 'in:' . implode(',', array_keys(FatturaPassiva::TIPI_DOCUMENTO))],
+            'note'                => 'nullable|string',
+            'righe'               => 'required|array|min:1',
+            'righe.*.codice_iva_id'            => 'required|integer|exists:codici_iva,id',
+            'righe.*.conto_id'                 => 'nullable|integer|exists:conti,id',
+            'righe.*.descrizione'              => 'required|string',
+            'righe.*.quantita'                 => 'required|numeric|min:0.01',
+            'righe.*.prezzo_unitario'          => 'required|numeric|min:0',
+            'righe.*.indetraibile_percentuale' => 'nullable|numeric|min:0|max:100',
+        ]);
+
+        $tenant = app('current_tenant');
+
+        // Aggiorna fattura
+        $fatturaPassiva->update([
+            'supplier_id'         => $validated['supplier_id'],
+            'numero_fattura'      => $validated['numero_fattura'],
+            'data_fattura'        => $validated['data_fattura'],
+            'data_ricezione'      => $validated['data_ricezione'],
+            'data_registrazione'  => $validated['data_registrazione'],
+            'data_scadenza'       => $validated['data_scadenza'],
+            'esigibilita'         => $validated['esigibilita'],
+            'tipo_documento'      => $validated['tipo_documento'],
+            'note'                => $validated['note'],
+        ]);
+
+        // Elimina righe vecchie
+        $fatturaPassiva->righe()->delete();
+
+        // Crea righe nuove
+        foreach ($validated['righe'] as $rigaData) {
+            $qta = (float) $rigaData['quantita'];
+            $prezzo = (float) $rigaData['prezzo_unitario'];
+            $imponibile = round($qta * $prezzo, 2);
+
+            $codiceIva = CodiceIva::find($rigaData['codice_iva_id']);
+            $aliquota = $codiceIva ? (float) $codiceIva->percentuale : 0;
+            $iva = round($imponibile * $aliquota / 100, 2);
+
+            $indPct = (float) ($rigaData['indetraibile_percentuale'] ?? $codiceIva?->indetraibile_percentuale ?? 0);
+            $ivaInd = round($iva * $indPct / 100, 2);
+
+            $fatturaPassiva->righe()->create([
+                'tenant_id'                => $tenant->id,
+                'codice_iva_id'            => $rigaData['codice_iva_id'],
+                'conto_id'                 => $rigaData['conto_id'],
+                'descrizione'              => $rigaData['descrizione'],
+                'quantita'                 => $qta,
+                'prezzo_unitario'          => $prezzo,
+                'imponibile'               => $imponibile,
+                'iva'                      => $iva,
+                'totale'                   => round($imponibile + $iva, 2),
+                'indetraibile_percentuale' => $indPct,
+                'iva_indetraibile'         => $ivaInd,
+            ]);
+        }
+
+        // Ricalcola totali
+        $fatturaPassiva->ricalcolaTotali();
+        $fatturaPassiva->save();
+
+        return redirect()->route('iva.fatture-passive.show', $fatturaPassiva)->with('flash', [
+            'type'    => 'success',
+            'message' => "Fattura {$fatturaPassiva->numero_fattura} aggiornata con successo.",
+        ]);
+    }
+
+    /**
+     * Elimina fattura passiva (soft delete).
+     */
+    public function fatturePassiveDestroy(FatturaPassiva $fatturaPassiva): RedirectResponse
+    {
+        if ($fatturaPassiva->isReadOnly()) {
+            return back()->with('flash', [
+                'type'    => 'error',
+                'message' => 'Impossibile eliminare: fattura agganciata a liquidazione IVA definitiva.',
+            ]);
+        }
+
+        $numero = $fatturaPassiva->numero_fattura;
+        $fatturaPassiva->delete();
+
+        return redirect()->route('iva.fatture-passive.index')->with('flash', [
+            'type'    => 'success',
+            'message' => "Fattura {$numero} eliminata con successo.",
+        ]);
+    }
+
+    /**
+     * Marca fattura passiva come pagata.
+     */
+    public function fatturePassiveMarkPaid(FatturaPassiva $fatturaPassiva): RedirectResponse
+    {
+        if ($fatturaPassiva->isReadOnly()) {
+            return back()->with('flash', [
+                'type'    => 'error',
+                'message' => 'Impossibile modificare: fattura agganciata a liquidazione IVA definitiva.',
+            ]);
+        }
+
+        $fatturaPassiva->update(['stato_pagamento' => FatturaPassiva::STATO_PAGATA]);
+
+        return back()->with('flash', [
+            'type'    => 'success',
+            'message' => "Fattura {$fatturaPassiva->numero_fattura} marcata come pagata.",
+        ]);
+    }
+
+    /**
+     * Marca fattura passiva come registrata.
+     */
+    public function fatturePassiveMarkRegistered(FatturaPassiva $fatturaPassiva): RedirectResponse
+    {
+        // Questo metodo dipende dallo stato interno; per ora è un placeholder
+        return back()->with('flash', [
+            'type'    => 'info',
+            'message' => 'Operazione non ancora implementata.',
+        ]);
+    }
+
+    /**
+     * Annulla fattura passiva.
+     */
+    public function fatturePassiveCancelTTL(FatturaPassiva $fatturaPassiva): RedirectResponse
+    {
+        if ($fatturaPassiva->isReadOnly()) {
+            return back()->with('flash', [
+                'type'    => 'error',
+                'message' => 'Impossibile modificare: fattura agganciata a liquidazione IVA definitiva.',
+            ]);
+        }
+
+        $fatturaPassiva->update(['stato_pagamento' => FatturaPassiva::STATO_ANNULLATA]);
+
+        return back()->with('flash', [
+            'type'    => 'success',
+            'message' => "Fattura {$fatturaPassiva->numero_fattura} annullata.",
+        ]);
+    }
 }

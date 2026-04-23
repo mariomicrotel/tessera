@@ -19,7 +19,15 @@ Route::middleware(['web', 'auth', 'tenant'])->group(function () {
 
     // Fatture passive
     Route::get('/iva/fatture-passive', [IvaController::class, 'fatturePassiveIndex'])->name('iva.fatture-passive.index');
+    Route::get('/iva/fatture-passive/create', [IvaController::class, 'fatturePassiveCreate'])->name('iva.fatture-passive.create');
+    Route::post('/iva/fatture-passive', [IvaController::class, 'fatturePassiveStore'])->name('iva.fatture-passive.store');
     Route::get('/iva/fatture-passive/{fatturaPassiva}', [IvaController::class, 'fatturaPassivaShow'])->name('iva.fatture-passive.show');
+    Route::get('/iva/fatture-passive/{fatturaPassiva}/edit', [IvaController::class, 'fatturePassiveEdit'])->name('iva.fatture-passive.edit');
+    Route::put('/iva/fatture-passive/{fatturaPassiva}', [IvaController::class, 'fatturePassiveUpdate'])->name('iva.fatture-passive.update');
+    Route::delete('/iva/fatture-passive/{fatturaPassiva}', [IvaController::class, 'fatturePassiveDestroy'])->name('iva.fatture-passive.destroy');
+    Route::post('/iva/fatture-passive/{fatturaPassiva}/marca-pagata', [IvaController::class, 'fatturePassiveMarkPaid'])->name('iva.fatture-passive.mark-paid');
+    Route::post('/iva/fatture-passive/{fatturaPassiva}/marca-registrata', [IvaController::class, 'fatturePassiveMarkRegistered'])->name('iva.fatture-passive.mark-registered');
+    Route::post('/iva/fatture-passive/{fatturaPassiva}/annulla', [IvaController::class, 'fatturePassiveCancelTTL'])->name('iva.fatture-passive.cancel');
 
     // Fatture attive
     Route::get('/iva/fatture-attive', [IvaController::class, 'fattureAttiveIndex'])->name('iva.fatture-attive.index');
