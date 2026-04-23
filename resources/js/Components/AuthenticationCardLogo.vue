@@ -4,14 +4,39 @@ import { Link } from '@inertiajs/vue3';
 
 <template>
     <Link :href="'/'">
+        <!-- Network GTC Logo -->
         <svg
-            class="size-16"
-            viewBox="0 0 48 48"
+            class="h-16 w-auto"
+            viewBox="0 0 240 100"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
         >
-            <path d="M11.395 44.428C4.557 40.198 0 32.632 0 24 0 10.745 10.745 0 24 0a23.891 23.891 0 0113.997 4.502c-.2 17.907-11.097 33.245-26.602 39.926z" fill="#6875F5" />
-            <path d="M14.134 45.885A23.914 23.914 0 0024 48c13.255 0 24-10.745 24-24 0-3.516-.756-6.856-2.115-9.866-4.659 15.143-16.608 27.092-31.75 31.751z" fill="#6875F5" />
+            <!-- Wave/Arc element (left side) -->
+            <path d="M 15 30 Q 10 35 15 50 Q 20 65 25 70 Q 18 75 12 70 Q 5 60 8 45 Q 10 35 18 25 Z"
+                  fill="#003A70" />
+            <path d="M 20 35 Q 18 40 20 52 Q 25 65 28 72 Q 33 70 30 58 Q 28 45 25 35 Z"
+                  fill="#C41E3A" />
+
+            <!-- Text: "Network" in blue -->
+            <text x="45" y="55" font-family="Arial, sans-serif" font-size="32" font-weight="bold"
+                  fill="#003A70" letter-spacing="0.5">
+                Network
+            </text>
+
+            <!-- Text: "GTC" in red -->
+            <text x="190" y="55" font-family="Arial, sans-serif" font-size="32" font-weight="bold"
+                  fill="#C41E3A" letter-spacing="1">
+                GTC
+            </text>
+
+            <!-- TM symbol (small circle) -->
+            <circle cx="220" cy="20" r="3" fill="#003A70" />
+
+            <!-- Tagline (optional, very small) -->
+            <text x="45" y="80" font-family="Arial, sans-serif" font-size="8" fill="#666"
+                  letter-spacing="0.3">
+                LA 1ª RETE EUROPEA DI ALTA PROFESSIONALITÀ
+            </text>
         </svg>
     </Link>
 </template>
