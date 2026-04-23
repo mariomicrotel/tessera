@@ -26,6 +26,7 @@ import {
     KeyIcon,
     ArrowRightOnRectangleIcon,
     UsersIcon,
+    TableCellsIcon,
 } from '@heroicons/vue/24/outline';
 import ApplicationMark from '@/Components/ApplicationMark.vue';
 import Banner from '@/Components/Banner.vue';
@@ -51,6 +52,7 @@ const openSections = ref({
     documenti: false,
     organiVotazioni: false,
     patrimonio: false,
+    cespiti: false,
     contabilita: false,
     iva: false,
     cooperativa: false,
@@ -64,6 +66,7 @@ function sectionForRoute(name) {
     if (name.startsWith('documents.') || name.startsWith('verbali.') || name.startsWith('templates.') || name.startsWith('email-templates.') || name.startsWith('receipt-templates.')) return 'documenti';
     if (name.startsWith('organi.') || name.startsWith('elezioni.')) return 'organiVotazioni';
     if (name.startsWith('events.') || name.startsWith('properties.') || name.startsWith('items.') || name.startsWith('locations.') || name.startsWith('warehouses.')) return 'patrimonio';
+    if (name.startsWith('cespiti.')) return 'cespiti';
     if (name.startsWith('conti.') || name.startsWith('prima-nota.') || name === 'reports.accounting' || name === 'reports.rendiconto-cassa') return 'contabilita';
     if (name.startsWith('iva.')) return 'iva';
     if (name.startsWith('capitale-sociale.') || name.startsWith('prestito-sociale.') || name.startsWith('ristorni.') || name === 'reports.situazione-capitale' || name === 'reports.conto-economico-coop') return 'cooperativa';
@@ -341,6 +344,29 @@ const logout = () => {
                             </div>
                         </div>
                     </template>
+                    <!-- Cespiti e Ammortamenti (mobile) -->
+                    <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria') || $page.props.userRoles?.includes('contabile')" class="pt-2">
+                        <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('cespiti')">
+                            <TableCellsIcon class="size-5 shrink-0" aria-hidden="true" />
+                            <span class="flex-1">Cespiti</span>
+                            <ChevronDownIcon v-if="openSections.cespiti" class="size-4 shrink-0" aria-hidden="true" />
+                            <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
+                        </button>
+                        <div v-show="openSections.cespiti" class="space-y-0.5 ps-6">
+                            <ResponsiveNavLink :href="route('cespiti.index')" :active="route().current('cespiti.index') || route().current('cespiti.show') || route().current('cespiti.create') || route().current('cespiti.edit')">
+                                <TableCellsIcon class="size-4 shrink-0" aria-hidden="true" />
+                                Registro Cespiti
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('cespiti.ammortamento.index')" :active="route().current('cespiti.ammortamento.*')">
+                                <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
+                                Ammortamenti
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('cespiti.categorie.index')" :active="route().current('cespiti.categorie.*')">
+                                <FolderIcon class="size-4 shrink-0" aria-hidden="true" />
+                                Categorie
+                            </ResponsiveNavLink>
+                        </div>
+                    </div>
                     <!-- Cassa: visibile a staff e socio (socio vede solo "I miei rimborsi") -->
                     <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria') || $page.props.userRoles?.includes('contabile') || $page.props.userRoles?.includes('socio')" class="pt-2">
                             <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('cassa')">
@@ -614,6 +640,29 @@ const logout = () => {
                                         <NavLink :href="route('warehouses.index')" :active="route().current('warehouses.*')">
                                             <CubeIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Magazzino
+                                        </NavLink>
+                                    </div>
+                                </div>
+                                <!-- Cespiti e Ammortamenti (desktop) -->
+                                <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria') || $page.props.userRoles?.includes('contabile')" class="mt-2">
+                                    <button type="button" class="block w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border-l-4 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50" @click="toggleSection('cespiti')">
+                                        <TableCellsIcon class="size-5 shrink-0" aria-hidden="true" />
+                                        <span class="flex-1 text-start">Cespiti</span>
+                                        <ChevronDownIcon v-if="openSections.cespiti" class="size-4 shrink-0" aria-hidden="true" />
+                                        <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
+                                    </button>
+                                    <div v-show="openSections.cespiti" class="space-y-0.5 pl-4 ml-1 border-l border-gray-200 dark:border-gray-600">
+                                        <NavLink :href="route('cespiti.index')" :active="route().current('cespiti.index') || route().current('cespiti.show') || route().current('cespiti.create') || route().current('cespiti.edit')">
+                                            <TableCellsIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Registro Cespiti
+                                        </NavLink>
+                                        <NavLink :href="route('cespiti.ammortamento.index')" :active="route().current('cespiti.ammortamento.*')">
+                                            <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Ammortamenti
+                                        </NavLink>
+                                        <NavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('cespiti.categorie.index')" :active="route().current('cespiti.categorie.*')">
+                                            <FolderIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Categorie
                                         </NavLink>
                                     </div>
                                 </div>

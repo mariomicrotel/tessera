@@ -43,6 +43,10 @@ use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\IvaController;
 use App\Http\Controllers\FatturaPassivaController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\CespitiController;
+use App\Http\Controllers\AmmortamentoController;
+use App\Http\Controllers\AssetCategoryController;
+use App\Http\Controllers\DismissioneCespitiController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -388,6 +392,33 @@ Route::middleware([
     Route::post('warehouses/{warehouse}/stocks', [WarehouseController::class, 'storeStock'])->name('warehouses.stocks.store');
     Route::put('warehouses/{warehouse}/stocks/{stock}', [WarehouseController::class, 'updateStock'])->name('warehouses.stocks.update');
     Route::delete('warehouses/{warehouse}/stocks/{stock}', [WarehouseController::class, 'destroyStock'])->name('warehouses.stocks.destroy');
+    // ── Cespiti e Ammortamenti (D4) ──────────────────────────────────────────
+    Route::prefix('cespiti')->name('cespiti.')->middleware('role:admin,contabile,segreteria')->group(function () {
+        // Categorie fiscali
+        Route::get('categorie', [AssetCategoryController::class, 'index'])->name('categorie.index');
+        Route::post('categorie', [AssetCategoryController::class, 'store'])->name('categorie.store')->middleware('role:admin');
+        Route::put('categorie/{categoria}', [AssetCategoryController::class, 'update'])->name('categorie.update')->middleware('role:admin');
+
+        // Dashboard ammortamenti esercizio
+        Route::get('ammortamento', [AmmortamentoController::class, 'index'])->name('ammortamento.index');
+        Route::post('ammortamento/genera', [AmmortamentoController::class, 'genera'])->name('ammortamento.genera');
+        Route::post('ammortamento/{schedule}/registra', [AmmortamentoController::class, 'registra'])->name('ammortamento.registra');
+        Route::post('ammortamento/conferma-esercizio', [AmmortamentoController::class, 'confermaEsercizio'])->name('ammortamento.conferma-esercizio');
+
+        // Dismissione (deve stare PRIMA di {asset} per evitare conflitti)
+        Route::post('{asset}/dismetti', [DismissioneCespitiController::class, 'store'])->name('dismetti');
+        Route::post('{asset}/preview-dismissione', [DismissioneCespitiController::class, 'preview'])->name('preview-dismissione');
+
+        // CRUD cespiti
+        Route::get('/', [CespitiController::class, 'index'])->name('index');
+        Route::get('create', [CespitiController::class, 'create'])->name('create');
+        Route::post('/', [CespitiController::class, 'store'])->name('store');
+        Route::get('{asset}', [CespitiController::class, 'show'])->name('show');
+        Route::get('{asset}/edit', [CespitiController::class, 'edit'])->name('edit');
+        Route::put('{asset}', [CespitiController::class, 'update'])->name('update');
+        Route::delete('{asset}', [CespitiController::class, 'destroy'])->name('destroy');
+    });
+
     Route::get('documents/{document}/pdf', [DocumentController::class, 'downloadPdf'])->name('documents.pdf');
     Route::post('documents/{document}/attachments', [DocumentController::class, 'storeAttachment'])->name('documents.attachments.store');
     Route::delete('documents/{document}/attachments/{attachment}', [DocumentController::class, 'destroyAttachment'])->name('documents.attachments.destroy');
