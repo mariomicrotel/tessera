@@ -1,4 +1,4 @@
-# 📊 Tessera - SaaS per Enti del Terzo Settore
+# 📊 Tessera - SaaS per Enti del Terzo Settore e Cooperative
 
 **Tessera** è una piattaforma SaaS **multi-tenant** per la gestione completa di **Enti del Terzo Settore (ETS)** italiani e **Cooperative**: anagrafica soci e volontari, cassa, contabilità, organi e votazioni, patrimonio, documenti ed eventi.
 
