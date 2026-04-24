@@ -37,6 +37,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\VerbaleController;
 use App\Http\Controllers\EmailTemplateController;
 use App\Http\Controllers\MediaController;
+use App\Http\Controllers\ScadenzaController;
 use App\Http\Controllers\ScadenzarioController;
 use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\WarehouseController;
@@ -348,6 +349,19 @@ Route::middleware([
     Route::get('scadenzario-quote/export', [ScadenzarioController::class, 'exportMorosi'])->name('scadenzario.export');
     Route::post('scadenzario-quote/sollecito-massivo', [ScadenzarioController::class, 'sendSollecitoMassivo'])->name('scadenzario.sollecito-massivo');
     Route::post('scadenzario-quote/{member}/sollecito', [ScadenzarioController::class, 'sendSollecito'])->name('scadenzario.sollecito');
+
+    // ── Scadenzario Completo ───────────────────────────────────────────────
+    Route::get('scadenze',                    [ScadenzaController::class, 'index'])->name('scadenze.index');
+    Route::get('scadenze/dashboard',          [ScadenzaController::class, 'dashboard'])->name('scadenze.dashboard');
+    Route::get('scadenze/fornitori',          [ScadenzaController::class, 'fornitori'])->name('scadenze.fornitori');
+    Route::get('scadenze/clienti',            [ScadenzaController::class, 'clienti'])->name('scadenze.clienti');
+    Route::post('scadenze/riprendi',          [ScadenzaController::class, 'riprendi'])->name('scadenze.riprendi');
+    Route::get('scadenze/create',             [ScadenzaController::class, 'create'])->name('scadenze.create');
+    Route::post('scadenze',                   [ScadenzaController::class, 'store'])->name('scadenze.store');
+    Route::get('scadenze/{scadenza}/edit',    [ScadenzaController::class, 'edit'])->name('scadenze.edit');
+    Route::put('scadenze/{scadenza}',         [ScadenzaController::class, 'update'])->name('scadenze.update');
+    Route::delete('scadenze/{scadenza}',      [ScadenzaController::class, 'destroy'])->name('scadenze.destroy');
+    Route::post('scadenze/{scadenza}/pagata', [ScadenzaController::class, 'markPagata'])->name('scadenze.mark-pagata');
     Route::get('reports/rendiconto-cassa', [RendicontoCassaController::class, 'index'])->name('reports.rendiconto-cassa');
     Route::get('reports/rendiconto-cassa/export-pdf', [RendicontoCassaController::class, 'exportPdf'])->name('reports.rendiconto-cassa.export-pdf');
     Route::post('reports/rendiconto-cassa/export-pdf', [RendicontoCassaController::class, 'exportPdfFromPayload'])->name('reports.rendiconto-cassa.export-pdf.post');
