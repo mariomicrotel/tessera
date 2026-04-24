@@ -37,6 +37,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\VerbaleController;
 use App\Http\Controllers\EmailTemplateController;
 use App\Http\Controllers\MediaController;
+use App\Http\Controllers\EsercizioContabileController;
 use App\Http\Controllers\ScadenzaController;
 use App\Http\Controllers\ScadenzarioController;
 use App\Http\Controllers\TemplateController;
@@ -349,6 +350,14 @@ Route::middleware([
     Route::get('scadenzario-quote/export', [ScadenzarioController::class, 'exportMorosi'])->name('scadenzario.export');
     Route::post('scadenzario-quote/sollecito-massivo', [ScadenzarioController::class, 'sendSollecitoMassivo'])->name('scadenzario.sollecito-massivo');
     Route::post('scadenzario-quote/{member}/sollecito', [ScadenzarioController::class, 'sendSollecito'])->name('scadenzario.sollecito');
+
+    // ── Esercizio Contabile ───────────────────────────────────────────────
+    Route::get('esercizi',                              [EsercizioContabileController::class, 'index'])->name('esercizi.index');
+    Route::post('esercizi',                             [EsercizioContabileController::class, 'store'])->name('esercizi.store');
+    Route::put('esercizi/{esercizio}',                  [EsercizioContabileController::class, 'update'])->name('esercizi.update');
+    Route::post('esercizi/{esercizio}/close',           [EsercizioContabileController::class, 'close'])->name('esercizi.close');
+    Route::post('esercizi/{esercizio}/reopen',          [EsercizioContabileController::class, 'reopen'])->name('esercizi.reopen');
+    Route::delete('esercizi/{esercizio}',               [EsercizioContabileController::class, 'destroy'])->name('esercizi.destroy');
 
     // ── Scadenzario Completo ───────────────────────────────────────────────
     Route::get('scadenze',                    [ScadenzaController::class, 'index'])->name('scadenze.index');
