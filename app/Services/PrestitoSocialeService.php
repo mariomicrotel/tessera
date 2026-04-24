@@ -413,7 +413,9 @@ class PrestitoSocialeService
                 break;
             }
             // Giorni durante i quali il saldo precedente al movimento è rimasto invariato
-            $giorniConSaldo = $cursore->diffInDays($dataMov);
+            // Nota: Carbon 3 restituisce float da diffInDays(); il cast a int garantisce
+            // che si contino solo giorni interi (comportamento coerente con Carbon 2).
+            $giorniConSaldo = (int) $cursore->diffInDays($dataMov);
             if ($giorniConSaldo < 0) {
                 $giorniConSaldo = 0;
             }
@@ -425,7 +427,7 @@ class PrestitoSocialeService
         }
 
         // Giorni rimanenti fino a fine mese (inclusa)
-        $giorniFinali = $cursore->diffInDays($fine) + 1;
+        $giorniFinali = (int) $cursore->diffInDays($fine) + 1;
         $somma += $saldoCurr * $giorniFinali;
 
         if ($giorni <= 0) {
