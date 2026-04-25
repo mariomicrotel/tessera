@@ -357,6 +357,8 @@ Route::middleware([
     Route::put('iva/fatture-attive/{fatturaAttiva}', [FatturaAttivaController::class, 'update'])->name('iva.fatture-attive.update')->middleware('role:admin,contabile');
     Route::post('iva/fatture-attive/{fatturaAttiva}/paga', [FatturaAttivaController::class, 'paga'])->name('iva.fatture-attive.paga')->middleware('role:admin,contabile');
     Route::post('iva/fatture-attive/{fatturaAttiva}/storna', [FatturaAttivaController::class, 'storna'])->name('iva.fatture-attive.storna')->middleware('role:admin,contabile');
+    Route::get('iva/fatture-attive/{fatturaAttiva}/nota-credito/create', [FatturaAttivaController::class, 'creaNotaCredito'])->name('iva.fatture-attive.crea-nota-credito')->middleware('role:admin,contabile');
+    Route::post('iva/fatture-attive/{fatturaAttiva}/nota-credito', [FatturaAttivaController::class, 'storeNotaCredito'])->name('iva.fatture-attive.store-nota-credito')->middleware('role:admin,contabile');
     Route::delete('iva/fatture-attive/{fatturaAttiva}', [FatturaAttivaController::class, 'destroy'])->name('iva.fatture-attive.destroy')->middleware('role:admin,contabile');
     Route::get('iva/fatture-attive/{fatturaAttiva}/pdf', [FatturaAttivaController::class, 'exportPdf'])->name('iva.fatture-attive.pdf');
     Route::get('reports/libro-giornale',         [AccountingReportController::class, 'libroGiornale'])->name('reports.libro-giornale');

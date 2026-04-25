@@ -25,10 +25,11 @@ const props = defineProps({
 const search          = ref(props.filters?.numero          ?? '');
 const statoFiltro     = ref(props.filters?.stato           ?? '');
 const statoPagFiltro  = ref(props.filters?.stato_pagamento ?? '');
+const tipoDocFiltro   = ref(props.filters?.tipo_documento  ?? '');
 const annoFiltro      = ref(props.filters?.anno            ? Number(props.filters.anno) : '');
 
 let debounce = null;
-watch([search, statoFiltro, statoPagFiltro, annoFiltro], () => {
+watch([search, statoFiltro, statoPagFiltro, tipoDocFiltro, annoFiltro], () => {
     clearTimeout(debounce);
     debounce = setTimeout(() => applyFilters(), 400);
 });
@@ -37,10 +38,11 @@ function applyFilters() {
     router.get(
         route('iva.fatture-attive.index'),
         {
-            numero:          search.value         || undefined,
-            stato:           statoFiltro.value     || undefined,
-            stato_pagamento: statoPagFiltro.value  || undefined,
-            anno:            annoFiltro.value       || undefined,
+            numero:           search.value         || undefined,
+            stato:            statoFiltro.value     || undefined,
+            stato_pagamento:  statoPagFiltro.value  || undefined,
+            tipo_documento:   tipoDocFiltro.value   || undefined,
+            anno:             annoFiltro.value       || undefined,
         },
         { preserveState: true, replace: true }
     );
@@ -151,6 +153,12 @@ const anni = Array.from({ length: 5 }, (_, i) => currentYear - i);
                         <option value="incassata">Incassata</option>
                         <option value="parzialmente_incassata">Parz. incassata</option>
                     </select>
+                    <select v-model="tipoDocFiltro"
+                        class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm shadow-sm">
+                        <option value="">Tutti i tipi</option>
+                        <option value="TD01">Fatture</option>
+                        <option value="TD04">Note di Credito</option>
+                    </select>
                     <select v-model="annoFiltro"
                         class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 text-sm shadow-sm">
                         <option value="">Tutti gli anni</option>
@@ -166,6 +174,7 @@ const anni = Array.from({ length: 5 }, (_, i) => currentYear - i);
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Data</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Numero</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tipo</th>
                             <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Cliente</th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Imponibile</th>
                             <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">IVA</th>
@@ -184,6 +193,16 @@ const anni = Array.from({ length: 5 }, (_, i) => currentYear - i);
                                       class="text-indigo-600 dark:text-indigo-400 hover:underline font-mono">
                                     {{ fa.numero_fattura }}
                                 </Link>
+                            </td>
+                            <td class="px-4 py-3">
+                                <span v-if="fa.tipo_documento === 'TD04'"
+                                    class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
+                                    title="Nota di Credito">
+                                    NC
+                                </span>
+                                <span v-else class="text-xs text-gray-500 dark:text-gray-400">
+                                    {{ fa.tipo_documento }}
+                                </span>
                             </td>
                             <td class="px-4 py-3 text-gray-700 dark:text-gray-300">
                                 <span v-if="fa.cliente_id" class="text-xs text-gray-500 dark:text-gray-400">

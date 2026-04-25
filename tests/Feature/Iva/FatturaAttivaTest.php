@@ -531,3 +531,142 @@ describe('FatturaAttivaController::storna', function () {
     });
 
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F3: Nota di Credito Attiva (TD04)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('FatturaAttivaService::creaNdiCredito', function () {
+
+    it('crea NC per storno totale con righe inverse', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-11-01',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $nc = $svc->creaNdiCredito($fattura, [
+            'tipo_storno'         => 'totale',
+            'motivo_nota_credito' => 'Reso cliente',
+        ]);
+
+        expect($nc->tipo_documento)->toBe('TD04');
+        expect($nc->stato)->toBe('emessa');
+        expect($nc->fattura_collegata_id)->toBe($fattura->id);
+        expect($nc->motivo_nota_credito)->toBe('Reso cliente');
+
+        // Verifica righe invertite
+        expect($nc->righe)->toHaveCount(1);
+        $riga = $nc->righe->first();
+        expect($riga->quantita)->toBe(-2.0);
+        expect($riga->imponibile)->toBeLessThan(0);
+        expect($riga->iva)->toBeLessThan(0);
+        expect($riga->totale)->toBeLessThan(0);
+
+        // Totali sono negativi
+        expect($nc->imponibile_totale)->toBeLessThan(0);
+        expect($nc->iva_totale)->toBeLessThan(0);
+        expect($nc->totale_documento)->toBeLessThan(0);
+    });
+
+    it('crea NC per storno parziale con importo ridotto', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-11-05',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $importoTotale = (float) $fattura->totale_documento;
+        $importoMeta = $importoTotale / 2;
+
+        $nc = $svc->creaNdiCredito($fattura, [
+            'tipo_storno'         => 'parziale',
+            'importo_storno'      => $importoMeta,
+            'motivo_nota_credito' => 'Reso parziale',
+        ]);
+
+        expect($nc->tipo_documento)->toBe('TD04');
+        expect(abs($nc->totale_documento))->toBeCloseTo($importoMeta, 2);
+    });
+
+    it('blocca creazione NC se fattura non è emessa', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-11-10',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'bozza',
+        ], righeBase($this->iva22));
+
+        expect(function () use ($svc, $fattura) {
+            $svc->creaNdiCredito($fattura, [
+                'tipo_storno'         => 'totale',
+                'motivo_nota_credito' => 'Reso',
+            ]);
+        })->toThrow(InvalidArgumentException::class);
+    });
+
+});
+
+describe('FatturaAttivaController::creaNotaCredito', function () {
+
+    it('mostra form con dati prefillati (GET)', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-11-15',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->get(route('iva.fatture-attive.crea-nota-credito', [$this->tenant->slug, $fattura->id]));
+
+        $response->assertStatus(200);
+        $page = $response->viewData('page');
+        expect($page['component'])->toBe('Iva/FattureAttive/CreateNotaCredito');
+        expect($page['props']['fattura']['id'])->toBe($fattura->id);
+    });
+
+});
+
+describe('FatturaAttivaController::storeNotaCredito', function () {
+
+    it('crea NC e reindirizza a show (POST)', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-11-20',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->post(
+                route('iva.fatture-attive.store-nota-credito', [$this->tenant->slug, $fattura->id]),
+                [
+                    'tipo_storno'         => 'totale',
+                    'motivo_nota_credito' => 'Reso completo',
+                ]
+            );
+
+        $response->assertStatus(302);
+        $this->assertDatabaseHas('fatture_attive', [
+            'tipo_documento'      => 'TD04',
+            'fattura_collegata_id' => $fattura->id,
+            'motivo_nota_credito' => 'Reso completo',
+        ]);
+    });
+
+});

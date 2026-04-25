@@ -25,6 +25,7 @@ class CausaleContabile extends Model
     public const TIPO_GENERICO          = 'generico';
     public const TIPO_FATTURA_ACQUISTO  = 'fattura_acquisto';
     public const TIPO_FATTURA_VENDITA   = 'fattura_vendita';
+    public const TIPO_NOTA_CREDITO      = 'nota_credito';
     public const TIPO_INCASSO           = 'incasso';
     public const TIPO_PAGAMENTO         = 'pagamento';
     public const TIPO_GIROCONTO         = 'giroconto';
@@ -37,6 +38,7 @@ class CausaleContabile extends Model
         self::TIPO_GENERICO,
         self::TIPO_FATTURA_ACQUISTO,
         self::TIPO_FATTURA_VENDITA,
+        self::TIPO_NOTA_CREDITO,
         self::TIPO_INCASSO,
         self::TIPO_PAGAMENTO,
         self::TIPO_GIROCONTO,

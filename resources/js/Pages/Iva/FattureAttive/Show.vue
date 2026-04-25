@@ -100,6 +100,7 @@ const isBozza     = () => props.fattura.stato === 'bozza';
 const isDaIncassare = () => props.fattura.stato_pagamento === 'da_incassare';
 const isEmessa    = () => props.fattura.stato === 'emessa';
 const isAnnullata = () => props.fattura.stato === 'annullata';
+const isNotaCredito = () => props.fattura.tipo_documento === 'TD04';
 </script>
 
 <template>
@@ -143,11 +144,16 @@ const isAnnullata = () => props.fattura.stato === 'annullata';
                         class="inline-flex items-center gap-1 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium text-xs uppercase tracking-widest transition-colors">
                         <CheckCircleIcon class="size-4" />Registra incasso
                     </button>
-                    <!-- Storna (emessa + da_incassare) -->
-                    <button v-if="isEmessa() && isDaIncassare()"
+                    <!-- Crea Nota di Credito (emessa + da_incassare, tipo TD01) -->
+                    <Link v-if="isEmessa() && isDaIncassare() && !isNotaCredito()" :href="route('iva.fatture-attive.crea-nota-credito', fattura.id)"
+                        class="inline-flex items-center gap-1 px-3 py-2 border border-orange-300 dark:border-orange-700 rounded-md font-medium text-xs text-orange-700 dark:text-orange-400 uppercase tracking-widest hover:bg-orange-50 dark:hover:bg-orange-900/30">
+                        <ArrowPathIcon class="size-4" />Crea NC
+                    </Link>
+                    <!-- Storna (legacy - emessa + da_incassare) -->
+                    <button v-if="isEmessa() && isDaIncassare() && !isNotaCredito()"
                         type="button" @click="storna"
                         class="inline-flex items-center gap-1 px-3 py-2 border border-orange-300 dark:border-orange-700 rounded-md font-medium text-xs text-orange-700 dark:text-orange-400 uppercase tracking-widest hover:bg-orange-50 dark:hover:bg-orange-900/30">
-                        <ArrowPathIcon class="size-4" />Storna (NC)
+                        <ArrowPathIcon class="size-4" />Storna
                     </button>
                     <!-- Elimina (solo bozza) -->
                     <button v-if="isBozza()"
@@ -212,6 +218,21 @@ const isAnnullata = () => props.fattura.stato === 'annullata';
                             Cliente #{{ fattura.cliente_id }}
                         </p>
                         <p v-else class="text-gray-400 italic">Non specificato</p>
+                    </div>
+
+                    <!-- Documento collegato (se NC) -->
+                    <div v-if="isNotaCredito() && fattura.fattura_collegata_id" class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 shadow rounded-lg p-5 text-sm space-y-3">
+                        <h3 class="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                            <DocumentTextIcon class="size-3.5" />Documento collegato
+                        </h3>
+                        <div class="space-y-1">
+                            <p class="text-blue-700 dark:text-blue-300 font-medium">
+                                Storno di: <span class="font-mono">{{ fattura.fattura_collegata_id }}</span>
+                            </p>
+                            <p v-if="fattura.motivo_nota_credito" class="text-sm text-blue-600 dark:text-blue-400">
+                                {{ fattura.motivo_nota_credito }}
+                            </p>
+                        </div>
                     </div>
 
                     <!-- Totali -->

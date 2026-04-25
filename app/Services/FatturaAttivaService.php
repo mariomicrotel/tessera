@@ -273,6 +273,147 @@ class FatturaAttivaService
         });
     }
 
+    /**
+     * Crea una nota di credito TD04 con storno totale o parziale.
+     *
+     * A differenza di storna(), non annulla la fattura originale ma la collega via fattura_collegata_id.
+     * Supporta storno parziale selezionando righe specifiche e/o importo personalizzato.
+     *
+     * @param  array  $data  [
+     *   'tipo_storno'        => 'totale' | 'parziale',
+     *   'importo_storno'     => decimale (default: totale fattura originale),
+     *   'motivo_nota_credito' => string (obbligatorio),
+     *   'righe'              => [id1, id2, ...] (solo per parziale),
+     *   'conto_crediti_id'   => int (opzionale, per movimento contabile),
+     *   'conto_ricavi_id'    => int (opzionale, per movimento contabile),
+     *   'conto_iva_debito_id' => int (opzionale, per movimento contabile),
+     * ]
+     * @throws InvalidArgumentException
+     */
+    public function creaNdiCredito(FatturaAttiva $fatturaOriginale, array $data): FatturaAttiva
+    {
+        if (! in_array($fatturaOriginale->stato, [
+            FatturaAttiva::STATO_EMESSA,
+            FatturaAttiva::STATO_INVIATA_SDI,
+            FatturaAttiva::STATO_ACCETTATA,
+        ], true)) {
+            throw new InvalidArgumentException(
+                "La fattura deve essere emessa per creare una nota di credito (stato: {$fatturaOriginale->stato})."
+            );
+        }
+
+        if ($fatturaOriginale->stato_pagamento !== FatturaAttiva::STATO_PAG_DA_INCASSARE) {
+            throw new InvalidArgumentException(
+                'Impossibile creare nota di credito: la fattura ha già pagamenti registrati.'
+            );
+        }
+
+        if (empty($data['motivo_nota_credito'])) {
+            throw new InvalidArgumentException('Il motivo della nota di credito è obbligatorio.');
+        }
+
+        return DB::transaction(function () use ($fatturaOriginale, $data) {
+            $tenant      = Tenant::find($fatturaOriginale->tenant_id);
+            $tipoStorno  = $data['tipo_storno'] ?? 'totale';
+            $importoStorno = $data['importo_storno'] ?? (float) $fatturaOriginale->totale_documento;
+            $motivoNc    = $data['motivo_nota_credito'];
+
+            $anno = (int) now()->year;
+            $prog = $this->prossimoProgressivo($tenant, $anno, 'NC');
+            $numero = $this->formatNumero($anno, $prog, 'NC');
+
+            // Carica righe originali
+            $fatturaOriginale->load('righe.codiceIva');
+            $righeOriginali = $fatturaOriginale->righe;
+
+            // Determina quali righe includere
+            $righeSelezionate = $righeOriginali;
+            if ($tipoStorno === 'parziale' && ! empty($data['righe'])) {
+                $righeSelezionate = $righeOriginali->whereIn('id', $data['righe']);
+            }
+
+            if ($righeSelezionate->isEmpty()) {
+                throw new InvalidArgumentException('Nessuna riga selezionata per lo storno.');
+            }
+
+            // Crea nota di credito
+            $notaCredito = FatturaAttiva::create([
+                'tenant_id'           => $fatturaOriginale->tenant_id,
+                'cliente_id'          => $fatturaOriginale->cliente_id,
+                'fattura_collegata_id' => $fatturaOriginale->id,
+                'sezionale'           => 'NC',
+                'anno'                => $anno,
+                'progressivo'         => $prog,
+                'numero_fattura'      => $numero,
+                'data_fattura'        => now()->toDateString(),
+                'data_scadenza'       => null,
+                'imponibile_totale'   => 0, // Sarà ricalcolato
+                'iva_totale'          => 0,
+                'totale_documento'    => 0,
+                'esigibilita'         => $fatturaOriginale->esigibilita,
+                'tipo_documento'      => 'TD04',
+                'stato'               => FatturaAttiva::STATO_EMESSA,
+                'stato_pagamento'     => FatturaAttiva::STATO_PAG_DA_INCASSARE,
+                'motivo_nota_credito' => $motivoNc,
+                'note'                => "Nota di credito per storno fattura {$fatturaOriginale->numero_fattura}",
+            ]);
+
+            // Copia righe con importi invertiti
+            $fatturaTotale = (float) $fatturaOriginale->totale_documento;
+            $fatturaImponibile = (float) $fatturaOriginale->imponibile_totale;
+            $fatturaIva = (float) $fatturaOriginale->iva_totale;
+
+            // Per storno parziale, applica proporzione all'importo richiesto
+            $proporzione = $fatturaTotale > 0 ? $importoStorno / $fatturaTotale : 1.0;
+
+            foreach ($righeSelezionate as $riga) {
+                $quantita = -1 * (float) $riga->quantita;
+                $prezzo = (float) $riga->prezzo_unitario;
+                $sconto = (float) $riga->sconto_percentuale;
+
+                // Per parziale, applica proporzione al prezzo unitario
+                if ($tipoStorno === 'parziale') {
+                    $prezzo *= $proporzione;
+                }
+
+                RigaFatturaAttiva::create([
+                    'tenant_id'          => $riga->tenant_id,
+                    'fattura_attiva_id'  => $notaCredito->id,
+                    'codice_iva_id'      => $riga->codice_iva_id,
+                    'conto_id'           => $riga->conto_id,
+                    'descrizione'        => $riga->descrizione,
+                    'quantita'           => $quantita,
+                    'prezzo_unitario'    => $prezzo,
+                    'sconto_percentuale' => $sconto,
+                    'imponibile'         => -1 * (float) $riga->imponibile * $proporzione,
+                    'iva'                => -1 * (float) $riga->iva * $proporzione,
+                    'totale'             => -1 * (float) $riga->totale * $proporzione,
+                ]);
+            }
+
+            // Ricalcola totali della nota
+            $this->ricalcolaTotali($notaCredito);
+
+            // Genera movimento contabile inverso (storno)
+            $contoCreditiId = $data['conto_crediti_id'] ?? null;
+            $contoRicaviId = $data['conto_ricavi_id'] ?? null;
+            $contoIvaDebitoId = $data['conto_iva_debito_id'] ?? null;
+
+            if ($contoCreditiId) {
+                $this->generaMovimentoStorno(
+                    fatturaOriginale: $fatturaOriginale,
+                    notaCredito: $notaCredito,
+                    tenant: $tenant,
+                    contoCreditiId: $contoCreditiId,
+                    contoRicaviId: $contoRicaviId,
+                    contoIvaDebitoId: $contoIvaDebitoId,
+                );
+            }
+
+            return $notaCredito->fresh(['righe.codiceIva']);
+        });
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     // Numerazione
     // ─────────────────────────────────────────────────────────────────────
@@ -396,6 +537,74 @@ class FatturaAttivaService
                 'stato'              => 'bozza',
                 'numero_documento'   => $fattura->numero_fattura,
                 'data_documento'     => $fattura->data_fattura->toDateString(),
+            ],
+            righe: $righe,
+        );
+
+        $this->movService->conferma($mov);
+    }
+
+    /**
+     * Genera scrittura contabile per storno (nota di credito inversa):
+     *   AVERE conto_crediti     → totale_documento (storno di quanto dovuto)
+     *   DARE  conto_ricavi      → imponibile_totale (storno di ricavi)
+     *   DARE  conto_iva_debito  → iva_totale        (storno di IVA)
+     */
+    private function generaMovimentoStorno(
+        FatturaAttiva $fatturaOriginale,
+        FatturaAttiva $notaCredito,
+        Tenant $tenant,
+        int $contoCreditiId,
+        ?int $contoRicaviId,
+        ?int $contoIvaDebitoId,
+    ): void {
+        $causale = $this->trovaCausale(CausaleContabile::TIPO_NOTA_CREDITO);
+
+        $totaleAssoluto = abs((float) $notaCredito->totale_documento);
+        $imponibileAssoluto = abs((float) $notaCredito->imponibile_totale);
+        $ivaAssoluta = abs((float) $notaCredito->iva_totale);
+
+        $righe = [
+            [
+                'conto_contabile_id' => $contoCreditiId,
+                'importo_dare'       => 0,
+                'importo_avere'      => $totaleAssoluto,
+                'descrizione'        => "Storno crediti NC {$notaCredito->numero_fattura}",
+            ],
+        ];
+
+        if ($contoRicaviId && $imponibileAssoluto > 0) {
+            $righe[] = [
+                'conto_contabile_id' => $contoRicaviId,
+                'importo_dare'       => $imponibileAssoluto,
+                'importo_avere'      => 0,
+                'descrizione'        => "Storno ricavi NC {$notaCredito->numero_fattura}",
+            ];
+        }
+
+        if ($contoIvaDebitoId && $ivaAssoluta > 0) {
+            $righe[] = [
+                'conto_contabile_id' => $contoIvaDebitoId,
+                'importo_dare'       => $ivaAssoluta,
+                'importo_avere'      => 0,
+                'descrizione'        => "Storno IVA NC {$notaCredito->numero_fattura}",
+            ];
+        }
+
+        if (count($righe) === 1 && ! $contoRicaviId) {
+            return; // Nessun conto DARE separato: skip movimento incompleto
+        }
+
+        $mov = $this->movService->crea(
+            tenant: $tenant,
+            testata: [
+                'anno_esercizio'     => (int) $notaCredito->anno,
+                'data_registrazione' => $notaCredito->data_fattura->toDateString(),
+                'causale_id'         => $causale->id,
+                'descrizione'        => "Storno ft. {$fatturaOriginale->numero_fattura} - NC {$notaCredito->numero_fattura}",
+                'stato'              => 'bozza',
+                'numero_documento'   => $notaCredito->numero_fattura,
+                'data_documento'     => $notaCredito->data_fattura->toDateString(),
             ],
             righe: $righe,
         );

@@ -279,6 +279,67 @@ class FatturaAttivaController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // Crea Nota di Credito (TD04)
+    // ─────────────────────────────────────────────────────────────────────
+
+    public function creaNotaCredito(FatturaAttiva $fatturaAttiva): Response
+    {
+        if (! in_array($fatturaAttiva->stato, [
+            FatturaAttiva::STATO_EMESSA,
+            FatturaAttiva::STATO_INVIATA_SDI,
+            FatturaAttiva::STATO_ACCETTATA,
+        ], true)) {
+            return redirect()
+                ->route('iva.fatture-attive.show', [request()->route('tenant'), $fatturaAttiva])
+                ->with('flash', ['type' => 'error', 'message' => 'La fattura non è idonea per la creazione di nota di credito.']);
+        }
+
+        $fatturaAttiva->load('righe.codiceIva');
+
+        return Inertia::render('Iva/FattureAttive/CreateNotaCredito', [
+            'fattura'           => $fatturaAttiva,
+            'contiCrediti'      => ContoContabile::attivi()->movimentabili()
+                ->where('natura', ContoContabile::NATURA_ATTIVO)
+                ->orderBy('codice')
+                ->get(['id', 'codice', 'descrizione']),
+            'contiRicavo'       => ContoContabile::attivi()->movimentabili()
+                ->where('natura', ContoContabile::NATURA_RICAVO)
+                ->orderBy('codice')
+                ->get(['id', 'codice', 'descrizione']),
+            'contiIva'          => ContoContabile::attivi()->movimentabili()
+                ->whereIn('natura', [ContoContabile::NATURA_PASSIVO, ContoContabile::NATURA_TRANSITORIO])
+                ->orderBy('codice')
+                ->get(['id', 'codice', 'descrizione']),
+        ]);
+    }
+
+    public function storeNotaCredito(Request $request, FatturaAttiva $fatturaAttiva): RedirectResponse
+    {
+        $data = $request->validate([
+            'tipo_storno'         => 'required|in:totale,parziale',
+            'importo_storno'      => 'nullable|numeric|min:0.01',
+            'motivo_nota_credito' => 'required|string|max:500',
+            'righe'               => 'nullable|array',
+            'conto_crediti_id'    => 'nullable|exists:conti_contabili,id',
+            'conto_ricavi_id'     => 'nullable|exists:conti_contabili,id',
+            'conto_iva_debito_id' => 'nullable|exists:conti_contabili,id',
+        ]);
+
+        try {
+            $notaCredito = $this->service->creaNdiCredito($fatturaAttiva, $data);
+
+            return redirect()
+                ->route('iva.fatture-attive.show', [request()->route('tenant'), $notaCredito])
+                ->with('flash', [
+                    'type'    => 'success',
+                    'message' => "Nota di credito {$notaCredito->numero_fattura} creata con successo.",
+                ]);
+        } catch (\InvalidArgumentException $e) {
+            return back()->withInput()->with('flash', ['type' => 'error', 'message' => $e->getMessage()]);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
     // Destroy
     // ─────────────────────────────────────────────────────────────────────
 
