@@ -480,6 +480,10 @@ const logout = () => {
                                 <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
                             </button>
                             <div v-show="openSections.iva" class="space-y-0.5 ps-6">
+                                <ResponsiveNavLink :href="route('iva.fatture-attive.index')" :active="route().current('iva.fatture-attive.*')">
+                                    <TicketIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Fatture Attive
+                                </ResponsiveNavLink>
                                 <ResponsiveNavLink :href="route('iva.fatture-passive.index')" :active="route().current('iva.fatture-passive.*')">
                                     <TicketIcon class="size-4 shrink-0" aria-hidden="true" />
                                     Fatture Passive
@@ -781,6 +785,10 @@ const logout = () => {
                                         <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
                                     </button>
                                     <div v-show="openSections.iva" class="space-y-0.5 pl-4 ml-1 border-l border-gray-200 dark:border-gray-600">
+                                        <NavLink :href="route('iva.fatture-attive.index')" :active="route().current('iva.fatture-attive.*')">
+                                            <TicketIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Fatture Attive
+                                        </NavLink>
                                         <NavLink :href="route('iva.fatture-passive.index')" :active="route().current('iva.fatture-passive.*')">
                                             <TicketIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Fatture Passive

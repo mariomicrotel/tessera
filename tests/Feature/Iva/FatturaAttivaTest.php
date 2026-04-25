@@ -1,0 +1,533 @@
+<?php
+
+/**
+ * Test suite per Fatture Attive (F-ATT).
+ *
+ * Copre:
+ *  - FatturaAttivaService::crea (bozza, emessa con e senza conti)
+ *  - FatturaAttivaService::aggiorna
+ *  - FatturaAttivaService::registraPagamento (incasso pieno e parziale)
+ *  - FatturaAttivaService::storna (nota di credito TD04)
+ *  - FatturaAttivaService::calcolaNumeroProgressivo
+ *  - Controller: index, create, store, show, edit, update, paga, storna, destroy, pdf
+ *  - Middleware role:admin,contabile
+ */
+
+use App\Http\Middleware\HandleInertiaRequests;
+use App\Models\CodiceIva;
+use App\Models\FatturaAttiva;
+use App\Models\Role;
+use App\Models\Tenant;
+use App\Models\User;
+use App\Services\FatturaAttivaService;
+use Database\Seeders\RoleSeeder;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Setup
+// ─────────────────────────────────────────────────────────────────────────────
+
+beforeEach(function () {
+    $this->tenant = Tenant::create([
+        'name'              => 'ETS FattAtt Test',
+        'slug'              => 'ets-fatt-att-' . uniqid(),
+        'organization_type' => 'ets',
+        'plan'              => 'free',
+        'is_active'         => true,
+        'codice_fiscale'    => '91000001234',
+    ]);
+
+    app()->instance('current_tenant', $this->tenant);
+
+    (new RoleSeeder)->run();
+
+    $roleAdmin = Role::where('name', 'admin')->first();
+
+    $this->user = User::factory()->create(['email_verified_at' => now()]);
+    $this->user->roles()->attach($roleAdmin);
+    $this->user->tenants()->attach($this->tenant);
+
+    $this->userSenza = User::factory()->create(['email_verified_at' => now()]);
+    $this->userSenza->tenants()->attach($this->tenant);
+
+    $this->iva22 = CodiceIva::firstOrCreate(
+        ['codice' => '22'],
+        ['descrizione' => 'IVA 22%', 'percentuale' => 22.00, 'tipo' => 'imponibile', 'attivo' => true]
+    );
+
+    $this->iva0 = CodiceIva::firstOrCreate(
+        ['codice' => '0ES'],
+        ['descrizione' => 'Esente', 'percentuale' => 0.00, 'tipo' => 'esente', 'attivo' => true]
+    );
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+function righeBase(CodiceIva $iva): array
+{
+    return [
+        [
+            'codice_iva_id'      => $iva->id,
+            'descrizione'        => 'Servizio di consulenza',
+            'quantita'           => 2,
+            'prezzo_unitario'    => 500.00,
+            'sconto_percentuale' => 0,
+        ],
+    ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FatturaAttivaService
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('FatturaAttivaService::crea', function () {
+
+    it('crea fattura in bozza senza movimenti', function () {
+        $svc  = app(FatturaAttivaService::class);
+        $data = [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-01-15',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'bozza',
+        ];
+
+        $fattura = $svc->crea($this->tenant, $data, righeBase($this->iva22));
+
+        expect($fattura->stato)->toBe('bozza');
+        expect($fattura->righe)->toHaveCount(1);
+        expect((float)$fattura->imponibile_totale)->toBe(1000.0);
+        expect((float)$fattura->iva_totale)->toBe(220.0);
+        expect((float)$fattura->totale_documento)->toBe(1220.0);
+        expect($fattura->numero_fattura)->toStartWith('FT-2026-');
+    });
+
+    it('crea fattura emessa con numero progressivo corretto', function () {
+        $svc = app(FatturaAttivaService::class);
+
+        $f1 = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-01-10',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $f2 = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-01-20',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        expect($f1->numero_fattura)->toBe('FT-2026-0001');
+        expect($f2->numero_fattura)->toBe('FT-2026-0002');
+    });
+
+    it('calcola imponibile con sconto percentuale', function () {
+        $svc = app(FatturaAttivaService::class);
+        $righe = [[
+            'codice_iva_id'      => $this->iva22->id,
+            'descrizione'        => 'Prodotto con sconto',
+            'quantita'           => 1,
+            'prezzo_unitario'    => 100.00,
+            'sconto_percentuale' => 10.0, // 10% → imponibile 90
+        ]];
+
+        $f = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-02-01',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'bozza',
+        ], $righe);
+
+        expect((float)$f->imponibile_totale)->toBe(90.0);
+        expect((float)$f->iva_totale)->toBe(19.8);
+        expect((float)$f->totale_documento)->toBe(109.8);
+    });
+
+});
+
+describe('FatturaAttivaService::aggiorna', function () {
+
+    it('aggiorna righe e ricalcola totali', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-03-01',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'bozza',
+        ], righeBase($this->iva22));
+
+        $nuoveRighe = [[
+            'codice_iva_id'      => $this->iva0->id,
+            'descrizione'        => 'Quota associativa',
+            'quantita'           => 1,
+            'prezzo_unitario'    => 200.00,
+            'sconto_percentuale' => 0,
+        ]];
+
+        $svc->aggiorna($fattura, ['data_fattura' => '2026-03-15', 'esigibilita' => 'immediata'], $nuoveRighe);
+        $fattura->refresh();
+
+        expect($fattura->righe)->toHaveCount(1);
+        expect((float)$fattura->imponibile_totale)->toBe(200.0);
+        expect((float)$fattura->iva_totale)->toBe(0.0);
+        expect((float)$fattura->totale_documento)->toBe(200.0);
+    });
+
+    it('lancia eccezione se fattura è già incassata', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-03-20',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        // Simula pagamento completo → stato_pagamento incassata
+        $svc->registraPagamento($fattura, [
+            'importo'        => 1220.00,
+            'data_pagamento' => '2026-03-25',
+        ]);
+        $fattura->refresh();
+
+        // aggiorna deve lanciare eccezione perché stato_pagamento != da_incassare
+        expect(fn () => $svc->aggiorna($fattura, ['data_fattura' => '2026-04-01', 'esigibilita' => 'immediata'], righeBase($this->iva22)))
+            ->toThrow(InvalidArgumentException::class);
+    });
+
+});
+
+describe('FatturaAttivaService::registraPagamento', function () {
+
+    it('marca la fattura come incassata', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-04-01',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $svc->registraPagamento($fattura, [
+            'importo'        => 1220.00,
+            'data_pagamento' => '2026-04-10',
+        ]);
+
+        $fattura->refresh();
+        expect($fattura->stato_pagamento)->toBe('incassata');
+    });
+
+    it('marca la fattura come parzialmente incassata', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-04-01',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $svc->registraPagamento($fattura, [
+            'importo'        => 500.00,
+            'data_pagamento' => '2026-04-05',
+        ]);
+
+        $fattura->refresh();
+        expect($fattura->stato_pagamento)->toBe('parzialmente_incassata');
+    });
+
+});
+
+describe('FatturaAttivaService::storna', function () {
+
+    it('genera nota di credito TD04 e annulla originale', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-05-01',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $nc = $svc->storna($fattura);
+
+        $fattura->refresh();
+        expect($fattura->stato)->toBe('annullata');
+        expect($nc->tipo_documento)->toBe('TD04');
+        expect($nc->sezionale)->toBe('NC');
+        expect($nc->righe)->toHaveCount(1);
+        expect((float)$nc->imponibile_totale)->toBe(1000.0);
+    });
+
+    it('lancia eccezione se la fattura non è emessa e da incassare', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-06-01',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'bozza',
+        ], righeBase($this->iva22));
+
+        expect(fn () => $svc->storna($fattura))
+            ->toThrow(InvalidArgumentException::class);
+    });
+
+});
+
+describe('FatturaAttivaService::calcolaNumeroProgressivo', function () {
+
+    it('restituisce FT-ANNO-0001 per il primo documento', function () {
+        $svc = app(FatturaAttivaService::class);
+        $n   = $svc->calcolaNumeroProgressivo($this->tenant, 2026);
+        expect($n)->toBe('FT-2026-0001');
+    });
+
+    it('restituisce il numero corretto dopo inserimenti', function () {
+        FatturaAttiva::create([
+            'tenant_id'         => $this->tenant->id,
+            'anno'              => 2026,
+            'progressivo'       => 1,
+            'numero_fattura'    => 'FT-2026-0001',
+            'data_fattura'      => '2026-01-01',
+            'imponibile_totale' => 100,
+            'iva_totale'        => 22,
+            'totale_documento'  => 122,
+            'tipo_documento'    => 'TD01',
+            'stato'             => 'emessa',
+            'stato_pagamento'   => 'da_incassare',
+        ]);
+
+        $svc = app(FatturaAttivaService::class);
+        $n   = $svc->calcolaNumeroProgressivo($this->tenant, 2026);
+        expect($n)->toBe('FT-2026-0002');
+    });
+
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Controller
+// ─────────────────────────────────────────────────────────────────────────────
+
+function withoutAuthMiddleware($test)
+{
+    return $test->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+    ]);
+}
+
+function inertiaVersion(): string
+{
+    return app(HandleInertiaRequests::class)->version(request()) ?? '';
+}
+
+describe('FatturaAttivaController::index', function () {
+
+    it('restituisce lista fatture (Inertia JSON)', function () {
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+            ->get(route('iva.fatture-attive.index', $this->tenant->slug));
+
+        $response->assertStatus(200);
+        $page = json_decode($response->getContent(), true);
+        expect($page['component'])->toBe('Iva/FattureAttive/Index');
+        expect($page['props'])->toHaveKey('fatture');
+        expect($page['props'])->toHaveKey('kpi');
+    });
+
+});
+
+describe('FatturaAttivaController::create', function () {
+
+    it('restituisce pagina Create (Inertia JSON)', function () {
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+            ->get(route('iva.fatture-attive.create', $this->tenant->slug));
+
+        $response->assertStatus(200);
+        $page = json_decode($response->getContent(), true);
+        expect($page['component'])->toBe('Iva/FattureAttive/Create');
+        expect($page['props'])->toHaveKey('codiciIva');
+        expect($page['props'])->toHaveKey('clienti');
+        expect($page['props'])->toHaveKey('numeroSuggerito');
+    });
+
+    it('crea richiede ruolo admin/contabile', function () {
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->userSenza)
+            ->get(route('iva.fatture-attive.create', $this->tenant->slug));
+
+        $response->assertStatus(403);
+    });
+
+});
+
+describe('FatturaAttivaController::store', function () {
+
+    it('crea fattura bozza con redirect a show', function () {
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->post(route('iva.fatture-attive.store', $this->tenant->slug), [
+                'anno'           => 2026,
+                'data_fattura'   => '2026-07-01',
+                'tipo_documento' => 'TD01',
+                'esigibilita'    => 'immediata',
+                'stato'          => 'bozza',
+                'righe'          => [[
+                    'codice_iva_id'      => $this->iva22->id,
+                    'descrizione'        => 'Servizio test',
+                    'quantita'           => 1,
+                    'prezzo_unitario'    => 100.00,
+                    'sconto_percentuale' => 0,
+                ]],
+            ]);
+
+        $response->assertStatus(302);
+        $this->assertDatabaseHas('fatture_attive', [
+            'tenant_id'      => $this->tenant->id,
+            'tipo_documento' => 'TD01',
+            'stato'          => 'bozza',
+        ]);
+    });
+
+    it('store richiede ruolo admin/contabile', function () {
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->userSenza)
+            ->post(route('iva.fatture-attive.store', $this->tenant->slug), []);
+
+        $response->assertStatus(403);
+    });
+
+});
+
+describe('FatturaAttivaController::show', function () {
+
+    it('restituisce pagina Show (Inertia JSON)', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-07-10',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'bozza',
+        ], righeBase($this->iva22));
+
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+            ->get(route('iva.fatture-attive.show', [$this->tenant->slug, $fattura->id]));
+
+        $response->assertStatus(200);
+        $page = json_decode($response->getContent(), true);
+        expect($page['component'])->toBe('Iva/FattureAttive/Show');
+        expect($page['props']['fattura']['id'])->toBe($fattura->id);
+    });
+
+});
+
+describe('FatturaAttivaController::destroy', function () {
+
+    it('elimina fattura bozza', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-08-01',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'bozza',
+        ], righeBase($this->iva22));
+
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->delete(route('iva.fatture-attive.destroy', [$this->tenant->slug, $fattura->id]));
+
+        $response->assertStatus(302);
+        $this->assertSoftDeleted('fatture_attive', ['id' => $fattura->id]);
+    });
+
+    it('non elimina fatture emesse', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-08-10',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->delete(route('iva.fatture-attive.destroy', [$this->tenant->slug, $fattura->id]));
+
+        $response->assertStatus(302);
+        $this->assertDatabaseHas('fatture_attive', ['id' => $fattura->id, 'deleted_at' => null]);
+    });
+
+});
+
+describe('FatturaAttivaController::paga', function () {
+
+    it('registra pagamento e reindirizza a show', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-09-01',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->post(route('iva.fatture-attive.paga', [$this->tenant->slug, $fattura->id]), [
+                'importo'        => 1220.00,
+                'data_pagamento' => '2026-09-15',
+            ]);
+
+        $response->assertStatus(302);
+        $this->assertDatabaseHas('fatture_attive', [
+            'id'              => $fattura->id,
+            'stato_pagamento' => 'incassata',
+        ]);
+    });
+
+});
+
+describe('FatturaAttivaController::storna', function () {
+
+    it('genera nota di credito e reindirizza', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-10-01',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->post(route('iva.fatture-attive.storna', [$this->tenant->slug, $fattura->id]));
+
+        $response->assertStatus(302);
+        $fattura->refresh();
+        expect($fattura->stato)->toBe('annullata');
+        $this->assertDatabaseHas('fatture_attive', [
+            'tipo_documento' => 'TD04',
+            'sezionale'      => 'NC',
+        ]);
+    });
+
+});

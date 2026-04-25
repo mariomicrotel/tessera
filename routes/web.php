@@ -45,6 +45,7 @@ use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\IvaController;
 use App\Http\Controllers\FatturaPassivaController;
+use App\Http\Controllers\FatturaAttivaController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\CespitiController;
 use App\Http\Controllers\AmmortamentoController;
@@ -275,8 +276,6 @@ Route::middleware([
         Route::post('iva/fatture-passive/{fatturaPassiva}/marca-parzialmente-pagata', [FatturaPassivaController::class, 'marcaParzialmentePagata'])->name('iva.fatture-passive.marca-parzialmente-pagata')->middleware('role:admin,segreteria,contabile');
         Route::post('iva/fatture-passive/{fatturaPassiva}/reimposta-da-pagare', [FatturaPassivaController::class, 'reimpostaDaPagare'])->name('iva.fatture-passive.reimposta-da-pagare')->middleware('role:admin,segreteria,contabile');
         Route::post('iva/fatture-passive/{fatturaPassiva}/annulla', [FatturaPassivaController::class, 'annulla'])->name('iva.fatture-passive.annulla')->middleware('role:admin,segreteria,contabile');
-        Route::get('iva/fatture-attive', [IvaController::class, 'fattureAttiveIndex'])->name('iva.fatture-attive.index');
-        Route::get('iva/fatture-attive/{fatturaAttiva}', [IvaController::class, 'fatturaAttivaShow'])->name('iva.fatture-attive.show');
         Route::get('iva/liquidazioni', [IvaController::class, 'liquidazioniIndex'])->name('iva.liquidazioni.index');
         Route::get('iva/liquidazioni/{liquidazioneIva}', [IvaController::class, 'liquidazioneShow'])->name('iva.liquidazioni.show');
         // Registri e liquidazione periodica
@@ -349,6 +348,17 @@ Route::middleware([
     Route::get('reports/conto-economico/export', [AccountingReportController::class, 'exportContoEconomico'])->name('reports.conto-economico.export');
     Route::get('iva/lipe-xml',    [IvaController::class, 'lipeXml'])->name('iva.lipe-xml')->middleware('role:admin,contabile');
     Route::get('iva/acconto-iva', [IvaController::class, 'accontoIva'])->name('iva.acconto-iva')->middleware('role:admin,contabile');
+    // ── Fatture Attive (F-ATT) — accessibili a tutti i tipi organizzazione ──
+    Route::get('iva/fatture-attive', [FatturaAttivaController::class, 'index'])->name('iva.fatture-attive.index');
+    Route::get('iva/fatture-attive/create', [FatturaAttivaController::class, 'create'])->name('iva.fatture-attive.create')->middleware('role:admin,contabile');
+    Route::post('iva/fatture-attive', [FatturaAttivaController::class, 'store'])->name('iva.fatture-attive.store')->middleware('role:admin,contabile');
+    Route::get('iva/fatture-attive/{fatturaAttiva}', [FatturaAttivaController::class, 'show'])->name('iva.fatture-attive.show');
+    Route::get('iva/fatture-attive/{fatturaAttiva}/edit', [FatturaAttivaController::class, 'edit'])->name('iva.fatture-attive.edit')->middleware('role:admin,contabile');
+    Route::put('iva/fatture-attive/{fatturaAttiva}', [FatturaAttivaController::class, 'update'])->name('iva.fatture-attive.update')->middleware('role:admin,contabile');
+    Route::post('iva/fatture-attive/{fatturaAttiva}/paga', [FatturaAttivaController::class, 'paga'])->name('iva.fatture-attive.paga')->middleware('role:admin,contabile');
+    Route::post('iva/fatture-attive/{fatturaAttiva}/storna', [FatturaAttivaController::class, 'storna'])->name('iva.fatture-attive.storna')->middleware('role:admin,contabile');
+    Route::delete('iva/fatture-attive/{fatturaAttiva}', [FatturaAttivaController::class, 'destroy'])->name('iva.fatture-attive.destroy')->middleware('role:admin,contabile');
+    Route::get('iva/fatture-attive/{fatturaAttiva}/pdf', [FatturaAttivaController::class, 'exportPdf'])->name('iva.fatture-attive.pdf');
     Route::get('reports/libro-giornale',         [AccountingReportController::class, 'libroGiornale'])->name('reports.libro-giornale');
     Route::get('reports/libro-giornale/export',  [AccountingReportController::class, 'exportLibroGiornale'])->name('reports.libro-giornale.export');
     Route::get('reports/registro-vendite',        [AccountingReportController::class, 'registroVendite'])->name('reports.registro-vendite');
