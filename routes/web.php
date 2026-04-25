@@ -347,6 +347,10 @@ Route::middleware([
     Route::get('reports/accounting/export', [AccountingReportController::class, 'export'])->name('reports.accounting.export');
     Route::get('reports/conto-economico', [AccountingReportController::class, 'contoEconomico'])->name('reports.conto-economico');
     Route::get('reports/conto-economico/export', [AccountingReportController::class, 'exportContoEconomico'])->name('reports.conto-economico.export');
+    Route::get('reports/libro-giornale',         [AccountingReportController::class, 'libroGiornale'])->name('reports.libro-giornale');
+    Route::get('reports/libro-giornale/export',  [AccountingReportController::class, 'exportLibroGiornale'])->name('reports.libro-giornale.export');
+    Route::get('reports/registro-vendite',        [AccountingReportController::class, 'registroVendite'])->name('reports.registro-vendite');
+    Route::get('reports/registro-vendite/export', [AccountingReportController::class, 'exportRegistroVendite'])->name('reports.registro-vendite.export');
     Route::get('scadenzario-quote', [ScadenzarioController::class, 'index'])->name('scadenzario.index');
     Route::get('scadenzario-quote/export', [ScadenzarioController::class, 'exportMorosi'])->name('scadenzario.export');
     Route::post('scadenzario-quote/sollecito-massivo', [ScadenzarioController::class, 'sendSollecitoMassivo'])->name('scadenzario.sollecito-massivo');

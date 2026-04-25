@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\CooperativeShare;
+use App\Models\FatturaAttiva;
+use App\Models\MovimentoContabile;
 use App\Models\PrestitoSocialeLibretto;
 use App\Models\PrimaNotaEntry;
 use App\Models\Ristorno;
@@ -485,6 +487,231 @@ class AccountingReportController extends Controller
             'Content-Type'        => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Libro Giornale (cronologico definitivo)
+    // ──────────────────────────────────────────────────────────────────────
+
+    public function libroGiornale(Request $request)
+    {
+        [$from, $to, $anno] = $this->risolviPeriodo($request);
+
+        $movimenti = MovimentoContabile::definitivi()
+            ->perPeriodo($from, $to)
+            ->with(['righe.contoContabile:id,codice,descrizione', 'causale:id,codice,descrizione'])
+            ->orderBy('data_registrazione')
+            ->orderBy('numero')
+            ->get()
+            ->map(fn (MovimentoContabile $m) => [
+                'id'                  => $m->id,
+                'numero'              => $m->numero,
+                'data_registrazione'  => $m->data_registrazione?->toDateString(),
+                'data_documento'      => $m->data_documento?->toDateString(),
+                'numero_documento'    => $m->numero_documento,
+                'causale'             => $m->causale ? "{$m->causale->codice} — {$m->causale->descrizione}" : null,
+                'descrizione'         => $m->descrizione,
+                'totale_dare'         => round((float) $m->totaleDare(), 2),
+                'totale_avere'        => round((float) $m->totaleAvere(), 2),
+                'righe' => $m->righe->map(fn ($r) => [
+                    'conto'         => $r->contoContabile
+                        ? "{$r->contoContabile->codice} — {$r->contoContabile->descrizione}"
+                        : null,
+                    'descrizione'   => $r->descrizione,
+                    'importo_dare'  => round((float) $r->importo_dare,  2),
+                    'importo_avere' => round((float) $r->importo_avere, 2),
+                ]),
+            ]);
+
+        $totaleDare  = round($movimenti->sum('totale_dare'),  2);
+        $totaleAvere = round($movimenti->sum('totale_avere'), 2);
+
+        return Inertia::render('Reports/LibroGiornale', [
+            'movimenti'     => $movimenti,
+            'totale_dare'   => $totaleDare,
+            'totale_avere'  => $totaleAvere,
+            'numero_movimenti' => $movimenti->count(),
+            'filters'       => ['from' => $from, 'to' => $to, 'anno' => $anno],
+        ]);
+    }
+
+    public function exportLibroGiornale(Request $request): StreamedResponse
+    {
+        [$from, $to] = $this->risolviPeriodo($request);
+
+        $movimenti = MovimentoContabile::definitivi()
+            ->perPeriodo($from, $to)
+            ->with(['righe.contoContabile:id,codice,descrizione', 'causale:id,codice'])
+            ->orderBy('data_registrazione')
+            ->orderBy('numero')
+            ->get();
+
+        $filename = "libro_giornale_{$from}_{$to}.csv";
+
+        return response()->streamDownload(function () use ($movimenti) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['Numero', 'Data', 'Causale', 'Documento', 'Conto', 'Descrizione', 'Dare', 'Avere'], ';');
+
+            foreach ($movimenti as $m) {
+                foreach ($m->righe as $r) {
+                    fputcsv($out, [
+                        $m->numero,
+                        $m->data_registrazione?->format('d/m/Y'),
+                        $m->causale?->codice ?? '',
+                        $m->numero_documento ?? '',
+                        $r->contoContabile
+                            ? "{$r->contoContabile->codice} {$r->contoContabile->descrizione}"
+                            : '',
+                        $r->descrizione ?? $m->descrizione,
+                        number_format((float) $r->importo_dare,  2, ',', '.'),
+                        number_format((float) $r->importo_avere, 2, ',', '.'),
+                    ], ';');
+                }
+            }
+            fclose($out);
+        }, $filename, [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // Registro Vendite (IVA a debito cronologico)
+    // ──────────────────────────────────────────────────────────────────────
+
+    public function registroVendite(Request $request)
+    {
+        [$from, $to, $anno] = $this->risolviPeriodo($request);
+
+        $fatture = FatturaAttiva::nelPeriodo($from, $to)
+            ->whereIn('stato', [
+                FatturaAttiva::STATO_EMESSA,
+                FatturaAttiva::STATO_INVIATA_SDI,
+                FatturaAttiva::STATO_ACCETTATA,
+            ])
+            ->with(['righe.codiceIva:id,codice,descrizione,percentuale'])
+            ->orderBy('data_fattura')
+            ->orderBy('progressivo')
+            ->get()
+            ->map(fn (FatturaAttiva $f) => [
+                'id'                => $f->id,
+                'numero_fattura'    => $f->numero_fattura,
+                'data_fattura'      => $f->data_fattura?->toDateString(),
+                'tipo_documento'    => $f->tipo_documento,
+                'cliente_id'        => $f->cliente_id,
+                'imponibile_totale' => round((float) $f->imponibile_totale, 2),
+                'iva_totale'        => round((float) $f->iva_totale,        2),
+                'totale_documento'  => round((float) $f->totale_documento,  2),
+                'aliquote'          => $f->righe
+                    ->groupBy(fn ($r) => $r->codiceIva?->codice ?? 'N/D')
+                    ->map(fn ($gruppo, $codice) => [
+                        'codice'      => $codice,
+                        'descrizione' => optional($gruppo->first()->codiceIva)->descrizione,
+                        'percentuale' => (float) optional($gruppo->first()->codiceIva)->percentuale,
+                        'imponibile'  => round((float) $gruppo->sum('imponibile'), 2),
+                        'iva'         => round((float) $gruppo->sum('iva'),        2),
+                    ])
+                    ->values(),
+            ]);
+
+        // Riepilogo per aliquota
+        $perAliquota = [];
+        foreach ($fatture as $f) {
+            foreach ($f['aliquote'] as $a) {
+                $key = $a['codice'];
+                if (! isset($perAliquota[$key])) {
+                    $perAliquota[$key] = [
+                        'codice'      => $a['codice'],
+                        'descrizione' => $a['descrizione'],
+                        'percentuale' => $a['percentuale'],
+                        'imponibile'  => 0.0,
+                        'iva'         => 0.0,
+                    ];
+                }
+                $perAliquota[$key]['imponibile'] += $a['imponibile'];
+                $perAliquota[$key]['iva']        += $a['iva'];
+            }
+        }
+        foreach ($perAliquota as &$row) {
+            $row['imponibile'] = round($row['imponibile'], 2);
+            $row['iva']        = round($row['iva'],        2);
+        }
+
+        return Inertia::render('Reports/RegistroVendite', [
+            'fatture'       => $fatture,
+            'totale_imponibile' => round($fatture->sum('imponibile_totale'), 2),
+            'totale_iva'        => round($fatture->sum('iva_totale'),        2),
+            'totale_documenti'  => round($fatture->sum('totale_documento'),  2),
+            'numero_fatture'    => $fatture->count(),
+            'per_aliquota'      => array_values($perAliquota),
+            'filters'           => ['from' => $from, 'to' => $to, 'anno' => $anno],
+        ]);
+    }
+
+    public function exportRegistroVendite(Request $request): StreamedResponse
+    {
+        [$from, $to] = $this->risolviPeriodo($request);
+
+        $fatture = FatturaAttiva::nelPeriodo($from, $to)
+            ->whereIn('stato', [
+                FatturaAttiva::STATO_EMESSA,
+                FatturaAttiva::STATO_INVIATA_SDI,
+                FatturaAttiva::STATO_ACCETTATA,
+            ])
+            ->with(['righe.codiceIva:id,codice,percentuale'])
+            ->orderBy('data_fattura')
+            ->orderBy('progressivo')
+            ->get();
+
+        $filename = "registro_vendite_{$from}_{$to}.csv";
+
+        return response()->streamDownload(function () use ($fatture) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF");
+            fputcsv($out, ['Numero', 'Data', 'Tipo', 'Cliente ID', 'Aliquota', 'Imponibile', 'IVA', 'Totale'], ';');
+
+            foreach ($fatture as $f) {
+                $aliquote = $f->righe->groupBy(fn ($r) => $r->codiceIva?->codice ?? 'N/D');
+                foreach ($aliquote as $codice => $gruppo) {
+                    fputcsv($out, [
+                        $f->numero_fattura,
+                        $f->data_fattura?->format('d/m/Y'),
+                        $f->tipo_documento,
+                        $f->cliente_id,
+                        $codice . ' (' . (float) optional($gruppo->first()->codiceIva)->percentuale . '%)',
+                        number_format((float) $gruppo->sum('imponibile'), 2, ',', '.'),
+                        number_format((float) $gruppo->sum('iva'),        2, ',', '.'),
+                        number_format((float) $gruppo->sum('imponibile') + (float) $gruppo->sum('iva'), 2, ',', '.'),
+                    ], ';');
+                }
+            }
+            fclose($out);
+        }, $filename, [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+        ]);
+    }
+
+    /**
+     * Risolve il periodo di interrogazione in base ai parametri della request.
+     * Accetta `anno` (default: anno corrente) oppure `from`/`to` espliciti.
+     *
+     * @return array{0: string, 1: string, 2: int}
+     */
+    private function risolviPeriodo(Request $request): array
+    {
+        if ($request->filled('from') && $request->filled('to')) {
+            $from = $request->get('from');
+            $to   = $request->get('to');
+            $anno = (int) date('Y', strtotime($from));
+        } else {
+            $anno = $request->filled('anno') ? (int) $request->anno : (int) now()->year;
+            $from = "{$anno}-01-01";
+            $to   = "{$anno}-12-31";
+        }
+
+        return [$from, $to, $anno];
     }
 
     // ──────────────────────────────────────────────────────────────────────
