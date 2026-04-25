@@ -347,6 +347,8 @@ Route::middleware([
     Route::get('reports/accounting/export', [AccountingReportController::class, 'export'])->name('reports.accounting.export');
     Route::get('reports/conto-economico', [AccountingReportController::class, 'contoEconomico'])->name('reports.conto-economico');
     Route::get('reports/conto-economico/export', [AccountingReportController::class, 'exportContoEconomico'])->name('reports.conto-economico.export');
+    Route::get('iva/lipe-xml',    [IvaController::class, 'lipeXml'])->name('iva.lipe-xml')->middleware('role:admin,contabile');
+    Route::get('iva/acconto-iva', [IvaController::class, 'accontoIva'])->name('iva.acconto-iva')->middleware('role:admin,contabile');
     Route::get('reports/libro-giornale',         [AccountingReportController::class, 'libroGiornale'])->name('reports.libro-giornale');
     Route::get('reports/libro-giornale/export',  [AccountingReportController::class, 'exportLibroGiornale'])->name('reports.libro-giornale.export');
     Route::get('reports/registro-vendite',        [AccountingReportController::class, 'registroVendite'])->name('reports.registro-vendite');

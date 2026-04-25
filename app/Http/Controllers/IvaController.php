@@ -8,11 +8,14 @@ use App\Models\CodiceIva;
 use App\Models\FatturaPassiva;
 use App\Models\FatturaAttiva;
 use App\Models\LiquidazioneIva;
+use App\Services\AccontoIvaService;
 use App\Services\IvaService;
+use App\Services\LipeXmlService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Controller per la gestione del modulo IVA.
@@ -624,6 +627,74 @@ class IvaController extends Controller
             'message' => 'Operazione non ancora implementata.',
         ]);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // LIPE XML
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Genera e scarica il file XML LIPE per il trimestre richiesto.
+     *
+     * Query params: anno (default anno corrente), trimestre (1-4, default trimestre corrente).
+     */
+    public function lipeXml(Request $request): StreamedResponse
+    {
+        $request->validate([
+            'anno'      => 'nullable|integer|min:2000|max:2100',
+            'trimestre' => 'nullable|integer|min:1|max:4',
+        ]);
+
+        $anno      = (int) $request->input('anno',      now()->year);
+        $trimestre = (int) $request->input('trimestre', (int) ceil(now()->month / 3));
+
+        $tenant  = app('current_tenant');
+        $service = app(LipeXmlService::class);
+
+        try {
+            $xml = $service->genera($tenant, $anno, $trimestre);
+        } catch (\InvalidArgumentException $e) {
+            abort(422, $e->getMessage());
+        }
+
+        $filename = "LIPE_{$anno}_T{$trimestre}_{$tenant->slug}.xml";
+
+        return response()->streamDownload(
+            fn () => print($xml),
+            $filename,
+            [
+                'Content-Type'        => 'application/xml; charset=UTF-8',
+                'Content-Disposition' => 'attachment; filename="' . $filename . '"',
+            ]
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Acconto IVA dicembre
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Pagina di calcolo acconto IVA (art. 6, L. 405/1990).
+     * Mostra i tre metodi (storico, previsionale, analitico).
+     */
+    public function accontoIva(Request $request): Response
+    {
+        $anno    = (int) $request->input('anno', now()->year);
+        $tenant  = app('current_tenant');
+        $service = app(AccontoIvaService::class);
+
+        $prospetto      = $service->calcola($tenant, $anno);
+        $anniDisponibili = range(now()->year, max(now()->year - 5, 2020));
+
+        return Inertia::render('Iva/AccontoIva', [
+            'prospetto'       => $prospetto,
+            'anno'            => $anno,
+            'anni_disponibili' => $anniDisponibili,
+        ]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Annulla fattura passiva
+    // ─────────────────────────────────────────────────────────────────────────
 
     /**
      * Annulla fattura passiva.
