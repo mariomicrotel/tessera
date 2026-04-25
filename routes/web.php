@@ -38,6 +38,7 @@ use App\Http\Controllers\VerbaleController;
 use App\Http\Controllers\EmailTemplateController;
 use App\Http\Controllers\MediaController;
 use App\Http\Controllers\EsercizioContabileController;
+use App\Http\Controllers\RateiRiscontiController;
 use App\Http\Controllers\ScadenzaController;
 use App\Http\Controllers\ScadenzarioController;
 use App\Http\Controllers\TemplateController;
@@ -358,6 +359,15 @@ Route::middleware([
     Route::post('esercizi/{esercizio}/close',           [EsercizioContabileController::class, 'close'])->name('esercizi.close');
     Route::post('esercizi/{esercizio}/reopen',          [EsercizioContabileController::class, 'reopen'])->name('esercizi.reopen');
     Route::delete('esercizi/{esercizio}',               [EsercizioContabileController::class, 'destroy'])->name('esercizi.destroy');
+
+    // ── Ratei e Risconti ─────────────────────────────────────────────────
+    Route::get('ratei-risconti',                                   [RateiRiscontiController::class, 'index'])->name('ratei-risconti.index');
+    Route::post('ratei-risconti',                                  [RateiRiscontiController::class, 'store'])->name('ratei-risconti.store');
+    Route::put('ratei-risconti/{rateoRisconto}',                   [RateiRiscontiController::class, 'update'])->name('ratei-risconti.update');
+    Route::post('ratei-risconti/{rateoRisconto}/registra',         [RateiRiscontiController::class, 'registra'])->name('ratei-risconti.registra');
+    Route::post('ratei-risconti/{rateoRisconto}/storna',           [RateiRiscontiController::class, 'storna'])->name('ratei-risconti.storna');
+    Route::delete('ratei-risconti/{rateoRisconto}',                [RateiRiscontiController::class, 'destroy'])->name('ratei-risconti.destroy');
+    Route::post('ratei-risconti-batch',                            [RateiRiscontiController::class, 'registraBatch'])->name('ratei-risconti.batch');
 
     // ── Scadenzario Completo ───────────────────────────────────────────────
     Route::get('scadenze',                    [ScadenzaController::class, 'index'])->name('scadenze.index');

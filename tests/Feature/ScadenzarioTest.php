@@ -435,10 +435,10 @@ describe('ScadenzaController → fornitori', function () {
             ]]
         );
 
-        // Forziamo una risposta Inertia JSON pura (senza rendering Blade/Vite),
-        // altrimenti @vite() in app.blade.php cerca i file Vue nel manifest
-        // e i nuovi componenti non ancora compilati causano un 500.
-        $inertiaVersion = md5_file(public_path('build/manifest.json')) ?? '';
+        // Forziamo risposta Inertia JSON pura: il manifest Vite di test
+        // non contiene Scadenze/Fornitori.vue, quindi il rendering HTML fallirebbe.
+        $inertiaVersion = app(\App\Http\Middleware\HandleInertiaRequests::class)
+            ->version(request()) ?? '';
 
         $response = $this
             ->withoutMiddleware([
@@ -453,10 +453,10 @@ describe('ScadenzaController → fornitori', function () {
             ->get(route('scadenze.fornitori', $this->tenant));
 
         $response->assertStatus(200);
-        $response->assertInertia(fn ($page) => $page
-            ->component('Scadenze/Fornitori')
-            ->has('fatture.data', 1)
-        );
+
+        $page = json_decode($response->getContent(), true);
+        expect($page['component'])->toBe('Scadenze/Fornitori');
+        expect($page['props']['fatture']['data'])->toHaveCount(1);
     });
 
 });
