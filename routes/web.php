@@ -53,6 +53,7 @@ use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\DismissioneCespitiController;
 use App\Http\Controllers\CompensaTerziController;
 use App\Http\Controllers\ModelloF24Controller;
+use App\Http\Controllers\BilancioController;
 use App\Http\Controllers\ErogazioneLiberaleController;
 use App\Http\Controllers\RelazioneMissioneController;
 use Illuminate\Support\Facades\Route;
@@ -418,6 +419,13 @@ Route::middleware([
     Route::get('bilancio/erogazioni-liberali/{erogazioneLiberale}/edit',                      [ErogazioneLiberaleController::class, 'edit'])->name('erogazioni-liberali.edit')->middleware('role:admin,contabile');
     Route::put('bilancio/erogazioni-liberali/{erogazioneLiberale}',                           [ErogazioneLiberaleController::class, 'update'])->name('erogazioni-liberali.update')->middleware('role:admin,contabile');
     Route::delete('bilancio/erogazioni-liberali/{erogazioneLiberale}',                        [ErogazioneLiberaleController::class, 'destroy'])->name('erogazioni-liberali.destroy')->middleware('role:admin,contabile');
+
+    // ── Bilancio CEE / Rendiconto Gestionale ETS (G5) ────────────────────
+    Route::get('bilancio/cee',                    [BilancioController::class, 'index'])->name('bilancio.cee.index');
+    Route::get('bilancio/cee/pdf-sp',             [BilancioController::class, 'exportPdfSp'])->name('bilancio.cee.pdf-sp');
+    Route::get('bilancio/cee/pdf-ce',             [BilancioController::class, 'exportPdfCe'])->name('bilancio.cee.pdf-ce');
+    Route::get('bilancio/cee/pdf-rendiconto',     [BilancioController::class, 'exportPdfRendiconto'])->name('bilancio.cee.pdf-rendiconto');
+    Route::get('bilancio/cee/csv',                [BilancioController::class, 'exportCsv'])->name('bilancio.cee.csv');
 
     Route::get('scadenzario-quote', [ScadenzarioController::class, 'index'])->name('scadenzario.index');
     Route::get('scadenzario-quote/export', [ScadenzarioController::class, 'exportMorosi'])->name('scadenzario.export');
