@@ -53,6 +53,7 @@ use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\DismissioneCespitiController;
 use App\Http\Controllers\CompensaTerziController;
 use App\Http\Controllers\ModelloF24Controller;
+use App\Http\Controllers\RelazioneMissioneController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -392,6 +393,17 @@ Route::middleware([
     Route::delete('f24/{f24}',               [ModelloF24Controller::class, 'destroy'])->name('f24.destroy')->middleware('role:admin,contabile');
     Route::get('f24/{f24}/pdf',              [ModelloF24Controller::class, 'exportPdf'])->name('f24.pdf');
     Route::get('f24/{f24}/xml',              [ModelloF24Controller::class, 'exportXml'])->name('f24.xml');
+
+    // ── Relazione di Missione ETS (G3) ───────────────────────────────────
+    Route::get('bilancio/relazione-missione',                                     [RelazioneMissioneController::class, 'index'])->name('relazione-missione.index');
+    Route::get('bilancio/relazione-missione/create',                              [RelazioneMissioneController::class, 'create'])->name('relazione-missione.create')->middleware('role:admin,contabile');
+    Route::post('bilancio/relazione-missione',                                    [RelazioneMissioneController::class, 'store'])->name('relazione-missione.store')->middleware('role:admin,contabile');
+    Route::get('bilancio/relazione-missione/{relazioneMissione}',                 [RelazioneMissioneController::class, 'show'])->name('relazione-missione.show');
+    Route::get('bilancio/relazione-missione/{relazioneMissione}/edit',            [RelazioneMissioneController::class, 'edit'])->name('relazione-missione.edit')->middleware('role:admin,contabile');
+    Route::put('bilancio/relazione-missione/{relazioneMissione}',                 [RelazioneMissioneController::class, 'update'])->name('relazione-missione.update')->middleware('role:admin,contabile');
+    Route::post('bilancio/relazione-missione/{relazioneMissione}/approva',        [RelazioneMissioneController::class, 'approva'])->name('relazione-missione.approva')->middleware('role:admin,contabile');
+    Route::delete('bilancio/relazione-missione/{relazioneMissione}',              [RelazioneMissioneController::class, 'destroy'])->name('relazione-missione.destroy')->middleware('role:admin,contabile');
+    Route::get('bilancio/relazione-missione/{relazioneMissione}/pdf',             [RelazioneMissioneController::class, 'exportPdf'])->name('relazione-missione.pdf');
 
     Route::get('scadenzario-quote', [ScadenzarioController::class, 'index'])->name('scadenzario.index');
     Route::get('scadenzario-quote/export', [ScadenzarioController::class, 'exportMorosi'])->name('scadenzario.export');
