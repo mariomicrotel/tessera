@@ -27,7 +27,7 @@ class CooperativeShareController extends Controller
 
     public function index(Request $request)
     {
-        $this->authorize('viewAny', Member::class);
+        $this->authorize('viewAny', CooperativeShare::class);
 
         $query = CooperativeShare::with('member.memberType')
             ->orderBy('created_at', 'desc');
@@ -63,7 +63,7 @@ class CooperativeShareController extends Controller
 
     public function create()
     {
-        $this->authorize('create', Member::class);
+        $this->authorize('create', CooperativeShare::class);
 
         $members = Member::nonCessati()
             ->whereNotNull('data_iscrizione')
@@ -81,7 +81,7 @@ class CooperativeShareController extends Controller
 
     public function store(Request $request)
     {
-        $this->authorize('create', Member::class);
+        $this->authorize('create', CooperativeShare::class);
 
         $validated = $request->validate([
             'member_id'       => 'required|exists:members,id',
@@ -108,7 +108,7 @@ class CooperativeShareController extends Controller
 
     public function show(CooperativeShare $share)
     {
-        $this->authorize('view', Member::class);
+        $this->authorize('view', $share);
 
         $share->load('member.memberType');
 
@@ -121,7 +121,7 @@ class CooperativeShareController extends Controller
 
     public function versa(Request $request, CooperativeShare $share)
     {
-        $this->authorize('update', Member::class);
+        $this->authorize('versa', $share);
 
         $validated = $request->validate([
             'importo_versato' => 'required|numeric|min:0.01',
@@ -145,7 +145,7 @@ class CooperativeShareController extends Controller
 
     public function riscatta(Request $request, CooperativeShare $share)
     {
-        $this->authorize('update', Member::class);
+        $this->authorize('riscatta', $share);
 
         $validated = $request->validate([
             'motivo_riscatto' => 'required|string|max:500',
@@ -169,7 +169,7 @@ class CooperativeShareController extends Controller
 
     public function export(Request $request)
     {
-        $this->authorize('viewAny', Member::class);
+        $this->authorize('viewAny', CooperativeShare::class);
 
         $tenant   = app()->bound('current_tenant') ? app('current_tenant') : null;
         $filename = 'capitale-sociale-' . Str::slug($tenant?->name ?? 'cooperativa') . '-' . now()->format('Ymd') . '.csv';

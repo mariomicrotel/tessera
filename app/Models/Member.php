@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\AuditsChanges;
 use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,7 +15,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class Member extends Model
 {
-    use BelongsToTenant;
+    use BelongsToTenant, AuditsChanges;
     use HasFactory;
 
     protected $fillable = [

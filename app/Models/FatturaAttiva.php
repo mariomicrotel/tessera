@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\AuditsChanges;
 use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -13,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  */
 class FatturaAttiva extends Model
 {
-    use BelongsToTenant, SoftDeletes;
+    use BelongsToTenant, SoftDeletes, AuditsChanges;
 
     public const ESIGIBILITA_IMMEDIATA     = 'immediata';
     public const ESIGIBILITA_DIFFERITA     = 'differita';

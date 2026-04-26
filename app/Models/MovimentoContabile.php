@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\AuditsChanges;
 use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -25,7 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  */
 class MovimentoContabile extends Model
 {
-    use BelongsToTenant;
+    use BelongsToTenant, AuditsChanges;
 
     // ── Stati ─────────────────────────────────────────────────────────────
     public const STATO_BOZZA      = 'bozza';

@@ -32,6 +32,8 @@ class FatturaPassivaController extends Controller
 
     public function index(Request $request): Response
     {
+        $this->authorize('viewAny', FatturaPassiva::class);
+
         $fatture = FatturaPassiva::query()
             ->with('supplier')
             ->when($request->string('numero')->isNotEmpty(), fn ($q, $v) => $q->where('numero_fattura', 'like', "%{$request->string('numero')}%"))
@@ -52,6 +54,8 @@ class FatturaPassivaController extends Controller
 
     public function create(): Response
     {
+        $this->authorize('create', FatturaPassiva::class);
+
         return Inertia::render('Iva/FatturePassive/Create', [
             'suppliers'       => Supplier::attivi()->orderBy('name')->get(['id', 'name', 'ragione_sociale']),
             'codiciIva'       => CodiceIva::attivi()->orderBy('codice')->get(['id', 'codice', 'descrizione', 'percentuale', 'indetraibile_percentuale']),
@@ -63,6 +67,8 @@ class FatturaPassivaController extends Controller
 
     public function store(StoreFatturaPassivaRequest $request): RedirectResponse
     {
+        $this->authorize('create', FatturaPassiva::class);
+
         try {
             $fattura = $this->service->registra(
                 $request->testata(),
@@ -82,6 +88,8 @@ class FatturaPassivaController extends Controller
 
     public function show(FatturaPassiva $fatturaPassiva): Response
     {
+        $this->authorize('view', $fatturaPassiva);
+
         $fatturaPassiva->load(['righe.codiceIva', 'supplier', 'liquidazione']);
 
         return Inertia::render('Iva/FatturePassive/Show', [
@@ -94,6 +102,8 @@ class FatturaPassivaController extends Controller
 
     public function edit(FatturaPassiva $fatturaPassiva): Response|RedirectResponse
     {
+        $this->authorize('update', $fatturaPassiva);
+
         if ($fatturaPassiva->isReadOnly()) {
             return redirect()
                 ->route('iva.fatture-passive.show', $fatturaPassiva)
@@ -114,6 +124,8 @@ class FatturaPassivaController extends Controller
 
     public function update(UpdateFatturaPassivaRequest $request, FatturaPassiva $fatturaPassiva): RedirectResponse
     {
+        $this->authorize('update', $fatturaPassiva);
+
         try {
             $fattura = $this->service->aggiorna(
                 $fatturaPassiva,
@@ -134,6 +146,8 @@ class FatturaPassivaController extends Controller
 
     public function destroy(FatturaPassiva $fatturaPassiva): RedirectResponse
     {
+        $this->authorize('delete', $fatturaPassiva);
+
         try {
             $this->service->verificaModificabile($fatturaPassiva);
 

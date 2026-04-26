@@ -29,6 +29,8 @@ class FatturaAttivaController extends Controller
 
     public function index(Request $request): Response
     {
+        $this->authorize('viewAny', FatturaAttiva::class);
+
         $fatture = FatturaAttiva::query()
             ->with('righe.codiceIva')
             ->when($request->string('numero')->isNotEmpty(),
@@ -76,6 +78,8 @@ class FatturaAttivaController extends Controller
 
     public function create(Request $request): Response
     {
+        $this->authorize('create', FatturaAttiva::class);
+
         $anno = (int) $request->input('anno', now()->year);
 
         return Inertia::render('Iva/FattureAttive/Create', [
@@ -114,6 +118,8 @@ class FatturaAttivaController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
+        $this->authorize('create', FatturaAttiva::class);
+
         $data = $request->validate([
             'anno'                => 'required|integer|min:2000|max:2100',
             'sezionale'           => 'nullable|string|max:20',
@@ -159,6 +165,8 @@ class FatturaAttivaController extends Controller
 
     public function show(FatturaAttiva $fatturaAttiva): Response
     {
+        $this->authorize('view', $fatturaAttiva);
+
         $fatturaAttiva->load(['righe.codiceIva', 'liquidazione']);
 
         return Inertia::render('Iva/FattureAttive/Show', [
@@ -180,6 +188,8 @@ class FatturaAttivaController extends Controller
 
     public function edit(FatturaAttiva $fatturaAttiva): Response
     {
+        $this->authorize('update', $fatturaAttiva);
+
         if ($fatturaAttiva->isReadOnly()) {
             return redirect()
                 ->route('iva.fatture-attive.show', [request()->route('tenant'), $fatturaAttiva])
@@ -205,6 +215,8 @@ class FatturaAttivaController extends Controller
 
     public function update(Request $request, FatturaAttiva $fatturaAttiva): RedirectResponse
     {
+        $this->authorize('update', $fatturaAttiva);
+
         $data = $request->validate([
             'cliente_id'          => 'nullable|exists:members,id',
             'data_fattura'        => 'required|date',
@@ -345,6 +357,8 @@ class FatturaAttivaController extends Controller
 
     public function destroy(FatturaAttiva $fatturaAttiva): RedirectResponse
     {
+        $this->authorize('delete', $fatturaAttiva);
+
         if ($fatturaAttiva->stato !== FatturaAttiva::STATO_BOZZA) {
             return back()->with('flash', [
                 'type'    => 'error',

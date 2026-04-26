@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\EmailTemplate;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -62,14 +63,14 @@ class EmailTemplateController extends Controller
             $placeholders[] = ['key' => $key, 'description' => $desc];
         }
 
-        return Inertia::render('EmailTemplates/Edit', [
+        return Inertia::render('Settings/EmailTemplates/Builder', [
             'template' => [
-                'tipo' => $template->tipo,
-                'subject' => $template->subject,
+                'tipo'      => $template->tipo,
+                'subject'   => $template->subject,
                 'body_html' => $template->body_html ?? '',
             ],
-            'typeLabel' => $config['label'] ?? $tipo,
-            'placeholders' => $placeholders,
+            'typeLabel'       => $config['label'] ?? $tipo,
+            'placeholders'    => $placeholders,
             'preview_samples' => $this->previewSamplesForTipo($tipo),
         ]);
     }
@@ -96,6 +97,59 @@ class EmailTemplateController extends Controller
 
         return redirect()->route('email-templates.index')
             ->with('flash', ['type' => 'success', 'message' => 'Template email aggiornato.']);
+    }
+
+    /**
+     * Preview in tempo reale: risolve placeholder nel body HTML con valori sample.
+     * Ritorna JSON { subject, body_html } con placeholder interpolati.
+     */
+    public function preview(Request $request, string $tipo): JsonResponse
+    {
+        $request->validate([
+            'subject'   => 'nullable|string|max:255',
+            'body_html' => 'nullable|string',
+        ]);
+
+        $subject   = $request->input('subject', '');
+        $bodyHtml  = $request->input('body_html', '');
+        $samples   = $this->previewSamplesForTipo($tipo);
+
+        // Sostituisce {{placeholder}} con valori sample
+        $replace = function (string $text) use ($samples): string {
+            foreach ($samples as $key => $value) {
+                $text = str_replace('{{' . $key . '}}', $value, $text);
+            }
+            return $text;
+        };
+
+        return response()->json([
+            'subject'   => $replace($subject),
+            'body_html' => $replace($bodyHtml),
+        ]);
+    }
+
+    /**
+     * Invia email di test al mittente loggato (senza dati reali, usa sample).
+     */
+    public function sendTest(Request $request, string $tipo): JsonResponse
+    {
+        $request->validate(['body_html' => 'nullable|string', 'subject' => 'nullable|string']);
+
+        $samples  = $this->previewSamplesForTipo($tipo);
+        $subject  = $request->input('subject', "Test template: {$tipo}");
+        $bodyHtml = $request->input('body_html', '<p>Test email</p>');
+
+        foreach ($samples as $key => $value) {
+            $subject  = str_replace('{{' . $key . '}}', $value, $subject);
+            $bodyHtml = str_replace('{{' . $key . '}}', $value, $bodyHtml);
+        }
+
+        \Illuminate\Support\Facades\Mail::html($bodyHtml, function ($m) use ($subject) {
+            $m->to(auth()->user()->email)
+              ->subject("[TEST] {$subject}");
+        });
+
+        return response()->json(['sent' => true, 'to' => auth()->user()->email]);
     }
 
     /**

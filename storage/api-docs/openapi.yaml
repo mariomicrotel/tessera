@@ -1,0 +1,461 @@
+openapi: 3.0.3
+info:
+  title: Tessera — API Documentazione
+  description: |
+    API REST per Tessera ETS/Cooperativa SaaS (Network GTC).
+    Tutte le route richiedono autenticazione via Sanctum cookie-based session.
+    Le route tenant-scoped usano il prefisso `/app/{tenant}/`.
+  version: "1.0.0"
+  contact:
+    name: Network GTC
+    email: support@networkgtc.it
+  license:
+    name: Proprietario
+
+servers:
+  - url: /app/{tenant}
+    description: Tenant App
+    variables:
+      tenant:
+        default: demo
+        description: Slug del tenant
+
+tags:
+  - name: Soci
+    description: Gestione soci, tesserati e volontari
+  - name: Incassi
+    description: Quote sociali, donazioni, pagamenti
+  - name: Fatture Attive
+    description: Ciclo attivo — fatturazione a clienti
+  - name: Fatture Passive
+    description: Ciclo passivo — registrazione acquisti
+  - name: Movimenti Contabili
+    description: Prima nota in partita doppia
+  - name: Bilancio
+    description: Stato Patrimoniale, Conto Economico, Rendiconto Gestionale ETS
+  - name: Erogazioni Liberali
+    description: Donazioni detraibili (art. 83 D.Lgs. 117/2017)
+  - name: Cespiti
+    description: Libro cespiti e ammortamenti
+  - name: Centri di Costo
+    description: Contabilità analitica per area/progetto/sede
+  - name: Audit
+    description: Registro audit trail (solo admin)
+
+paths:
+
+  # ── Soci ──────────────────────────────────────────────────────────────────
+  /members:
+    get:
+      tags: [Soci]
+      summary: Elenco soci
+      description: Restituisce l'elenco paginato dei soci del tenant corrente.
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+          description: Ricerca libera su nome/cognome/email
+        - in: query
+          name: stato
+          schema: { type: string, enum: [attivo, sospeso, cessato, richiesta_ammissione] }
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+      responses:
+        '200':
+          description: Lista soci paginata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMembers'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Soci]
+      summary: Crea nuovo socio
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MemberInput'
+      responses:
+        '201': { description: Socio creato }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /members/{member}:
+    get:
+      tags: [Soci]
+      summary: Dettaglio socio
+      parameters:
+        - in: path
+          name: member
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Member' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [Soci]
+      summary: Aggiorna socio
+      parameters:
+        - in: path
+          name: member
+          required: true
+          schema: { type: integer }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MemberInput' }
+      responses:
+        '200': { description: Socio aggiornato }
+    delete:
+      tags: [Soci]
+      summary: Elimina socio
+      parameters:
+        - in: path
+          name: member
+          required: true
+          schema: { type: integer }
+      responses:
+        '204': { description: Eliminato }
+
+  # ── Fatture Attive ───────────────────────────────────────────────────────
+  /iva/fatture-attive:
+    get:
+      tags: [Fatture Attive]
+      summary: Elenco fatture attive
+      parameters:
+        - in: query
+          name: stato
+          schema: { type: string, enum: [bozza, emessa, inviata_sdi, accettata, scartata, annullata] }
+        - in: query
+          name: anno
+          schema: { type: integer }
+        - in: query
+          name: numero
+          schema: { type: string }
+      responses:
+        '200':
+          description: Fatture attive paginate
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaginatedFattureAttive' }
+    post:
+      tags: [Fatture Attive]
+      summary: Crea nuova fattura attiva
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FatturaAttivaInput' }
+      responses:
+        '201': { description: Fattura creata }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /iva/fatture-attive/{fatturaAttiva}:
+    get:
+      tags: [Fatture Attive]
+      summary: Dettaglio fattura attiva
+      parameters:
+        - in: path
+          name: fatturaAttiva
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FatturaAttiva' }
+    put:
+      tags: [Fatture Attive]
+      summary: Aggiorna fattura (solo bozze)
+      parameters:
+        - in: path
+          name: fatturaAttiva
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Aggiornata }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    delete:
+      tags: [Fatture Attive]
+      summary: Elimina fattura (solo bozze)
+      parameters:
+        - in: path
+          name: fatturaAttiva
+          required: true
+          schema: { type: integer }
+      responses:
+        '204': { description: Eliminata }
+
+  # ── Movimenti Contabili ───────────────────────────────────────────────────
+  /contabilita/movimenti:
+    get:
+      tags: [Movimenti Contabili]
+      summary: Elenco movimenti contabili
+      parameters:
+        - in: query
+          name: anno
+          schema: { type: integer }
+        - in: query
+          name: stato
+          schema: { type: string, enum: [bozza, definitivo, stornato] }
+      responses:
+        '200': { description: Movimenti paginati }
+
+  # ── Bilancio CEE ──────────────────────────────────────────────────────────
+  /bilancio/cee:
+    get:
+      tags: [Bilancio]
+      summary: Stato Patrimoniale + Conto Economico + Rendiconto Gestionale
+      parameters:
+        - in: query
+          name: anno
+          schema: { type: integer }
+          description: Anno di esercizio (default anno corrente)
+      responses:
+        '200':
+          description: Dati bilancio CEE
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BilancioData' }
+
+  /bilancio/cee/pdf-sp:
+    get:
+      tags: [Bilancio]
+      summary: Export PDF Stato Patrimoniale
+      responses:
+        '200':
+          description: PDF Stato Patrimoniale
+          content:
+            application/pdf: {}
+
+  /bilancio/cee/csv:
+    get:
+      tags: [Bilancio]
+      summary: Export CSV bilancio
+      responses:
+        '200':
+          description: CSV bilancio
+          content:
+            text/csv: {}
+
+  # ── Erogazioni Liberali ───────────────────────────────────────────────────
+  /bilancio/erogazioni-liberali:
+    get:
+      tags: [Erogazioni Liberali]
+      summary: Elenco donazioni detraibili
+      parameters:
+        - in: query
+          name: anno
+          schema: { type: integer }
+      responses:
+        '200': { description: Lista erogazioni paginate }
+    post:
+      tags: [Erogazioni Liberali]
+      summary: Registra nuova erogazione liberale
+      responses:
+        '201': { description: Erogazione creata }
+
+  /bilancio/erogazioni-liberali/export-csv:
+    get:
+      tags: [Erogazioni Liberali]
+      summary: Export CSV (formato AdE)
+      responses:
+        '200':
+          content:
+            text/csv: {}
+
+  /bilancio/erogazioni-liberali/export-xml:
+    get:
+      tags: [Erogazioni Liberali]
+      summary: Export XML (formato comunicazione AdE)
+      responses:
+        '200':
+          content:
+            application/xml: {}
+
+  # ── Centri di Costo ───────────────────────────────────────────────────────
+  /centri-di-costo:
+    get:
+      tags: [Centri di Costo]
+      summary: Elenco centri di costo
+      parameters:
+        - in: query
+          name: anno
+          schema: { type: integer }
+        - in: query
+          name: solo_attivi
+          schema: { type: boolean, default: true }
+      responses:
+        '200': { description: Lista centri con saldi anno }
+
+  # ── Audit ──────────────────────────────────────────────────────────────────
+  /admin/audit:
+    get:
+      tags: [Audit]
+      summary: Registro audit trail (solo admin)
+      parameters:
+        - in: query
+          name: action
+          schema: { type: string, enum: [created, updated, deleted, restored] }
+        - in: query
+          name: entity_type
+          schema: { type: string }
+        - in: query
+          name: from
+          schema: { type: string, format: date }
+        - in: query
+          name: to
+          schema: { type: string, format: date }
+      responses:
+        '200': { description: Log paginati }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+components:
+  schemas:
+
+    Member:
+      type: object
+      properties:
+        id:               { type: integer }
+        nome:             { type: string }
+        cognome:          { type: string }
+        ragione_sociale:  { type: string, nullable: true }
+        email:            { type: string, format: email }
+        codice_fiscale:   { type: string }
+        stato_membership: { type: string, enum: [attivo, sospeso, cessato, richiesta_ammissione] }
+        data_iscrizione:  { type: string, format: date }
+
+    MemberInput:
+      type: object
+      required: [cognome, data_iscrizione]
+      properties:
+        nome:             { type: string }
+        cognome:          { type: string }
+        email:            { type: string, format: email }
+        codice_fiscale:   { type: string }
+        stato_membership: { type: string }
+        data_iscrizione:  { type: string, format: date }
+
+    PaginatedMembers:
+      type: object
+      properties:
+        data:         { type: array, items: { $ref: '#/components/schemas/Member' } }
+        total:        { type: integer }
+        per_page:     { type: integer }
+        current_page: { type: integer }
+        last_page:    { type: integer }
+
+    FatturaAttiva:
+      type: object
+      properties:
+        id:                { type: integer }
+        numero_fattura:    { type: string }
+        anno:              { type: integer }
+        data_fattura:      { type: string, format: date }
+        tipo_documento:    { type: string, enum: [TD01, TD04, TD07] }
+        stato:             { type: string, enum: [bozza, emessa, inviata_sdi, accettata, scartata, annullata] }
+        stato_pagamento:   { type: string, enum: [da_incassare, parzialmente_incassata, incassata] }
+        imponibile:        { type: number, format: float }
+        iva_totale:        { type: number, format: float }
+        totale_documento:  { type: number, format: float }
+
+    FatturaAttivaInput:
+      type: object
+      required: [anno, data_fattura, tipo_documento, esigibilita, stato, righe]
+      properties:
+        anno:             { type: integer }
+        cliente_id:       { type: integer, nullable: true }
+        data_fattura:     { type: string, format: date }
+        tipo_documento:   { type: string }
+        esigibilita:      { type: string, enum: [immediata, differita, split_payment] }
+        stato:            { type: string, enum: [bozza, emessa] }
+        note:             { type: string, nullable: true }
+        righe:
+          type: array
+          items:
+            type: object
+            required: [descrizione, quantita, prezzo_unitario, codice_iva_id]
+            properties:
+              descrizione:      { type: string }
+              quantita:         { type: number }
+              prezzo_unitario:  { type: number }
+              codice_iva_id:    { type: integer }
+
+    PaginatedFattureAttive:
+      type: object
+      properties:
+        data:         { type: array, items: { $ref: '#/components/schemas/FatturaAttiva' } }
+        total:        { type: integer }
+        current_page: { type: integer }
+        last_page:    { type: integer }
+
+    BilancioData:
+      type: object
+      properties:
+        sp:
+          type: object
+          properties:
+            totale_attivo:  { type: number }
+            totale_passivo: { type: number }
+            differenza:     { type: number }
+        ce:
+          type: object
+          properties:
+            valore_produzione:    { type: number }
+            costi_produzione:     { type: number }
+            risultato_operativo:  { type: number }
+            risultato_esercizio:  { type: number }
+        rendiconto:
+          type: object
+          properties:
+            tot_entrate:     { type: number }
+            tot_uscite:      { type: number }
+            risultato_netto: { type: number }
+
+  responses:
+    Forbidden:
+      description: Accesso negato (403)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message: { type: string }
+
+    NotFound:
+      description: Risorsa non trovata (404)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message: { type: string }
+
+    ValidationError:
+      description: Errore di validazione (422)
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              message: { type: string }
+              errors:
+                type: object
+                additionalProperties:
+                  type: array
+                  items: { type: string }
+
+  securitySchemes:
+    sanctumCookie:
+      type: apiKey
+      in: cookie
+      name: laravel_session
+
+security:
+  - sanctumCookie: []

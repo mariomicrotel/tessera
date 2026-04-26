@@ -29,6 +29,7 @@ class RigaMovimentoContabile extends Model
         'importo_dare',
         'importo_avere',
         'centro_costo',
+        'centro_costo_id',
         'gestione',
     ];
 
@@ -53,6 +54,11 @@ class RigaMovimentoContabile extends Model
     public function contoContabile(): BelongsTo
     {
         return $this->belongsTo(ContoContabile::class, 'conto_contabile_id');
+    }
+
+    public function centroCosto(): BelongsTo
+    {
+        return $this->belongsTo(CentroCosto::class, 'centro_costo_id');
     }
 
     // ─────────────────────────────────────────────────────────────────────

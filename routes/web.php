@@ -56,6 +56,9 @@ use App\Http\Controllers\ModelloF24Controller;
 use App\Http\Controllers\BilancioController;
 use App\Http\Controllers\ErogazioneLiberaleController;
 use App\Http\Controllers\RelazioneMissioneController;
+use App\Http\Controllers\AuditController;
+use App\Http\Controllers\CentriDiCostoController;
+use App\Http\Controllers\ApiDocsController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -126,6 +129,12 @@ Route::middleware('signed')->group(function () {
 | Route Super Admin (gestione piattaforma)
 |--------------------------------------------------------------------------
 */
+
+// ── OpenAPI Documentation (A6) ───────────────────────────────────────────
+Route::middleware(['auth:sanctum', config('jetstream.auth_session')])->group(function () {
+    Route::get('/api/docs',      [ApiDocsController::class, 'index'])->name('api-docs.index');
+    Route::get('/api/docs/spec', [ApiDocsController::class, 'spec'])->name('api-docs.spec');
+});
 
 Route::middleware([
     'auth:sanctum',
@@ -233,6 +242,15 @@ Route::middleware([
     Route::get('organi', [OrganoController::class, 'index'])->name('organi.index');
     Route::get('organi/{organo:slug}', [OrganoController::class, 'show'])->name('organi.show');
     Route::put('organi/{organo:slug}', [OrganoController::class, 'update'])->name('organi.update');
+
+    // ── Cariche Sociali (A1) ───────────────────────────────────────────────
+    Route::get('cariche-sociali',                   [CaricaSocialeController::class, 'index'])->name('cariche-sociali.index');
+    Route::get('cariche-sociali/create',            [CaricaSocialeController::class, 'create'])->name('cariche-sociali.create')->middleware('role:admin');
+    Route::post('cariche-sociali',                  [CaricaSocialeController::class, 'store'])->name('cariche-sociali.store')->middleware('role:admin');
+    Route::get('cariche-sociali/{caricaSociale}',   [CaricaSocialeController::class, 'show'])->name('cariche-sociali.show');
+    Route::get('cariche-sociali/{caricaSociale}/edit', [CaricaSocialeController::class, 'edit'])->name('cariche-sociali.edit')->middleware('role:admin');
+    Route::put('cariche-sociali/{caricaSociale}',   [CaricaSocialeController::class, 'update'])->name('cariche-sociali.update')->middleware('role:admin');
+    Route::delete('cariche-sociali/{caricaSociale}',[CaricaSocialeController::class, 'destroy'])->name('cariche-sociali.destroy')->middleware('role:admin');
     Route::middleware('role:admin,segreteria')->group(function () {
         Route::get('elezioni', [ElezioneController::class, 'index'])->name('elezioni.index');
         Route::get('elezioni/create', [ElezioneController::class, 'create'])->name('elezioni.create');
@@ -543,6 +561,8 @@ Route::middleware([
     Route::get('email-templates', [EmailTemplateController::class, 'index'])->name('email-templates.index');
     Route::get('email-templates/{tipo}/edit', [EmailTemplateController::class, 'edit'])->name('email-templates.edit');
     Route::put('email-templates/{tipo}', [EmailTemplateController::class, 'update'])->name('email-templates.update');
+    Route::post('email-templates/{tipo}/preview', [EmailTemplateController::class, 'preview'])->name('email-templates.preview');
+    Route::post('email-templates/{tipo}/send-test', [EmailTemplateController::class, 'sendTest'])->name('email-templates.send-test');
     Route::get('receipt-templates', [ReceiptTemplateController::class, 'index'])->name('receipt-templates.index');
     Route::get('receipt-templates/{tipo}/edit', [ReceiptTemplateController::class, 'edit'])->name('receipt-templates.edit');
     Route::put('receipt-templates/{tipo}', [ReceiptTemplateController::class, 'update'])->name('receipt-templates.update');
@@ -564,4 +584,22 @@ Route::middleware([
     Route::delete('events/{event}', [EventController::class, 'destroy'])->name('events.destroy');
     Route::post('events/{event}/register', [EventController::class, 'register'])->name('events.register');
     Route::delete('events/{event}/registrations/{registration}', [EventController::class, 'unregister'])->name('events.registrations.destroy');
+
+    // ── Centri di Costo (A5) ───────────────────────────────────────────────
+    Route::get('centri-di-costo',                              [CentriDiCostoController::class, 'index'])->name('centri-di-costo.index');
+    Route::get('centri-di-costo/create',                       [CentriDiCostoController::class, 'create'])->name('centri-di-costo.create')->middleware('role:admin,contabile');
+    Route::post('centri-di-costo',                             [CentriDiCostoController::class, 'store'])->name('centri-di-costo.store')->middleware('role:admin,contabile');
+    Route::get('centri-di-costo/{centroCosto}',                [CentriDiCostoController::class, 'show'])->name('centri-di-costo.show');
+    Route::get('centri-di-costo/{centroCosto}/edit',           [CentriDiCostoController::class, 'edit'])->name('centri-di-costo.edit')->middleware('role:admin,contabile');
+    Route::put('centri-di-costo/{centroCosto}',                [CentriDiCostoController::class, 'update'])->name('centri-di-costo.update')->middleware('role:admin,contabile');
+    Route::delete('centri-di-costo/{centroCosto}',             [CentriDiCostoController::class, 'destroy'])->name('centri-di-costo.destroy')->middleware('role:admin');
+    Route::post('centri-di-costo/{centroCosto}/toggle-attivo', [CentriDiCostoController::class, 'toggleAttivo'])->name('centri-di-costo.toggle-attivo')->middleware('role:admin,contabile');
+
+    // ── Audit Trail (C2) ────────────────────────────────────────────────────
+    Route::middleware('role:admin')->group(function () {
+        Route::get('admin/audit',                       [AuditController::class, 'index'])->name('audit.index');
+        Route::get('admin/audit/export',                [AuditController::class, 'export'])->name('audit.export');
+        Route::get('admin/audit/{auditLog}',            [AuditController::class, 'show'])->name('audit.show');
+        Route::get('admin/audit/entity/{type}/{id}',    [AuditController::class, 'forEntity'])->name('audit.entity');
+    });
 });
