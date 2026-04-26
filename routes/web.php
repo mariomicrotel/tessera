@@ -51,6 +51,7 @@ use App\Http\Controllers\CespitiController;
 use App\Http\Controllers\AmmortamentoController;
 use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\DismissioneCespitiController;
+use App\Http\Controllers\CompensaTerziController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -365,6 +366,20 @@ Route::middleware([
     Route::get('reports/libro-giornale/export',  [AccountingReportController::class, 'exportLibroGiornale'])->name('reports.libro-giornale.export');
     Route::get('reports/registro-vendite',        [AccountingReportController::class, 'registroVendite'])->name('reports.registro-vendite');
     Route::get('reports/registro-vendite/export', [AccountingReportController::class, 'exportRegistroVendite'])->name('reports.registro-vendite.export');
+
+    // ── Compensi a Terzi / Ritenute d'Acconto (G1) ───────────────────────
+    Route::get('compensi-terzi',                                      [CompensaTerziController::class, 'index'])->name('compensi-terzi.index');
+    Route::get('compensi-terzi/create',                               [CompensaTerziController::class, 'create'])->name('compensi-terzi.create')->middleware('role:admin,contabile');
+    Route::post('compensi-terzi',                                     [CompensaTerziController::class, 'store'])->name('compensi-terzi.store')->middleware('role:admin,contabile');
+    Route::get('compensi-terzi/riepilogo',                            [CompensaTerziController::class, 'riepilogo'])->name('compensi-terzi.riepilogo');
+    Route::get('compensi-terzi/versamenti',                           [CompensaTerziController::class, 'versamenti'])->name('compensi-terzi.versamenti');
+    Route::post('compensi-terzi/versa',                               [CompensaTerziController::class, 'versa'])->name('compensi-terzi.versa')->middleware('role:admin,contabile');
+    Route::get('compensi-terzi/versamenti/{versamento}',              [CompensaTerziController::class, 'versamentoShow'])->name('compensi-terzi.versamento.show');
+    Route::get('compensi-terzi/{compensiTerzi}',                      [CompensaTerziController::class, 'show'])->name('compensi-terzi.show');
+    Route::get('compensi-terzi/{compensiTerzi}/edit',                 [CompensaTerziController::class, 'edit'])->name('compensi-terzi.edit')->middleware('role:admin,contabile');
+    Route::put('compensi-terzi/{compensiTerzi}',                      [CompensaTerziController::class, 'update'])->name('compensi-terzi.update')->middleware('role:admin,contabile');
+    Route::delete('compensi-terzi/{compensiTerzi}',                   [CompensaTerziController::class, 'destroy'])->name('compensi-terzi.destroy')->middleware('role:admin,contabile');
+
     Route::get('scadenzario-quote', [ScadenzarioController::class, 'index'])->name('scadenzario.index');
     Route::get('scadenzario-quote/export', [ScadenzarioController::class, 'exportMorosi'])->name('scadenzario.export');
     Route::post('scadenzario-quote/sollecito-massivo', [ScadenzarioController::class, 'sendSollecitoMassivo'])->name('scadenzario.sollecito-massivo');
