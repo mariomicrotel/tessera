@@ -52,6 +52,7 @@ use App\Http\Controllers\AmmortamentoController;
 use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\DismissioneCespitiController;
 use App\Http\Controllers\CompensaTerziController;
+use App\Http\Controllers\ModelloF24Controller;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -379,6 +380,18 @@ Route::middleware([
     Route::get('compensi-terzi/{compensiTerzi}/edit',                 [CompensaTerziController::class, 'edit'])->name('compensi-terzi.edit')->middleware('role:admin,contabile');
     Route::put('compensi-terzi/{compensiTerzi}',                      [CompensaTerziController::class, 'update'])->name('compensi-terzi.update')->middleware('role:admin,contabile');
     Route::delete('compensi-terzi/{compensiTerzi}',                   [CompensaTerziController::class, 'destroy'])->name('compensi-terzi.destroy')->middleware('role:admin,contabile');
+
+    // ── Modello F24 (G2) ─────────────────────────────────────────────────
+    Route::get('f24',                         [ModelloF24Controller::class, 'index'])->name('f24.index');
+    Route::get('f24/create',                  [ModelloF24Controller::class, 'create'])->name('f24.create')->middleware('role:admin,contabile');
+    Route::post('f24',                        [ModelloF24Controller::class, 'store'])->name('f24.store')->middleware('role:admin,contabile');
+    Route::get('f24/{f24}',                   [ModelloF24Controller::class, 'show'])->name('f24.show');
+    Route::get('f24/{f24}/edit',              [ModelloF24Controller::class, 'edit'])->name('f24.edit')->middleware('role:admin,contabile');
+    Route::put('f24/{f24}',                   [ModelloF24Controller::class, 'update'])->name('f24.update')->middleware('role:admin,contabile');
+    Route::post('f24/{f24}/versa',            [ModelloF24Controller::class, 'segnaVersato'])->name('f24.versa')->middleware('role:admin,contabile');
+    Route::delete('f24/{f24}',               [ModelloF24Controller::class, 'destroy'])->name('f24.destroy')->middleware('role:admin,contabile');
+    Route::get('f24/{f24}/pdf',              [ModelloF24Controller::class, 'exportPdf'])->name('f24.pdf');
+    Route::get('f24/{f24}/xml',              [ModelloF24Controller::class, 'exportXml'])->name('f24.xml');
 
     Route::get('scadenzario-quote', [ScadenzarioController::class, 'index'])->name('scadenzario.index');
     Route::get('scadenzario-quote/export', [ScadenzarioController::class, 'exportMorosi'])->name('scadenzario.export');
