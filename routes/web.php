@@ -53,6 +53,7 @@ use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\DismissioneCespitiController;
 use App\Http\Controllers\CompensaTerziController;
 use App\Http\Controllers\ModelloF24Controller;
+use App\Http\Controllers\ErogazioneLiberaleController;
 use App\Http\Controllers\RelazioneMissioneController;
 use Illuminate\Support\Facades\Route;
 
@@ -404,6 +405,19 @@ Route::middleware([
     Route::post('bilancio/relazione-missione/{relazioneMissione}/approva',        [RelazioneMissioneController::class, 'approva'])->name('relazione-missione.approva')->middleware('role:admin,contabile');
     Route::delete('bilancio/relazione-missione/{relazioneMissione}',              [RelazioneMissioneController::class, 'destroy'])->name('relazione-missione.destroy')->middleware('role:admin,contabile');
     Route::get('bilancio/relazione-missione/{relazioneMissione}/pdf',             [RelazioneMissioneController::class, 'exportPdf'])->name('relazione-missione.pdf');
+
+    // ── Erogazioni Liberali ETS (G4) ─────────────────────────────────────
+    Route::get('bilancio/erogazioni-liberali',                                                [ErogazioneLiberaleController::class, 'index'])->name('erogazioni-liberali.index');
+    Route::get('bilancio/erogazioni-liberali/create',                                         [ErogazioneLiberaleController::class, 'create'])->name('erogazioni-liberali.create')->middleware('role:admin,contabile');
+    Route::post('bilancio/erogazioni-liberali',                                               [ErogazioneLiberaleController::class, 'store'])->name('erogazioni-liberali.store')->middleware('role:admin,contabile');
+    Route::get('bilancio/erogazioni-liberali/riepilogo',                                      [ErogazioneLiberaleController::class, 'riepilogo'])->name('erogazioni-liberali.riepilogo');
+    Route::get('bilancio/erogazioni-liberali/export-csv',                                     [ErogazioneLiberaleController::class, 'exportCsv'])->name('erogazioni-liberali.csv');
+    Route::get('bilancio/erogazioni-liberali/export-xml',                                     [ErogazioneLiberaleController::class, 'exportXml'])->name('erogazioni-liberali.xml');
+    Route::post('bilancio/erogazioni-liberali/importa-incassi',                               [ErogazioneLiberaleController::class, 'importaDaIncassi'])->name('erogazioni-liberali.importa')->middleware('role:admin,contabile');
+    Route::get('bilancio/erogazioni-liberali/{erogazioneLiberale}',                           [ErogazioneLiberaleController::class, 'show'])->name('erogazioni-liberali.show');
+    Route::get('bilancio/erogazioni-liberali/{erogazioneLiberale}/edit',                      [ErogazioneLiberaleController::class, 'edit'])->name('erogazioni-liberali.edit')->middleware('role:admin,contabile');
+    Route::put('bilancio/erogazioni-liberali/{erogazioneLiberale}',                           [ErogazioneLiberaleController::class, 'update'])->name('erogazioni-liberali.update')->middleware('role:admin,contabile');
+    Route::delete('bilancio/erogazioni-liberali/{erogazioneLiberale}',                        [ErogazioneLiberaleController::class, 'destroy'])->name('erogazioni-liberali.destroy')->middleware('role:admin,contabile');
 
     Route::get('scadenzario-quote', [ScadenzarioController::class, 'index'])->name('scadenzario.index');
     Route::get('scadenzario-quote/export', [ScadenzarioController::class, 'exportMorosi'])->name('scadenzario.export');
