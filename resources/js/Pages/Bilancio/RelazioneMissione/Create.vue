@@ -132,7 +132,7 @@ const fmtN = (v) => Number(v ?? 0).toLocaleString('it-IT');
                     </div>
                 </div>
                 <p class="text-xs text-blue-600 mt-3">
-                    I dati vengono incorporati automaticamente nel testo delle sezioni tramite segnaposto <code>{{ '{{variabile}}' }}</code>.
+                    I dati vengono incorporati automaticamente nel testo delle sezioni tramite segnaposto <code>&#123;&#123;variabile&#125;&#125;</code>.
                     Potrai modificarli nella fase successiva.
                 </p>
             </div>

@@ -72,6 +72,8 @@ const insertPlaceholder = (key) => {
     showPlaceholders.value = false;
 };
 
+const wrapPlaceholder = (key) => '{' + '{' + key + '}' + '}';
+
 const compiledCount = computed(() =>
     form.sezioni.filter(s => s.testo.trim()).length
 );
@@ -116,7 +118,7 @@ const compiledCount = computed(() =>
                             <button v-for="p in placeholder_list" :key="p.key"
                                     @click="insertPlaceholder(p.key)"
                                     class="w-full text-left px-4 py-2 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-sm">
-                                <span class="font-mono text-indigo-700 dark:text-indigo-400">{{ '{{' + p.key + '}}' }}</span>
+                                <span class="font-mono text-indigo-700 dark:text-indigo-400">{{ wrapPlaceholder(p.key) }}</span>
                                 <span class="text-gray-500 text-xs ml-2">{{ p.label }}</span>
                             </button>
                         </div>

@@ -52,7 +52,7 @@
                       @click="insertPlaceholder(ph.key)"
                       :title="ph.description"
                       class="px-2 py-1 rounded bg-blue-50 text-blue-700 text-xs font-mono hover:bg-blue-100 transition-colors border border-blue-200">
-                {{ '{{' + ph.key + '}}' }}
+                {{ '{' + '{' + ph.key + '}' + '}' }}
               </button>
             </div>
             <p class="text-xs text-gray-400 mt-2">Click per inserire nel corpo del testo alla posizione del cursore.</p>

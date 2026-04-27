@@ -173,7 +173,7 @@ const totaleDetrazioni = computed(() => {
                                 {{ d.donante_cf || '—' }}
                             </td>
                             <td class="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">
-                                {{ d.donante_ragione_sociale ?? [d.donante_cognome, d.donante_nome].filter(Boolean).join(' ') || '—' }}
+                                {{ (d.donante_ragione_sociale ?? [d.donante_cognome, d.donante_nome].filter(Boolean).join(' ')) || '—' }}
                             </td>
                             <td class="px-4 py-3 text-center text-xs text-gray-500">
                                 {{ d.donante_tipo === 'persona_fisica' ? 'PF' : 'PG' }}

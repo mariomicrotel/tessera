@@ -177,7 +177,7 @@ const importa = () => {
                             </td>
                             <td class="px-4 py-3">
                                 <div class="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                    {{ e.donante_ragione_sociale ?? [e.donante_cognome, e.donante_nome].filter(Boolean).join(' ') || '—' }}
+                                    {{ (e.donante_ragione_sociale ?? [e.donante_cognome, e.donante_nome].filter(Boolean).join(' ')) || '—' }}
                                 </div>
                                 <div class="text-xs text-gray-400">{{ tipiDonante[e.donante_tipo] ?? e.donante_tipo }}</div>
                             </td>
