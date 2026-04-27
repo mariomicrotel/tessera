@@ -285,7 +285,12 @@ Route::middleware([
     Route::middleware('cooperative')->group(function () {
         Route::get('iva', [IvaController::class, 'dashboard'])->name('iva.dashboard');
         Route::get('iva/codici', [IvaController::class, 'codiciIndex'])->name('iva.codici.index');
+        Route::get('iva/codici/create', [IvaController::class, 'codiciCreate'])->name('iva.codici.create')->middleware('role:admin,contabile');
+        Route::post('iva/codici', [IvaController::class, 'codiciStore'])->name('iva.codici.store')->middleware('role:admin,contabile');
         Route::get('iva/codici/{codiceIva}', [IvaController::class, 'codiceShow'])->name('iva.codici.show');
+        Route::get('iva/codici/{codiceIva}/edit', [IvaController::class, 'codiciEdit'])->name('iva.codici.edit')->middleware('role:admin,contabile');
+        Route::put('iva/codici/{codiceIva}', [IvaController::class, 'codiciUpdate'])->name('iva.codici.update')->middleware('role:admin,contabile');
+        Route::delete('iva/codici/{codiceIva}', [IvaController::class, 'codiciDestroy'])->name('iva.codici.destroy')->middleware('role:admin');
         // ── Fatture Passive CRUD (C2) ──────────────────────────────────────
         Route::get('iva/fatture-passive', [FatturaPassivaController::class, 'index'])->name('iva.fatture-passive.index');
         Route::get('iva/fatture-passive/create', [FatturaPassivaController::class, 'create'])->name('iva.fatture-passive.create')->middleware('role:admin,segreteria,contabile');

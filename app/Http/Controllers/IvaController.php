@@ -715,4 +715,141 @@ class IvaController extends Controller
             'message' => "Fattura {$fatturaPassiva->numero_fattura} annullata.",
         ]);
     }
+
+    // ── CRUD Codici IVA ────────────────────────────────────────
+
+    /**
+     * Form creazione nuovo codice IVA.
+     */
+    public function codiciCreate(): Response
+    {
+        $tipi = [
+            CodiceIva::TIPO_NORMALE        => 'Normale',
+            CodiceIva::TIPO_ESENTE         => 'Esente',
+            CodiceIva::TIPO_FUORI_CAMPO    => 'Fuori campo',
+            CodiceIva::TIPO_NON_IMPONIBILE => 'Non imponibile',
+            CodiceIva::TIPO_REVERSE_CHARGE => 'Reverse charge',
+            CodiceIva::TIPO_SPLIT_PAYMENT  => 'Split payment',
+        ];
+
+        return Inertia::render('Iva/Codici/Create', [
+            'tipi' => $tipi,
+        ]);
+    }
+
+    /**
+     * Salva nuovo codice IVA.
+     */
+    public function codiciStore(Request $request): RedirectResponse
+    {
+        $dati = $request->validate([
+            'codice'                   => 'required|string|max:10|unique:codici_iva,codice,NULL,id,tenant_id,' . app('current_tenant')->id,
+            'descrizione'              => 'required|string|max:255',
+            'percentuale'              => 'required|numeric|min:0|max:100',
+            'tipo'                     => 'required|in:' . implode(',', [
+                CodiceIva::TIPO_NORMALE,
+                CodiceIva::TIPO_ESENTE,
+                CodiceIva::TIPO_FUORI_CAMPO,
+                CodiceIva::TIPO_NON_IMPONIBILE,
+                CodiceIva::TIPO_REVERSE_CHARGE,
+                CodiceIva::TIPO_SPLIT_PAYMENT,
+            ]),
+            'natura_sdi'               => 'required|string|in:N,E,F,L,R,S',
+            'indetraibile_percentuale' => 'required|numeric|min:0|max:100',
+            'attivo'                   => 'boolean',
+        ]);
+
+        $dati['attivo'] = $request->boolean('attivo', true);
+
+        CodiceIva::create($dati);
+
+        return redirect()->route('iva.codici.index')->with('flash', [
+            'type'    => 'success',
+            'message' => "Codice IVA {$dati['codice']} creato.",
+        ]);
+    }
+
+    /**
+     * Form edit codice IVA.
+     */
+    public function codiciEdit(CodiceIva $codiceIva): Response
+    {
+        if ($codiceIva->di_sistema) {
+            abort(403, 'Non puoi modificare codici IVA di sistema.');
+        }
+
+        $tipi = [
+            CodiceIva::TIPO_NORMALE        => 'Normale',
+            CodiceIva::TIPO_ESENTE         => 'Esente',
+            CodiceIva::TIPO_FUORI_CAMPO    => 'Fuori campo',
+            CodiceIva::TIPO_NON_IMPONIBILE => 'Non imponibile',
+            CodiceIva::TIPO_REVERSE_CHARGE => 'Reverse charge',
+            CodiceIva::TIPO_SPLIT_PAYMENT  => 'Split payment',
+        ];
+
+        return Inertia::render('Iva/Codici/Edit', [
+            'codice' => $codiceIva,
+            'tipi'   => $tipi,
+        ]);
+    }
+
+    /**
+     * Aggiorna codice IVA.
+     */
+    public function codiciUpdate(Request $request, CodiceIva $codiceIva): RedirectResponse
+    {
+        if ($codiceIva->di_sistema) {
+            abort(403, 'Non puoi modificare codici IVA di sistema.');
+        }
+
+        $dati = $request->validate([
+            'codice'                   => 'required|string|max:10|unique:codici_iva,codice,' . $codiceIva->id . ',id,tenant_id,' . app('current_tenant')->id,
+            'descrizione'              => 'required|string|max:255',
+            'percentuale'              => 'required|numeric|min:0|max:100',
+            'tipo'                     => 'required|in:' . implode(',', [
+                CodiceIva::TIPO_NORMALE,
+                CodiceIva::TIPO_ESENTE,
+                CodiceIva::TIPO_FUORI_CAMPO,
+                CodiceIva::TIPO_NON_IMPONIBILE,
+                CodiceIva::TIPO_REVERSE_CHARGE,
+                CodiceIva::TIPO_SPLIT_PAYMENT,
+            ]),
+            'natura_sdi'               => 'required|string|in:N,E,F,L,R,S',
+            'indetraibile_percentuale' => 'required|numeric|min:0|max:100',
+            'attivo'                   => 'boolean',
+        ]);
+
+        $dati['attivo'] = $request->boolean('attivo', true);
+
+        $codiceIva->update($dati);
+
+        return redirect()->route('iva.codici.index')->with('flash', [
+            'type'    => 'success',
+            'message' => "Codice IVA {$codiceIva->codice} aggiornato.",
+        ]);
+    }
+
+    /**
+     * Elimina codice IVA.
+     */
+    public function codiciDestroy(CodiceIva $codiceIva): RedirectResponse
+    {
+        if ($codiceIva->di_sistema) {
+            abort(403, 'Non puoi eliminare codici IVA di sistema.');
+        }
+
+        if ($codiceIva->righeFatturePassive()->exists() || $codiceIva->righeFattureAttive()->exists()) {
+            return back()->with('flash', [
+                'type'    => 'error',
+                'message' => "Non puoi eliminare {$codiceIva->codice}: è usato in fatture.",
+            ]);
+        }
+
+        $codiceIva->delete();
+
+        return redirect()->route('iva.codici.index')->with('flash', [
+            'type'    => 'success',
+            'message' => "Codice IVA eliminato.",
+        ]);
+    }
 }
