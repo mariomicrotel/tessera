@@ -56,6 +56,7 @@ const openSections = ref({
     contabilita: false,
     iva: false,
     cooperativa: false,
+    adempimenti: false,
     team: false,
 });
 
@@ -67,8 +68,9 @@ function sectionForRoute(name) {
     if (name.startsWith('organi.') || name.startsWith('elezioni.')) return 'organiVotazioni';
     if (name.startsWith('events.') || name.startsWith('properties.') || name.startsWith('items.') || name.startsWith('locations.') || name.startsWith('warehouses.')) return 'patrimonio';
     if (name.startsWith('cespiti.')) return 'cespiti';
-    if (name.startsWith('conti.') || name.startsWith('prima-nota.') || name === 'reports.accounting' || name === 'reports.rendiconto-cassa') return 'contabilita';
-    if (name.startsWith('iva.')) return 'iva';
+    if (name.startsWith('conti.') || name.startsWith('prima-nota.') || name === 'reports.accounting' || name === 'reports.rendiconto-cassa' || name.startsWith('scadenze.') || name.startsWith('esercizi.') || name.startsWith('ratei-risconti.') || name.startsWith('centri-di-costo.') || name.startsWith('bilancio.') || name.startsWith('relazione-missione.') || name.startsWith('erogazioni-liberali.') || name === 'reports.libro-giornale' || name === 'reports.registro-vendite' || name === 'reports.conto-economico') return 'contabilita';
+    if (name.startsWith('iva.') || name.startsWith('suppliers.')) return 'iva';
+    if (name.startsWith('compensi-terzi.') || name.startsWith('f24.')) return 'adempimenti';
     if (name.startsWith('capitale-sociale.') || name.startsWith('prestito-sociale.') || name.startsWith('ristorni.') || name === 'reports.situazione-capitale' || name === 'reports.conto-economico-coop') return 'cooperativa';
     if (name.startsWith('teams.')) return 'team';
     if (name === 'profile.show' || name.startsWith('api-tokens.')) return 'utente';
@@ -454,6 +456,22 @@ const logout = () => {
                                     <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
                                     Prima nota
                                 </ResponsiveNavLink>
+                                <ResponsiveNavLink :href="route('scadenze.dashboard')" :active="route().current('scadenze.*')">
+                                    <CalendarDaysIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Scadenzario
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink :href="route('esercizi.index')" :active="route().current('esercizi.*')">
+                                    <BookOpenIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Esercizi Contabili
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink :href="route('ratei-risconti.index')" :active="route().current('ratei-risconti.*')">
+                                    <ClipboardDocumentListIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Ratei e Risconti
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink :href="route('centri-di-costo.index')" :active="route().current('centri-di-costo.*')">
+                                    <FolderIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Centri di Costo
+                                </ResponsiveNavLink>
                                 <ResponsiveNavLink :href="route('reports.accounting')" :active="route().current('reports.accounting')">
                                     <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
                                     Report contabilità
@@ -465,6 +483,26 @@ const logout = () => {
                                 <ResponsiveNavLink :href="route('reports.rendiconto-cassa')" :active="route().current('reports.rendiconto-cassa')">
                                     <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
                                     Rendiconto per cassa
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink :href="route('reports.libro-giornale')" :active="route().current('reports.libro-giornale*')">
+                                    <BookOpenIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Libro Giornale
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink :href="route('reports.registro-vendite')" :active="route().current('reports.registro-vendite*')">
+                                    <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Registro Vendite
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink :href="route('bilancio.cee.index')" :active="route().current('bilancio.cee.*')">
+                                    <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Bilancio CEE
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink v-if="!$page.props.is_cooperativa" :href="route('relazione-missione.index')" :active="route().current('relazione-missione.*')">
+                                    <ClipboardDocumentListIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Relazione di Missione
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink v-if="!$page.props.is_cooperativa" :href="route('erogazioni-liberali.index')" :active="route().current('erogazioni-liberali.*')">
+                                    <BanknotesIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Erogazioni Liberali ETS
                                 </ResponsiveNavLink>
                                 <ResponsiveNavLink v-if="!$page.props.is_cooperativa" :href="route('scadenzario.index')" :active="route().current('scadenzario.*')">
                                     <EnvelopeIcon class="size-4 shrink-0" aria-hidden="true" />
@@ -488,7 +526,56 @@ const logout = () => {
                                     <TicketIcon class="size-4 shrink-0" aria-hidden="true" />
                                     Fatture Passive
                                 </ResponsiveNavLink>
+                                <ResponsiveNavLink :href="route('suppliers.index')" :active="route().current('suppliers.*')">
+                                    <UsersIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Fornitori
+                                </ResponsiveNavLink>
+                                <template v-if="$page.props.is_cooperativa">
+                                    <ResponsiveNavLink :href="route('iva.codici.index')" :active="route().current('iva.codici.*')">
+                                        <TableCellsIcon class="size-4 shrink-0" aria-hidden="true" />
+                                        Codici IVA
+                                    </ResponsiveNavLink>
+                                    <ResponsiveNavLink :href="route('iva.liquidazioni.index')" :active="route().current('iva.liquidazioni.*')">
+                                        <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
+                                        Liquidazioni IVA
+                                    </ResponsiveNavLink>
+                                    <ResponsiveNavLink :href="route('iva.registro-acquisti')" :active="route().current('iva.registro-acquisti')">
+                                        <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                        Registro Acquisti
+                                    </ResponsiveNavLink>
+                                    <ResponsiveNavLink :href="route('iva.registro-vendite')" :active="route().current('iva.registro-vendite')">
+                                        <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                        Registro Vendite IVA
+                                    </ResponsiveNavLink>
+                                    <ResponsiveNavLink :href="route('iva.lipe-xml')" :active="route().current('iva.lipe-xml')">
+                                        <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                        LIPE XML
+                                    </ResponsiveNavLink>
+                                    <ResponsiveNavLink :href="route('iva.acconto-iva')" :active="route().current('iva.acconto-iva')">
+                                        <BanknotesIcon class="size-4 shrink-0" aria-hidden="true" />
+                                        Acconto IVA
+                                    </ResponsiveNavLink>
+                                </template>
                             </div>
+                    </div>
+                    <!-- Adempimenti Fiscali -->
+                    <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile')" class="pt-2">
+                        <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('adempimenti')">
+                            <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
+                            <span class="flex-1">Adempimenti</span>
+                            <ChevronDownIcon v-if="openSections.adempimenti" class="size-4 shrink-0" aria-hidden="true" />
+                            <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
+                        </button>
+                        <div v-show="openSections.adempimenti" class="space-y-0.5 ps-6">
+                            <ResponsiveNavLink :href="route('compensi-terzi.index')" :active="route().current('compensi-terzi.*')">
+                                <BanknotesIcon class="size-4 shrink-0" aria-hidden="true" />
+                                Compensi a Terzi
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('f24.index')" :active="route().current('f24.*')">
+                                <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                Modello F24
+                            </ResponsiveNavLink>
+                        </div>
                     </div>
                     <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('users.index')" :active="route().current('users.*')">
                             <UsersIcon class="size-5 shrink-0" aria-hidden="true" />
@@ -758,6 +845,22 @@ const logout = () => {
                                             <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Prima nota
                                         </NavLink>
+                                        <NavLink :href="route('scadenze.dashboard')" :active="route().current('scadenze.*')">
+                                            <CalendarDaysIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Scadenzario
+                                        </NavLink>
+                                        <NavLink :href="route('esercizi.index')" :active="route().current('esercizi.*')">
+                                            <BookOpenIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Esercizi Contabili
+                                        </NavLink>
+                                        <NavLink :href="route('ratei-risconti.index')" :active="route().current('ratei-risconti.*')">
+                                            <ClipboardDocumentListIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Ratei e Risconti
+                                        </NavLink>
+                                        <NavLink :href="route('centri-di-costo.index')" :active="route().current('centri-di-costo.*')">
+                                            <FolderIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Centri di Costo
+                                        </NavLink>
                                         <NavLink :href="route('reports.accounting')" :active="route().current('reports.accounting')">
                                             <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Report contabilità
@@ -769,6 +872,26 @@ const logout = () => {
                                         <NavLink :href="route('reports.rendiconto-cassa')" :active="route().current('reports.rendiconto-cassa')">
                                             <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Rendiconto per cassa
+                                        </NavLink>
+                                        <NavLink :href="route('reports.libro-giornale')" :active="route().current('reports.libro-giornale*')">
+                                            <BookOpenIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Libro Giornale
+                                        </NavLink>
+                                        <NavLink :href="route('reports.registro-vendite')" :active="route().current('reports.registro-vendite*')">
+                                            <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Registro Vendite
+                                        </NavLink>
+                                        <NavLink :href="route('bilancio.cee.index')" :active="route().current('bilancio.cee.*')">
+                                            <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Bilancio CEE
+                                        </NavLink>
+                                        <NavLink v-if="!$page.props.is_cooperativa" :href="route('relazione-missione.index')" :active="route().current('relazione-missione.*')">
+                                            <ClipboardDocumentListIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Relazione di Missione
+                                        </NavLink>
+                                        <NavLink v-if="!$page.props.is_cooperativa" :href="route('erogazioni-liberali.index')" :active="route().current('erogazioni-liberali.*')">
+                                            <BanknotesIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Erogazioni Liberali ETS
                                         </NavLink>
                                         <NavLink v-if="!$page.props.is_cooperativa" :href="route('scadenzario.index')" :active="route().current('scadenzario.*')">
                                             <EnvelopeIcon class="size-4 shrink-0" aria-hidden="true" />
@@ -792,6 +915,55 @@ const logout = () => {
                                         <NavLink :href="route('iva.fatture-passive.index')" :active="route().current('iva.fatture-passive.*')">
                                             <TicketIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Fatture Passive
+                                        </NavLink>
+                                        <NavLink :href="route('suppliers.index')" :active="route().current('suppliers.*')">
+                                            <UsersIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Fornitori
+                                        </NavLink>
+                                        <template v-if="$page.props.is_cooperativa">
+                                            <NavLink :href="route('iva.codici.index')" :active="route().current('iva.codici.*')">
+                                                <TableCellsIcon class="size-4 shrink-0" aria-hidden="true" />
+                                                Codici IVA
+                                            </NavLink>
+                                            <NavLink :href="route('iva.liquidazioni.index')" :active="route().current('iva.liquidazioni.*')">
+                                                <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
+                                                Liquidazioni IVA
+                                            </NavLink>
+                                            <NavLink :href="route('iva.registro-acquisti')" :active="route().current('iva.registro-acquisti')">
+                                                <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                                Registro Acquisti
+                                            </NavLink>
+                                            <NavLink :href="route('iva.registro-vendite')" :active="route().current('iva.registro-vendite')">
+                                                <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                                Registro Vendite IVA
+                                            </NavLink>
+                                            <NavLink :href="route('iva.lipe-xml')" :active="route().current('iva.lipe-xml')">
+                                                <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                                LIPE XML
+                                            </NavLink>
+                                            <NavLink :href="route('iva.acconto-iva')" :active="route().current('iva.acconto-iva')">
+                                                <BanknotesIcon class="size-4 shrink-0" aria-hidden="true" />
+                                                Acconto IVA
+                                            </NavLink>
+                                        </template>
+                                    </div>
+                                </div>
+                                <!-- Adempimenti Fiscali -->
+                                <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile')" class="mt-2">
+                                    <button type="button" class="block w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border-l-4 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50" @click="toggleSection('adempimenti')">
+                                        <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
+                                        <span class="flex-1 text-start">Adempimenti</span>
+                                        <ChevronDownIcon v-if="openSections.adempimenti" class="size-4 shrink-0" aria-hidden="true" />
+                                        <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
+                                    </button>
+                                    <div v-show="openSections.adempimenti" class="space-y-0.5 pl-4 ml-1 border-l border-gray-200 dark:border-gray-600">
+                                        <NavLink :href="route('compensi-terzi.index')" :active="route().current('compensi-terzi.*')">
+                                            <BanknotesIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Compensi a Terzi
+                                        </NavLink>
+                                        <NavLink :href="route('f24.index')" :active="route().current('f24.*')">
+                                            <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Modello F24
                                         </NavLink>
                                     </div>
                                 </div>
