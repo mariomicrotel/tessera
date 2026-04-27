@@ -10,8 +10,11 @@ test('api tokens can be created', function () {
         $this->actingAs($user = User::factory()->create());
     }
 
-    $this->post('/user/api-tokens', [
-        'name' => 'Test Token',
+    $this->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+    ])->post('/user/api-tokens', [
+        'name'        => 'Test Token',
         'permissions' => [
             'read',
             'update',

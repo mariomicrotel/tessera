@@ -6,7 +6,10 @@ use Laravel\Jetstream\Features;
 test('user accounts can be deleted', function () {
     $this->actingAs($user = User::factory()->create());
 
-    $this->delete('/user', [
+    $this->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+    ])->delete('/user', [
         'password' => 'password',
     ]);
 
@@ -18,7 +21,10 @@ test('user accounts can be deleted', function () {
 test('correct password must be provided before account can be deleted', function () {
     $this->actingAs($user = User::factory()->create());
 
-    $this->delete('/user', [
+    $this->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+    ])->delete('/user', [
         'password' => 'wrong-password',
     ]);
 

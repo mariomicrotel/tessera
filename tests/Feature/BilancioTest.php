@@ -105,7 +105,7 @@ beforeEach(function () {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Crea un movimento contabile confermato con 2 righe (DARE/AVERE). */
-function creaMovimentoBilancio(string $tenantId, int $anno, int $contoDareId, int $contoAvereId, float $importo, string $gestione = null): \App\Models\MovimentoContabile
+function creaMovimentoBilancio(string $tenantId, int $anno, int $contoDareId, int $contoAvereId, float $importo, ?string $gestione = null): \App\Models\MovimentoContabile
 {
     $mov = createTestMovimento([
         'tenant_id'          => $tenantId,

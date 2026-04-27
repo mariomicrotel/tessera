@@ -18,7 +18,10 @@ test('reset password link can be requested', function () {
 
     $user = User::factory()->create();
 
-    $response = $this->post('/forgot-password', [
+    $this->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+    ])->post('/forgot-password', [
         'email' => $user->email,
     ]);
 
@@ -32,7 +35,10 @@ test('reset password screen can be rendered', function () {
 
     $user = User::factory()->create();
 
-    $response = $this->post('/forgot-password', [
+    $this->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+    ])->post('/forgot-password', [
         'email' => $user->email,
     ]);
 
@@ -52,15 +58,21 @@ test('password can be reset with valid token', function () {
 
     $user = User::factory()->create();
 
-    $response = $this->post('/forgot-password', [
+    $this->withoutMiddleware([
+        \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+        \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+    ])->post('/forgot-password', [
         'email' => $user->email,
     ]);
 
     Notification::assertSentTo($user, ResetPassword::class, function (object $notification) use ($user) {
-        $response = $this->post('/reset-password', [
-            'token' => $notification->token,
-            'email' => $user->email,
-            'password' => 'password',
+        $response = $this->withoutMiddleware([
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+            \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+        ])->post('/reset-password', [
+            'token'                 => $notification->token,
+            'email'                 => $user->email,
+            'password'              => 'password',
             'password_confirmation' => 'password',
         ]);
 
