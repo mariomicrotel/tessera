@@ -11,7 +11,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Inertia\Response;
+use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -27,7 +27,7 @@ class FatturaAttivaController extends Controller
     // Index
     // ─────────────────────────────────────────────────────────────────────
 
-    public function index(Request $request): Response
+    public function index(Request $request): InertiaResponse
     {
         $this->authorize('viewAny', FatturaAttiva::class);
 
@@ -39,6 +39,8 @@ class FatturaAttivaController extends Controller
                 fn ($q) => $q->where('stato', $request->string('stato')))
             ->when($request->string('stato_pagamento')->isNotEmpty(),
                 fn ($q) => $q->where('stato_pagamento', $request->string('stato_pagamento')))
+            ->when($request->string('tipo_documento')->isNotEmpty(),
+                fn ($q) => $q->where('tipo_documento', $request->string('tipo_documento')))
             ->when($request->integer('anno'),
                 fn ($q) => $q->where('anno', $request->integer('anno')))
             ->orderByDesc('data_fattura')
@@ -46,13 +48,14 @@ class FatturaAttivaController extends Controller
             ->paginate(20)
             ->withQueryString();
 
-        // KPI
+        // KPI — esclude note di credito (TD04) dai totali "da incassare"
         $kpi = [
             'totale_emesse'     => (float) FatturaAttiva::emesse()->sum('totale_documento'),
             'totale_incassate'  => (float) FatturaAttiva::emesse()
                 ->where('stato_pagamento', FatturaAttiva::STATO_PAG_INCASSATA)
                 ->sum('totale_documento'),
             'totale_da_incassare' => (float) FatturaAttiva::emesse()
+                ->where('tipo_documento', '!=', 'TD04')
                 ->where('stato_pagamento', FatturaAttiva::STATO_PAG_DA_INCASSARE)
                 ->sum('totale_documento'),
         ];
@@ -60,7 +63,7 @@ class FatturaAttivaController extends Controller
         return Inertia::render('Iva/FattureAttive/Index', [
             'fatture'       => $fatture,
             'kpi'           => $kpi,
-            'filters'       => $request->only('numero', 'stato', 'stato_pagamento', 'anno'),
+            'filters'       => $request->only('numero', 'stato', 'stato_pagamento', 'tipo_documento', 'anno'),
             'statiLabel'    => [
                 FatturaAttiva::STATO_BOZZA       => 'Bozza',
                 FatturaAttiva::STATO_EMESSA       => 'Emessa',
@@ -76,7 +79,7 @@ class FatturaAttivaController extends Controller
     // Create
     // ─────────────────────────────────────────────────────────────────────
 
-    public function create(Request $request): Response
+    public function create(Request $request): InertiaResponse
     {
         $this->authorize('create', FatturaAttiva::class);
 
@@ -163,7 +166,7 @@ class FatturaAttivaController extends Controller
     // Show
     // ─────────────────────────────────────────────────────────────────────
 
-    public function show(FatturaAttiva $fatturaAttiva): Response
+    public function show(FatturaAttiva $fatturaAttiva): InertiaResponse
     {
         $this->authorize('view', $fatturaAttiva);
 
@@ -186,7 +189,7 @@ class FatturaAttivaController extends Controller
     // Edit / Update
     // ─────────────────────────────────────────────────────────────────────
 
-    public function edit(FatturaAttiva $fatturaAttiva): Response
+    public function edit(FatturaAttiva $fatturaAttiva): InertiaResponse
     {
         $this->authorize('update', $fatturaAttiva);
 
@@ -294,7 +297,7 @@ class FatturaAttivaController extends Controller
     // Crea Nota di Credito (TD04)
     // ─────────────────────────────────────────────────────────────────────
 
-    public function creaNotaCredito(FatturaAttiva $fatturaAttiva): Response
+    public function creaNotaCredito(FatturaAttiva $fatturaAttiva): InertiaResponse|RedirectResponse
     {
         if (! in_array($fatturaAttiva->stato, [
             FatturaAttiva::STATO_EMESSA,

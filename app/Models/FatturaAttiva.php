@@ -36,6 +36,7 @@ class FatturaAttiva extends Model
     protected $fillable = [
         'tenant_id',
         'cliente_id',
+        'fattura_collegata_id',
         'sezionale',
         'anno',
         'progressivo',
@@ -47,6 +48,7 @@ class FatturaAttiva extends Model
         'totale_documento',
         'esigibilita',
         'tipo_documento',
+        'motivo_nota_credito',
         'stato',
         'stato_pagamento',
         'liquidazione_iva_id',
@@ -76,6 +78,22 @@ class FatturaAttiva extends Model
     public function liquidazione(): BelongsTo
     {
         return $this->belongsTo(LiquidazioneIva::class, 'liquidazione_iva_id');
+    }
+
+    /**
+     * Fattura originale a cui questa nota di credito è collegata (TD04 → TD01).
+     */
+    public function fatturaCollegata(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'fattura_collegata_id');
+    }
+
+    /**
+     * Note di credito emesse su questa fattura.
+     */
+    public function noteCredito(): HasMany
+    {
+        return $this->hasMany(self::class, 'fattura_collegata_id');
     }
 
     public function scopeEmesse($query)

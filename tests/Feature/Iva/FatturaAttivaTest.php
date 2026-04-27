@@ -629,10 +629,11 @@ describe('FatturaAttivaController::creaNotaCredito', function () {
 
         $response = withoutAuthMiddleware($this)
             ->actingAs($this->user)
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
             ->get(route('iva.fatture-attive.crea-nota-credito', [$this->tenant->slug, $fattura->id]));
 
         $response->assertStatus(200);
-        $page = $response->viewData('page');
+        $page = json_decode($response->getContent(), true);
         expect($page['component'])->toBe('Iva/FattureAttive/CreateNotaCredito');
         expect($page['props']['fattura']['id'])->toBe($fattura->id);
     });
