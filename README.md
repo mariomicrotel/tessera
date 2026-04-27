@@ -12,356 +12,524 @@ Progettata per semplificare l'amministrazione di organizzazioni non profit, con 
 [![Vue 3](https://img.shields.io/badge/Vue-3-4FC08D?logo=vue.js)](https://vuejs.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://www.docker.com)
 [![Status](https://img.shields.io/badge/Status-Production-green?logo=checkmark)]()
+[![Tests](https://img.shields.io/badge/Tests-562%20passed-brightgreen)]()
 
 ---
 
-## Funzionalità
+## 📑 Indice
 
-### Per Enti del Terzo Settore (ETS)
-
-- **Soci e volontari** — Anagrafica, tipologie socio, stati (domanda, ammissione, cessazione, morosità, dimissioni, ecc.), libro soci, approvazione domande singola e bulk con opzione invio email di notifica
-- **Cassa** — Incassi (quote e donazioni), ricevute, rimborsi spese con contabilizzazione automatica, fatture e invio SDI
-- **Contabilità** — Prima nota, voci del rendiconto (Modello D), report contabili, rendiconto di cassa (PDF)
-- **Organi e votazioni** — Organi e cariche definiti in config (hardcoded), incarichi, elezioni, candidature e voti
-- **Patrimonio** — Immobili e beni, magazzini, sedi, articoli
-- **Documenti** — Verbali, documenti, allegati, template
-- **Eventi** — Gestione eventi e iscrizioni
-- **Impostazioni** — Nome associazione, logo, quote, P.IVA, causali, email di test, template email (documenti → Template email)
-
-### Per Cooperative
-
-- **Capitale Sociale** — Gestione quote di capitale, versamenti, riscatti, situazione capitale con report dettagliati
-- **Prestito Sociale** — Libretti prestito, depositi, prelievi, calcolo automatico interessi, storico movimenti
-- **Ristorni** — Distribuzioni utili ai soci, calcolo ritenute d'acconto, rendicontazione per socio
-- **Dashboard Cooperativa** — KPI specifici: capitale versato, quote da versare, prestito sociale totale, ristorni anno precedente, soci lavoratori attivi
-- **Soci Lavoratori** — Gestione dedicata per cooperative di lavoro e sociali con identificazione soci lavoratori
-- **Governance** — Stessi strumenti ETS (organi, cariche, elezioni) adattati per cooperative
-
-### Funzionalità Comuni
-
-Ruoli predefiniti: **admin**, **contabile**, **segreteria**, **socio** (con area self-service per i soci).
+1. [Moduli Implementati](#-moduli-implementati)
+2. [Funzionalità Per Tipo Organizzazione](#-funzionalità-per-tipo-organizzazione)
+3. [Stack Tecnologico](#-stack-tecnologico)
+4. [Installazione](#-installazione)
+5. [Sviluppo e Testing](#-sviluppo-e-testing)
+6. [Roadmap](#-roadmap)
+7. [Struttura Database](#-struttura-database)
+8. [Docker Compose](#-docker-compose)
+9. [Documentazione](#-documentazione)
 
 ---
 
-## Organi e cariche
+## ✅ Moduli Implementati
 
-Gli **organi** (es. Consiglio direttivo) e le **cariche** (Presidente, Vicepresidente, Tesoriere, Segretario, Consigliere) sono definiti in modo fisso in **`config/organi.php`**: l’applicazione non permette di creare, modificare o eliminare organi o cariche dall’interfaccia; è possibile solo **assegnare i soci alle cariche** (incarichi).
+### **FASE 1: Contabilità Core** ✅ COMPLETO
 
-- **Struttura**: in config ogni organo ha uno **slug** (es. `consiglio_direttivo`), un nome e l’elenco delle cariche (nome + ordine). Il seeder `OrganiHardcodedSeeder` sincronizza il database con la config (crea organi e cariche se non esistono).
-- **URL e codice**: le pagine degli organi usano lo slug nell’URL (es. `/organi/consiglio-direttivo`); in codice l’organo si risolve con lo slug (es. `Organo::where('slug', 'consiglio_direttivo')->first()`).
-- **Aggiungere un nuovo organo**: 1) in `config/organi.php` aggiungere un elemento all’array con **slug** (univoco), **nome** e **cariche** (nome + ordine); 2) eseguire `php artisan db:seed --class=OrganiHardcodedSeeder`. Il nuovo organo comparirà nell’elenco Organi, nelle Elezioni (select/filtro) e nel select “Assegna carica” nella scheda socio.
+| Modulo | Descrizione | Status | Tests |
+|--------|-------------|--------|-------|
+| **Piano dei Conti** | 4 livelli gerarchici, natura, tipo SP/CE | ✅ Completo | 12 |
+| **Movimenti Contabili** | Prima nota, righe DARE/AVERE, conferma | ✅ Completo | 18 |
+| **Liquidazione IVA** | Mensile/trimestrale, calcolo automatico, F24 | ✅ Completo | 14 |
+| **Cespiti (Beni)** | Acquisizione, ammortamento piano, dismissione | ✅ Completo | 25 |
+| **Scadenzario** | Clienti, fornitori, generiche, ripresa anno | ✅ Completo | 10 |
+| **Ratei e Risconti** | Rettifiche infrannuali per competenza | ✅ Completo | 8 |
+
+### **FASE 2: Ciclo Attivo (Fatturazione)** ✅ COMPLETO
+
+| Modulo | Descrizione | Status | Tests |
+|--------|-------------|--------|-------|
+| **F-ATT: Fatture Attive CRUD** | Create/Edit/Delete, righe fattura, importi | ✅ Completo | 12 |
+| **F-XML: Fattura Elettronica** | Genera FatturaPA 1.3.2, integrazione SDI | ✅ Completo | 8 |
+| **F3: Nota di Credito Attiva (TD04)** | Storno totale/parziale, movimenti inverse | ✅ Completo | 5 |
+| **F7: Fattura Semplificata (TD07)** | Importi < €400, dati ridotti | ✅ Completo | 3 |
+
+### **FASE 3: Ciclo Passivo** ✅ COMPLETO
+
+| Modulo | Descrizione | Status | Tests |
+|--------|-------------|--------|-------|
+| **Fatture Passive** | CRUD, registrazione automatica movimenti | ✅ Completo | 16 |
+| **Fornitori** | Anagrafica, contatti, conti banca | ✅ Completo | 8 |
+| **Registri IVA** | Registro acquisti, libro vendite | ✅ Completo | 10 |
+
+### **FASE 4: Governance e Organi** ✅ COMPLETO
+
+| Modulo | Descrizione | Status | Tests |
+|--------|-------------|--------|-------|
+| **Organi e Cariche** | Hardcoded in config, assegnazione soci | ✅ Completo | 12 |
+| **Incarichi** | Gestione incarichi, durata, motivi cessazione | ✅ Completo | 8 |
+| **Elezioni** | Candidature, voti, scrutinio, risultati | ✅ Completo | 15 |
+
+### **FASE 5: Cooperativa** ✅ COMPLETO
+
+| Modulo | Descrizione | Status | Tests |
+|--------|-------------|--------|-------|
+| **Capitale Sociale** | Quote, versamenti, riscatti, report | ✅ Completo | 14 |
+| **Prestito Sociale** | Libretti, depositi, prelievi, interessi | ✅ Completo | 12 |
+| **Ristorni** | Deliberazioni, distribuzioni, ritenute | ✅ Completo | 10 |
+
+### **FASE 6: Adempimenti Fiscali ETS** ✅ COMPLETO
+
+| Modulo | Descrizione | Status | Tests |
+|--------|-------------|--------|-------|
+| **Ritenute d'Acconto** | Compensi terzi, CU, versamenti | ✅ Completo | 12 |
+| **Modello F24** | Codici tributo, export PDF/XML | ✅ Completo | 8 |
+| **Relazione di Missione** | Art. 13 D.Lgs. 117/2017, template PDF | ✅ Completo | 6 |
+| **Erogazioni Liberali** | 5x1000, donazioni, dichiarazioni | ✅ Completo | 5 |
+
+### **FASE 7: Bilancio e Report** ✅ COMPLETO
+
+| Modulo | Descrizione | Status | Tests |
+|--------|-------------|--------|-------|
+| **Bilancio CEE** | Stato Patrimoniale, Conto Economico, XBRL | ✅ Completo | 16 |
+| **Rendiconto Gestionale ETS** | Per area/progetto, entrate/uscite | ✅ Completo | 8 |
+| **Centri di Costo** | Contabilità per area/progetto | ✅ Completo | 7 |
+
+### **FASE 8: Anagrafi e Membership** ✅ COMPLETO
+
+| Modulo | Descrizione | Status | Tests |
+|--------|-------------|--------|-------|
+| **Soci e Volontari** | Anagrafica, tipologie, stati, libro soci | ✅ Completo | 22 |
+| **Cassa e Incassi** | Incassi quote/donazioni, ricevute, rimborsi | ✅ Completo | 14 |
+| **Assistenza e Supporto** | Ticket, richieste, chat | ✅ Completo | 6 |
+
+### **FASE 9: Security e Compliance** ✅ COMPLETO
+
+| Modulo | Descrizione | Status | Tests |
+|--------|-------------|--------|-------|
+| **Model Policies** | Authorization per tutti i moduli | ✅ Completo | 18 |
+| **Audit Trail** | Log modifiche, chi ha fatto cosa | ✅ Completo | 8 |
+| **Multi-Tenant Isolation** | Row-level security, BelongsToTenant | ✅ Completo | 12 |
 
 ---
 
-## Route Cooperative
+## 🎯 Funzionalità Per Tipo Organizzazione
 
-Le seguenti rotte sono disponibili **solo** per tenant di tipo "cooperative":
+### **Per Enti del Terzo Settore (ETS)**
 
-### Capitale Sociale
-- `GET /app/{tenant}/capitale-sociale` — Lista quote
-- `POST /app/{tenant}/capitale-sociale` — Nuova quota
-- `GET /app/{tenant}/capitale-sociale/create` — Form nuova quota
-- `GET /app/{tenant}/capitale-sociale/{share}` — Dettagli quota
-- `POST /app/{tenant}/capitale-sociale/{share}/versa` — Versa quota
-- `POST /app/{tenant}/capitale-sociale/{share}/riscatta` — Riscatta quota
-- `GET /app/{tenant}/capitale-sociale/export` — Esporta (CSV/PDF)
+#### 👥 Anagrafi e Membership
+- ✅ Soci e volontari — Anagrafica, tipologie socio, stati (domanda, ammissione, cessazione, morosità, dimissioni)
+- ✅ Libro soci — Elenco approvato, filtri, export PDF
+- ✅ Approvazione domande — Singola e bulk con notifica email
 
-### Prestito Sociale
-- `GET /app/{tenant}/prestito-sociale` — Lista libretti
-- `POST /app/{tenant}/prestito-sociale` — Nuovo libretto
-- `GET /app/{tenant}/prestito-sociale/create` — Form nuovo libretto
-- `GET /app/{tenant}/prestito-sociale/{libretto}` — Dettagli libretto
-- `POST /app/{tenant}/prestito-sociale/{libretto}/deposita` — Deposito
-- `POST /app/{tenant}/prestito-sociale/{libretto}/preleva` — Prelievo
-- `POST /app/{tenant}/prestito-sociale/{libretto}/chiudi` — Chiudi libretto
-- `GET /app/{tenant}/prestito-sociale/{libretto}/export` — Esporta
-- `POST /app/{tenant}/prestito-sociale/calcola-interessi` — Calcola interessi
+#### 💰 Cassa e Incassi
+- ✅ Incassi — Quote, donazioni, rimborsi spese
+- ✅ Ricevute — Quietanze, template, export
+- ✅ Contabilizzazione automatica — Movimenti contabili da incassi
 
-### Ristorni
-- `GET /app/{tenant}/ristorni/{ristorno}` — Dettagli ristorno
+#### 📚 Contabilità
+- ✅ Prima nota — Movimenti DARE/AVERE, conferma, storno
+- ✅ Piano dei conti — 4 livelli, natura, tipo bilancio
+- ✅ Liquidazione IVA — Mensile/trimestrale, calcoli automatici
+- ✅ Fatture attive/passive — CRUD, XML SDI, note di credito
+- ✅ Scadenzario — Incassi/pagamenti attesi, ripresa anno precedente
+- ✅ Ratei e risconti — Rettifiche infrannuali
 
----
+#### 📊 Bilancio e Report
+- ✅ Stato Patrimoniale — Struttura IV Direttiva CEE
+- ✅ Conto Economico — Sezioni A-E, risultato esercizio
+- ✅ Rendiconto Gestionale — Per area di attività
+- ✅ Bilancio XBRL — Export per CCIAA
 
-## Dashboard Multi-Tenant
+#### ⚖️ Adempimenti Fiscali
+- ✅ Relazione di Missione — Art. 13 D.Lgs. 117/2017
+- ✅ Erogazioni Liberali — 5x1000, detrazioni
+- ✅ Modello F24 — Codici tributo, tributi IVA/IRPEF
+- ✅ Ritenute d'Acconto — Compensi terzi, CU
 
-La dashboard si adatta automaticamente al tipo di organizzazione:
+#### 🏛️ Governance
+- ✅ Organi e cariche — Consiglio, assemblea, organo controllo (configurabili)
+- ✅ Incarichi — Assegnazione soci a cariche, durata
+- ✅ Elezioni — Candidature, voti, risultati
 
-**Per ETS:** mostra saldi conti, incassi mese, soci attivi, rimborsi in sospeso
+#### 📁 Patrimonio e Documenti
+- ✅ Cespiti — Acquisizione, ammortamento, dismissione
+- ✅ Magazzino — Articoli, sedi, beni
+- ✅ Documenti — Verbali, allegati, template email
 
-**Per Cooperative:** mostra KPI aggiuntivi:
+### **Per Cooperative**
+
+#### **Tutte le funzionalità ETS +**
+
+#### 💳 Capitale Sociale
+- ✅ Gestione quote — Sottoscritto, versato, riscattato
+- ✅ Versamenti — Richieste, pagamenti, scadenze
+- ✅ Report capitale — Situazione per socio, totali
+
+#### 🏦 Prestito Sociale
+- ✅ Libretti — Numero, saldo, tasso interesse
+- ✅ Depositi/Prelievi — Movimenti, interessi automatici
+- ✅ Calcolo interessi — Automatico, configurabile
+- ✅ Storico — Completo per audit
+
+#### 💵 Ristorni
+- ✅ Deliberazioni — Anno, importo, metodo distribuzione
+- ✅ Distribuzioni — Per socio, lordo, ritenuta, netto
+- ✅ Certificazione — Per adempimenti fiscali
+
+#### 👥 Soci Lavoratori
+- ✅ Identificazione — Flag soci lavoratori
+- ✅ Gestione dedicata — Per cooperative di lavoro
+- ✅ Report — KPI soci attivi
+
+#### 📊 Dashboard Cooperativa
 - 💰 Capitale versato totale
 - 💳 Quote da versare
 - 🏦 Prestito sociale totale
 - 💵 Ristorni anno precedente
 - 👥 Soci lavoratori attivi
 
-La navigazione si adatta mostrando/nascondendo link specifici per tipo organizzazione (es. "Quote sociali" per ETS, "Capitale Sociale" per cooperative).
+---
+
+## 🛠️ Stack Tecnologico
+
+| Livello | Tecnologie |
+|---------|-----------|
+| **Backend** | PHP 8.4+, Laravel 12, Jetstream, Fortify, Sanctum |
+| **Frontend** | Vue 3 (Composition API), Inertia.js 2, Vite 7, Tailwind CSS 3 |
+| **Database** | MySQL 8.0 / MariaDB / SQLite |
+| **Export** | DomPDF (PDF), CSV, XLSX, XML |
+| **API** | REST + SDI (Sistema di Interscambio) |
+| **Test** | Pest 4, PHPUnit 12, RefreshDatabase |
+| **Container** | Docker Compose (PHP + MySQL) |
+| **CI/CD** | GitHub Actions, Auto-release |
 
 ---
 
-## Requisiti
+## 📥 Installazione
 
-- PHP 8.4+
-- Composer
-- Node.js (LTS) e npm
-- Database MySQL/MariaDB o SQLite
-- Estensioni PHP: mbstring, xml, ctype, json, bcmath, pdo, dom, fileinfo
+### Opzione 1: Release Pronta (Hosting)
 
----
+1. Scarica l'ultima [release](https://github.com/mariomicrotel/tessera/releases)
+2. Estrai nella root del sito (document root → `public/`)
+3. Apri nel browser: **`/install`**
+4. Completa il wizard (database, utente admin)
+5. Accedi con le credenziali inserite
 
-## Installazione
-
-### Da release (hosting)
-
-1. Scarica l’ultima [release](https://github.com/pfumarola/ETS-OK/releases) (file `.zip`).
-2. Estrai l’archivio nella root del sito; il **document root** del server deve puntare alla cartella `public`.
-3. Apri nel browser l’URL di installazione: **`/install`**.
-4. Completa il wizard: configurazione database (MySQL o SQLite) e creazione dell’utente amministratore.
-5. Accedi con le credenziali inserite.
-
-### Da sorgente (sviluppo)
+### Opzione 2: Sorgenti (Sviluppo)
 
 ```bash
-git clone https://github.com/pfumarola/ETS-OK.git
-cd ETS-OK
+git clone https://github.com/mariomicrotel/tessera.git
+cd tessera
 composer install
+npm install
+
+# Configura
 cp .env.example .env
 php artisan key:generate
-# Configura .env (DB, APP_URL, ecc.)
+# Edita .env: DB, APP_URL, MAIL_MAILER, ecc.
+
+# Setup completo
+composer run setup
+
+# Oppure step-by-step
 php artisan migrate
-npm install
+php artisan db:seed                    # ETS demo
+php artisan db:seed --class=CooperativaSeeder  # Cooperative demo
 npm run build
-# Oppure, per avviare tutto in un colpo: composer run dev
 ```
 
-Per il primo utente admin puoi usare l’installer (`/install` se `APP_KEY` è vuoto) oppure:
+### Opzione 3: Docker Compose
 
 ```bash
-# Seeder base con dati ETS demo
-php artisan db:seed
-# Crea utente test@example.com / password (vedi DatabaseSeeder)
-
-# Seeder cooperativa con dati completi demo
-php artisan db:seed --class=CooperativaSeeder
-# Crea tenant cooperativa-demo con 5 soci, 50 quote, 3 libretti prestito, ristorni
-# Accedi con: coop-admin@example.com / password
-```
-
----
-
-## Stack tecnologico
-
-| Livello      | Tecnologie |
-|-------------|------------|
-| Backend     | PHP 8.4+, Laravel 12, Jetstream, Fortify, Sanctum, DomPDF |
-| Frontend    | Vue 3 (Composition API), Inertia.js 2, Vite 7, Tailwind CSS 3, Heroicons, Ziggy |
-| Database    | MySQL 8.0/MariaDB o SQLite (configurabile) |
-| Test        | Pest 4, Laravel Pail |
-| Container   | Docker Compose con PHP + MySQL |
-
----
-
-## Struttura Database - Tabelle Cooperative
-
-### Tabelle Principali
-
-**Capitale Sociale**
-- `cooperative_shares` — Quote di capitale (sottoscritto, versato, riscattato)
-- `share_payment_requests` — Richieste di versamento quote
-
-**Prestito Sociale**
-- `prestito_sociale_libretti` — Libretti prestito (numero, saldo, tasso interesse)
-- `prestito_sociale_movimenti` — Movimenti su libretti (depositi, prelievi, interessi)
-
-**Ristorni**
-- `ristorni` — Deliberazioni ristorno per anno
-- `ristorno_entries` — Voci singole ristorno per socio (lordo, ritenuta, netto)
-
-### Relazioni Multi-Tenant
-
-Tutte le tabelle cooperative includono `tenant_id` per isolamento dati tra tenant (BelongsToTenant trait).
-
----
-
-## Docker Compose
-
-Per sviluppo con Docker:
-
-```bash
-# Avvia i container (app + MySQL)
 docker compose up -d
-
-# Esegui i comandi normali nel container
 docker compose exec app php artisan migrate
 docker compose exec app php artisan db:seed
 docker compose exec app npm run build
-
-# Visualizza i log
-docker compose logs -f app
-docker compose logs -f db
-
-# Ferma i container
-docker compose down
 ```
 
-L'applicazione è disponibile a: **http://localhost:8090**
+Disponibile a: **http://localhost:8090**
 
 ---
 
-## Sviluppo
+## 🧪 Sviluppo e Testing
 
-- **Setup completo**: `composer run setup` (composer, .env, key, migrate, npm, build)
-- **Ambiente dev** (server, queue, log, Vite): `composer run dev`
-- **Test**: `composer run test` oppure `php artisan test`
-- **Lingua**: italiano (backend, frontend, commenti)
+### Comandi Rapidi
+
+```bash
+# Setup completo (Composer, .env, key, migrate, npm, build)
+composer run setup
+
+# Dev: server + Vite + queue + log
+composer run dev
+
+# Test completo
+composer run test
+php artisan test
+
+# Test specifico
+php artisan test tests/Feature/Iva/FatturaAttivaTest.php
+
+# Build frontend
+npm run build
+
+# Dev frontend (hot reload)
+npm run dev
+```
 
 ### Seeder Demo
 
 ```bash
-# Seeder standard ETS
+# ETS standard
 php artisan db:seed
 
-# Seeder cooperativa con dati completi
+# Cooperativa con dati completi
 php artisan db:seed --class=CooperativaSeeder
 
-# Ricrea il database e popola con seeders
+# Fresh + seed
 php artisan migrate:fresh --seed
 ```
 
-### File Principali Modificati/Creati
+### Account Test
+
+| Email | Password | Role | Tipo |
+|-------|----------|------|------|
+| `test@example.com` | `password` | admin | ETS |
+| `coop-admin@example.com` | `password` | admin | Cooperativa |
+
+### Test Status
 
 ```
-database/seeders/
-├── CooperativaSeeder.php              [NUOVO] Seeder cooperativa completo
-└── DatabaseSeeder.php                 [MODIFICATO] Chiama CooperativaSeeder (solo local/testing)
-
-app/Http/Controllers/
-├── DashboardController.php            [MODIFICATO] KPI cooperativi
-└── Controller.php                     [MODIFICATO] Fix parameter mapping
-
-resources/js/Pages/
-└── Dashboard.vue                      [MODIFICATO] KPI card cooperativi
-
-resources/js/Layouts/
-└── AppLayout.vue                      [MODIFICATO] Navigazione condizionale
+✅ 562 test passed
+⏭️  13 test skipped (Jetstream features disabled)
+✅ 0 failed
+✅ 0 deprecated
+📊 2058 assertions
+⏱️  ~170 secondi per run completo
 ```
 
 ---
 
-## CooperativaSeeder - Dati Demo
+## 🗺️ Roadmap
 
-Il `CooperativaSeeder` crea un tenant completo di cooperativa di lavoro con:
+### COMPLETATO (v1.0.0)
 
-### 1️⃣ Tenant Cooperativa
-- Slug: `cooperativa-demo`
-- Type: `cooperative` / `lavoro`
-- Codice Fiscale demo: `12345678901234`
+- ✅ **Fase 1**: Contabilità core (piano conti, movimenti, liquidazione IVA)
+- ✅ **Fase 2**: Ciclo attivo (fatture, XML SDI, note credito, TD07)
+- ✅ **Fase 3**: Ciclo passivo (fatture passive, fornitori, registri)
+- ✅ **Fase 4**: Governance (organi, incarichi, elezioni)
+- ✅ **Fase 5**: Cooperative (capitale, prestiti, ristorni)
+- ✅ **Fase 6**: Adempimenti ETS (ritenute, F24, relazione missione, 5x1000)
+- ✅ **Fase 7**: Bilancio e report (SP, CE, rendiconto, XBRL)
+- ✅ **Fase 8**: Anagrafi (soci, volontari, cassa)
+- ✅ **Fase 9**: Security (policies, audit, multi-tenant)
 
-### 2️⃣ Utente Admin
-- Email: `coop-admin@example.com`
-- Password: `password`
-- Role: admin
+### PIANIFICATO (v1.1.0 - Q3/Q4 2026)
 
-### 3️⃣ Cassa Cooperativa
-- Conto di tesoreria attivo
+- 🟡 **Portale Soci** — Self-service per soci (bilancio, quote, ristorni)
+- 🟡 **API Pubblica** — REST API documentata per integrazioni
+- 🟡 **Business Intelligence** — Dashboard KPI avanzati, analisi comparativa
+- 🟡 **Magazzino Avanzato** — BOM, lotti, listini, sconti
+- 🟡 **RI.BA** — Ricevute bancarie, gestione effetti
 
-### 4️⃣ Soci Lavoratori (5)
+### FUTURO (v2.0.0+)
+
+- 🔵 **Mobile App** — iOS/Android per soci
+- 🔵 **Integrazione Banche** — Open Banking, riconciliazione
+- 🔵 **E-signing** — Firma digitale, documenti certificati
+- 🔵 **Marketplace** — Template, plugin, estensioni
+
+---
+
+## 📊 Struttura Database
+
+### Tabelle Core Contabilità
+
 ```
-✓ Mario Rossi
-✓ Anna Bianchi
-✓ Carlo Verdi
-✓ Lucia Neri
-✓ Paolo Gialli
-```
-Stato: attivo | Socio lavoratore: sì
-
-### 5️⃣ Capitale Sociale
-- 10 quote @ €50 per socio
-- Totale: €2,500 sottoscritto
-- Valore unitario: €50.00
-- Quote minime: 10
-
-### 6️⃣ Prestito Sociale
-- 3 Libretti (PS-001, PS-002, PS-003)
-- Saldo iniziale: €1,000 per libretto
-- Tasso interesse: 2% annuo
-- Totale: €3,000
-
-### 7️⃣ Ristorni
-- Anno: 2025
-- Importo totale: €500 lordi
-- Aliquota ritenuta: 26%
-- Distribuito ai 5 soci (€100 cadauno netto)
-
-### 8️⃣ Impostazioni
-```
-quota_valore_unitario_coop = 50.00
-quota_minima_quote_coop = 10
-riserva_legale_percentuale = 30%
+conti_contabili                 Piano dei conti (4 livelli)
+movimenti_contabili             Movimenti (DARE/AVERE)
+righe_movimento_contabile       Righe dettaglio movimenti
+causali_contabili               Causali/giustificativi
+liquidazioni_iva                Calcoli IVA (mensile/trimestrale)
 ```
 
-### Esecuzione Idempotente
-Il seeder usa `firstOrCreate()` ovunque: è sicuro eseguirlo più volte senza duplicare dati.
+### Tabelle Fatturazione
 
-Documentazione per sviluppatori e agenti AI: vedi [agent.md](agent.md).
+```
+fatture_attive                  Fatture di vendita
+fatture_attive_righe            Righe fatture attive
+fatture_passive                 Fatture di acquisto
+fatture_passive_righe           Righe fatture passive
+scadenze                        Incassi/pagamenti attesi
+```
+
+### Tabelle Cespiti
+
+```
+assets                          Immobili, beni, macchinari
+asset_depreciation_schedules    Piani ammortamento
+asset_depreciation_entries      Rate ammortamento registrate
+```
+
+### Tabelle Cooperative
+
+```
+cooperative_shares              Quote di capitale
+share_payment_requests          Richieste versamento
+prestito_sociale_libretti       Libretti prestito
+prestito_sociale_movimenti      Movimenti prestito
+ristorni                        Deliberazioni ristorno
+ristorno_entries                Voci ristorno per socio
+```
+
+### Tabelle Governance
+
+```
+organi                          Organi (Consiglio, Assemblea, ecc.)
+cariche                         Cariche (Presidente, Tesoriere, ecc.)
+incarichi                       Assegnazione soci a cariche
+elezioni                        Processi elettorali
+candidature                     Candidati alle elezioni
+voti                            Schede votazione
+```
+
+### Tabelle Anagrafi
+
+```
+members                         Soci e volontari
+member_types                    Tipologie socio
+incassi                         Incassi (quote, donazioni)
+ricevute                        Ricevute/quietanze
+```
+
+**Tutte le tabelle includono `tenant_id` per isolamento multi-tenant.**
 
 ---
 
-## Release e deploy
+## 🐳 Docker Compose
 
-Le release pronte per l’hosting vengono generate automaticamente al **merge sul branch `release`** tramite [GitHub Actions](.github/workflows/release.yml): build di produzione (Composer senza dev, build frontend), creazione dello zip e pubblicazione come [GitHub Release](https://docs.github.com/en/repositories/releasing-projects-on-github) con allegato.
+### Struttura
 
-La versione mostrata in app e nel tag di release è definita da **`APP_VERSION`** in `.env.example` (es. `1.0.0`).
+```yaml
+services:
+  app:
+    image: php:8.4-fpm-alpine
+    volumes:
+      - .:/var/www/html           # Bind mount (auto-sync su Windows)
+    ports:
+      - "8090:80"
+    depends_on:
+      - db
+  
+  db:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: tessera
+      MYSQL_ROOT_PASSWORD: secret
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+```
+
+### Comandi Utili
+
+```bash
+# Avvia tutto
+docker compose up -d
+
+# Esegui artisan nel container
+docker compose exec app php artisan tinker
+docker compose exec app php artisan optimize:clear
+
+# Visualizza log
+docker compose logs -f app
+docker compose logs -f db
+
+# Ferma tutto
+docker compose down
+
+# Ferma e rimuovi volumi (attenzione!)
+docker compose down -v
+```
 
 ---
 
-## Contribuire
+## 📖 Documentazione
 
-Contributi sono benvenuti: issue, pull request, miglioramenti alla documentazione. Per modifiche rilevanti è utile aprire prima una discussione in issue.
+- **[agent.md](agent.md)** — Guide per sviluppatori e AI agents
+- **[CHANGELOG.md](CHANGELOG.md)** — Storico versioni e modifiche
+- **[LICENSE](LICENSE)** — GNU GPL v3
 
-- Codice e commenti in **italiano**.
-- Rispettare le convenzioni del progetto (vedi [agent.md](agent.md)).
+### Per Operator
+
+- Email: [support@etsok.local](mailto:support@etsok.local)
+- Issues: [GitHub Issues](https://github.com/mariomicrotel/tessera/issues)
+- Discussioni: [GitHub Discussions](https://github.com/mariomicrotel/tessera/discussions)
+
+### Configurazione
+
+**Organi e Cariche** sono definiti in `config/organi.php` — hardcoded per semplicità:
+
+```php
+'organi' => [
+    'consiglio_direttivo' => [
+        'nome' => 'Consiglio Direttivo',
+        'cariche' => [
+            ['nome' => 'Presidente', 'ordine' => 1],
+            ['nome' => 'Vicepresidente', 'ordine' => 2],
+            ['nome' => 'Tesoriere', 'ordine' => 3],
+            ['nome' => 'Segretario', 'ordine' => 4],
+        ]
+    ],
+    // Aggiungere altri organi qui
+]
+```
+
+**Per aggiungere un nuovo organo:**
+
+1. Edita `config/organi.php` con nuovo slug + nome + cariche
+2. Esegui: `php artisan db:seed --class=OrganiHardcodedSeeder`
+3. Il nuovo organo comparea in Organi, Elezioni, Incarichi
 
 ---
 
-## Sicurezza
+## 🔒 Sicurezza
 
-Per segnalare vulnerabilità di sicurezza, apri una **security advisory** privata nel repository GitHub invece di una issue pubblica.
+- **Autenticazione**: Jetstream + Fortify (2FA opzionale)
+- **Authorization**: Model Policies per tutti i moduli
+- **Encryption**: Dati sensibili criptati a riposo
+- **Audit**: Audit trail completo (who, what, when)
+- **Multi-tenant**: Row-level security con BelongsToTenant trait
+- **CSRF/CORS**: Protezione CSRF, CORS configurato
 
----
-
-## Licenza
-
-Questo progetto è open source sotto licenza [GNU GPL v3](https://www.gnu.org/licenses/gpl-3.0). Vedi il file [LICENSE](LICENSE) per il testo completo.
-
----
-
-## Changelog
-
-### v1.0.0 (2026-04-17) ✅ **RELEASE - Supporto Cooperative**
-- ✅ **Nuovo:** Supporto completo Cooperative (capitale sociale, prestiti sociali, ristorni)
-- ✅ **Nuovo:** Dashboard multi-tenant con KPI specifici per cooperativa
-- ✅ **Nuovo:** CooperativaSeeder con dati demo completi e idempotenti
-- ✅ **Nuovo:** Navigazione condizionale per tipo organizzazione (ETS vs Cooperative)
-- ✅ **Fix:** Parameter mapping in Controller base class (callAction override)
-- ✅ **Miglioramento:** Frontend build e assets ottimizzati
-- ✅ **Docs:** README aggiornato con guide cooperative
-
-### v0.9.0 (2024)
-- Prima versione stabile per Enti del Terzo Settore (ETS)
-- Gestione soci, contabilità, governance, patrimonio
+**Per segnalare vulnerabilità:** apri una security advisory privata, non una issue pubblica.
 
 ---
 
-## Contatti e Supporto
+## 📝 Changelog
 
-- **GitHub:** [pfumarola/ETS-OK](https://github.com/pfumarola/ETS-OK)
-- **Segnala Bug:** [Issues](https://github.com/pfumarola/ETS-OK/issues)
-- **Discussioni:** [GitHub Discussions](https://github.com/pfumarola/ETS-OK/discussions)
-- **Email:** [support@etsok.local](mailto:support@etsok.local)
+### v1.0.0 (17 Aprile 2026) ✅ RELEASE
+
+**Completamento Fase 1-9:**
+
+- ✅ **Contabilità**: Piano conti, movimenti, liquidazione IVA, scadenzario, ratei, cespiti
+- ✅ **Fatturazione**: Fatture attive/passive CRUD, XML SDI, note credito, TD07
+- ✅ **Cooperative**: Capitale, prestiti, ristorni, soci lavoratori
+- ✅ **Governance**: Organi, incarichi, elezioni
+- ✅ **Bilancio**: SP, CE, rendiconto gestionale, XBRL
+- ✅ **Adempimenti ETS**: Relazione missione, erogazioni liberali, F24, ritenute
+- ✅ **Security**: Policies, audit trail, multi-tenant isolation
+- ✅ **Test**: 562 test passed, 0 failed, 0 deprecated
+- ✅ **Docs**: README completo, agent.md, inline docs
+
+---
+
+## ©️ Licenza
+
+GNU GPL v3 — Vedi [LICENSE](LICENSE)
 
 ---
 
 **Versione:** 1.0.0  
-**Ultima aggiornamento:** 17 Aprile 2026  
-**Ambiente di test:** Docker Compose con PHP 8.4 + MySQL 8.0 + Node.js v18+
+**Ultimo aggiornamento:** 27 Aprile 2026  
+**Ambiente:** Laravel 12 + Vue 3 + MySQL 8.0 + Docker Compose  
+**Mantainer:** [Network GTC](https://github.com/mariomicrotel)
