@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::create('audit_logs', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('tenant_id')->index();
+            $table->char('tenant_id', 36)->index(); // UUID — references tenants.id (no FK per flessibilità)
             $table->unsignedBigInteger('user_id')->nullable()->index(); // null = sistema/CLI
             $table->string('user_email')->nullable();      // snapshot email (non FK)
             $table->string('entity_type', 100)->index();  // es. App\Models\FatturaAttiva

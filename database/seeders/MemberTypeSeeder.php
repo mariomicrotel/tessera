@@ -9,9 +9,12 @@ class MemberTypeSeeder extends Seeder
 {
     public function run(): void
     {
+        if (! app()->bound('current_tenant')) {
+            return;
+        }
+
         $tenant = app('current_tenant');
-        if (!$tenant) {
-            $this->command->warn('⚠️ Nessun tenant trovato. Saltando MemberTypeSeeder.');
+        if (! $tenant) {
             return;
         }
 

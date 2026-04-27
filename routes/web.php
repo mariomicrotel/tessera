@@ -392,7 +392,7 @@ Route::middleware([
     Route::get('reports/registro-vendite/export', [AccountingReportController::class, 'exportRegistroVendite'])->name('reports.registro-vendite.export');
 
     // ── Compensi a Terzi / Ritenute d'Acconto (G1) ───────────────────────
-    Route::get('compensi-terzi',                                      [CompensaTerziController::class, 'index'])->name('compensi-terzi.index');
+    Route::get('compensi-terzi',                                      [CompensaTerziController::class, 'index'])->name('compensi-terzi.index')->middleware('role:admin,contabile');
     Route::get('compensi-terzi/create',                               [CompensaTerziController::class, 'create'])->name('compensi-terzi.create')->middleware('role:admin,contabile');
     Route::post('compensi-terzi',                                     [CompensaTerziController::class, 'store'])->name('compensi-terzi.store')->middleware('role:admin,contabile');
     Route::get('compensi-terzi/riepilogo',                            [CompensaTerziController::class, 'riepilogo'])->name('compensi-terzi.riepilogo');
@@ -405,7 +405,7 @@ Route::middleware([
     Route::delete('compensi-terzi/{compensiTerzi}',                   [CompensaTerziController::class, 'destroy'])->name('compensi-terzi.destroy')->middleware('role:admin,contabile');
 
     // ── Modello F24 (G2) ─────────────────────────────────────────────────
-    Route::get('f24',                         [ModelloF24Controller::class, 'index'])->name('f24.index');
+    Route::get('f24',                         [ModelloF24Controller::class, 'index'])->name('f24.index')->middleware('role:admin,contabile');
     Route::get('f24/create',                  [ModelloF24Controller::class, 'create'])->name('f24.create')->middleware('role:admin,contabile');
     Route::post('f24',                        [ModelloF24Controller::class, 'store'])->name('f24.store')->middleware('role:admin,contabile');
     Route::get('f24/{f24}',                   [ModelloF24Controller::class, 'show'])->name('f24.show');

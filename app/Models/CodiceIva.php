@@ -25,6 +25,12 @@ class CodiceIva extends Model
 
     protected $table = 'codici_iva';
 
+    /** Valori di default Eloquent (rispecchia i default della migration). */
+    protected $attributes = [
+        'di_sistema' => false,
+        'attivo'     => true,
+    ];
+
     protected $fillable = [
         'tenant_id',
         'codice',

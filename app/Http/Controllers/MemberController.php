@@ -109,6 +109,12 @@ class MemberController extends Controller
 
     public function show(Member $member)
     {
+        // Tenant isolation: route model binding bypasses global scope, so we verify explicitly
+        $currentTenant = app('current_tenant');
+        if ($member->tenant_id !== $currentTenant->id) {
+            abort(404);
+        }
+
         $this->authorize('view', $member);
         $member->load([
             'memberType',

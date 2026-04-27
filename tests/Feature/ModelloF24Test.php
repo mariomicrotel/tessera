@@ -300,23 +300,24 @@ describe('ModelloF24Service::generaXml', function () {
 describe('ModelloF24Controller::index', function () {
 
     it('restituisce pagina index con KPI', function () {
-        $this->withoutMiddleware(HandleInertiaRequests::class);
-
         $response = $this->actingAs($this->user)
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
             ->get(route('f24.index', $this->tenant));
-
-        $response->assertInertia(fn ($p) => $p
-            ->component('F24/Index')
-            ->has('modelli')
-            ->has('kpi')
-            ->has('statiLabel')
-        );
+        $response->assertStatus(200);
+        $page = json_decode($response->getContent(), true);
+        expect($page['component'])->toBe('F24/Index');
+        expect($page['props'])->toHaveKey('modelli');
+        expect($page['props'])->toHaveKey('kpi');
+        expect($page['props'])->toHaveKey('statiLabel');
     });
 
     it('blocca utente senza ruolo', function () {
-        $this->actingAs($this->userSenza)
-            ->get(route('f24.index', $this->tenant))
-            ->assertForbidden();
+        $this->withoutMiddleware([
+                 \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+             ])
+             ->actingAs($this->userSenza)
+             ->get(route('f24.index', $this->tenant))
+             ->assertForbidden();
     });
 
 });
@@ -328,17 +329,16 @@ describe('ModelloF24Controller::index', function () {
 describe('ModelloF24Controller::create', function () {
 
     it('restituisce pagina create con liquidazioni e versamenti', function () {
-        $this->withoutMiddleware(HandleInertiaRequests::class);
-
-        $this->actingAs($this->user)
-            ->get(route('f24.create', $this->tenant))
-            ->assertInertia(fn ($p) => $p
-                ->component('F24/Create')
-                ->has('sezioni')
-                ->has('liquidazioni')
-                ->has('versamenti')
-                ->has('codiciFrecuenti')
-            );
+        $response = $this->actingAs($this->user)
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+            ->get(route('f24.create', $this->tenant));
+        $response->assertStatus(200);
+        $page = json_decode($response->getContent(), true);
+        expect($page['component'])->toBe('F24/Create');
+        expect($page['props'])->toHaveKey('sezioni');
+        expect($page['props'])->toHaveKey('liquidazioni');
+        expect($page['props'])->toHaveKey('versamenti');
+        expect($page['props'])->toHaveKey('codiciFrecuenti');
     });
 
 });
@@ -361,8 +361,12 @@ describe('ModelloF24Controller::store (manuale)', function () {
             ]],
         ];
 
-        $response = $this->actingAs($this->user)
-            ->post(route('f24.store', $this->tenant), $payload);
+        $response = $this->withoutMiddleware([
+                 \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+                 \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+             ])
+             ->actingAs($this->user)
+             ->post(route('f24.store', $this->tenant), $payload);
 
         $response->assertRedirect();
 
@@ -384,8 +388,12 @@ describe('ModelloF24Controller::store (da liquidazione)', function () {
     it('genera F24 da liquidazione IVA', function () {
         $liq = liquidazioneBase($this->tenant);
 
-        $response = $this->actingAs($this->user)
-            ->post(route('f24.store', $this->tenant), [
+        $response = $this->withoutMiddleware([
+                 \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+                 \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+             ])
+             ->actingAs($this->user)
+             ->post(route('f24.store', $this->tenant), [
                 'modalita'           => 'da_liquidazione',
                 'anno'               => 2026,
                 'data_compilazione'  => '2026-02-15',
@@ -410,16 +418,18 @@ describe('ModelloF24Controller::store (da liquidazione)', function () {
 describe('ModelloF24Controller::show', function () {
 
     it('mostra il dettaglio del modello F24', function () {
-        $this->withoutMiddleware(HandleInertiaRequests::class);
-
         $svc     = app(ModelloF24Service::class);
         $modello = $svc->crea($this->tenant, [
             'anno' => 2026, 'data_compilazione' => '2026-02-15',
         ], righeF24());
 
-        $this->actingAs($this->user)
-            ->get(route('f24.show', [$this->tenant, $modello]))
-            ->assertInertia(fn ($p) => $p->component('F24/Show')->has('modello'));
+        $response = $this->actingAs($this->user)
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+            ->get(route('f24.show', [$this->tenant, $modello]));
+        $response->assertStatus(200);
+        $page = json_decode($response->getContent(), true);
+        expect($page['component'])->toBe('F24/Show');
+        expect($page['props'])->toHaveKey('modello');
     });
 
 });
@@ -432,9 +442,13 @@ describe('ModelloF24Controller::destroy', function () {
             'anno' => 2026, 'data_compilazione' => '2026-02-15',
         ]);
 
-        $this->actingAs($this->user)
-            ->delete(route('f24.destroy', [$this->tenant, $modello]))
-            ->assertRedirect(route('f24.index', $this->tenant));
+        $this->withoutMiddleware([
+                 \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+                 \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+             ])
+             ->actingAs($this->user)
+             ->delete(route('f24.destroy', [$this->tenant, $modello]))
+             ->assertRedirect(route('f24.index', $this->tenant));
 
         $this->assertDatabaseMissing('modelli_f24', ['id' => $modello->id]);
     });
@@ -463,8 +477,12 @@ describe('ModelloF24Controller::segnaVersato', function () {
             'anno' => 2026, 'data_compilazione' => '2026-02-15',
         ]);
 
-        $this->actingAs($this->user)
-            ->post(route('f24.versa', [$this->tenant, $modello]), [
+        $this->withoutMiddleware([
+                 \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+                 \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+             ])
+             ->actingAs($this->user)
+             ->post(route('f24.versa', [$this->tenant, $modello]), [
                 'data_versamento' => '2026-02-16',
             ])
             ->assertRedirect(route('f24.show', [$this->tenant, $modello]));

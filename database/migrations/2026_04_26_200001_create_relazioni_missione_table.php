@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('relazioni_missione', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('tenant_id')->constrained('tenants')->cascadeOnDelete();
 
             // Periodo di riferimento
             $table->unsignedSmallInteger('anno');

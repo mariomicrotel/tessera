@@ -12,7 +12,6 @@
  *  - Middleware role:admin,contabile
  */
 
-use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CompensaTerzi;
 use App\Models\Role;
 use App\Models\Tenant;
@@ -250,27 +249,27 @@ describe('CompensaTerziService::riepilogoAnnuale', function () {
 describe('CompensaTerziController::index', function () {
 
     it('restituisce la pagina index con KPI', function () {
-        $this->withoutMiddleware(HandleInertiaRequests::class);
-
         $svc = app(CompensaTerziService::class);
         $svc->crea($this->tenant, compensoBase());
 
         $response = $this->actingAs($this->user)
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
             ->get(route('compensi-terzi.index', $this->tenant));
 
-        $response->assertInertia(
-            fn ($page) => $page
-                ->component('CompensaTerzi/Index')
-                ->has('compensi')
-                ->has('kpi')
-                ->has('filters')
-                ->has('anni')
-                ->has('statiLabel')
-        );
+        $response->assertStatus(200);
+        $page = json_decode($response->getContent(), true);
+        expect($page['component'])->toBe('CompensaTerzi/Index');
+        expect($page['props'])->toHaveKey('compensi');
+        expect($page['props'])->toHaveKey('kpi');
+        expect($page['props'])->toHaveKey('filters');
+        expect($page['props'])->toHaveKey('anni');
+        expect($page['props'])->toHaveKey('statiLabel');
     });
 
     it('blocca utente senza ruolo', function () {
-        $response = $this->actingAs($this->userSenza)
+        $response = $this->withoutMiddleware([
+            \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+        ])->actingAs($this->userSenza)
             ->get(route('compensi-terzi.index', $this->tenant));
 
         $response->assertForbidden();
@@ -285,17 +284,15 @@ describe('CompensaTerziController::index', function () {
 describe('CompensaTerziController::create', function () {
 
     it('restituisce la pagina create', function () {
-        $this->withoutMiddleware(HandleInertiaRequests::class);
-
         $response = $this->actingAs($this->user)
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
             ->get(route('compensi-terzi.create', $this->tenant));
 
-        $response->assertInertia(
-            fn ($page) => $page
-                ->component('CompensaTerzi/Create')
-                ->has('tipiRapporto')
-                ->has('causali')
-        );
+        $response->assertStatus(200);
+        $page = json_decode($response->getContent(), true);
+        expect($page['component'])->toBe('CompensaTerzi/Create');
+        expect($page['props'])->toHaveKey('tipiRapporto');
+        expect($page['props'])->toHaveKey('causali');
     });
 
 });
@@ -303,8 +300,12 @@ describe('CompensaTerziController::create', function () {
 describe('CompensaTerziController::store', function () {
 
     it('crea il compenso e redirige al dettaglio', function () {
-        $response = $this->actingAs($this->user)
-            ->post(route('compensi-terzi.store', $this->tenant), compensoBase());
+        $response = $this->withoutMiddleware([
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+            \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+        ])
+        ->actingAs($this->user)
+        ->post(route('compensi-terzi.store', $this->tenant), compensoBase());
 
         $response->assertRedirect();
 
@@ -318,8 +319,12 @@ describe('CompensaTerziController::store', function () {
     it('fallisce la validazione senza codice fiscale', function () {
         $data = compensoBase(['codice_fiscale' => '']);
 
-        $response = $this->actingAs($this->user)
-            ->post(route('compensi-terzi.store', $this->tenant), $data);
+        $response = $this->withoutMiddleware([
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+            \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+        ])
+        ->actingAs($this->user)
+        ->post(route('compensi-terzi.store', $this->tenant), $data);
 
         $response->assertSessionHasErrors('codice_fiscale');
     });
@@ -333,19 +338,17 @@ describe('CompensaTerziController::store', function () {
 describe('CompensaTerziController::show', function () {
 
     it('mostra il dettaglio del compenso', function () {
-        $this->withoutMiddleware(HandleInertiaRequests::class);
-
         $svc      = app(CompensaTerziService::class);
         $compenso = $svc->crea($this->tenant, compensoBase());
 
         $response = $this->actingAs($this->user)
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
             ->get(route('compensi-terzi.show', [$this->tenant, $compenso]));
 
-        $response->assertInertia(
-            fn ($page) => $page
-                ->component('CompensaTerzi/Show')
-                ->has('compenso')
-        );
+        $response->assertStatus(200);
+        $page = json_decode($response->getContent(), true);
+        expect($page['component'])->toBe('CompensaTerzi/Show');
+        expect($page['props'])->toHaveKey('compenso');
     });
 
 });
@@ -362,8 +365,12 @@ describe('CompensaTerziController::update', function () {
 
         $payload = compensoBase(['compenso_lordo' => 2000.00]);
 
-        $response = $this->actingAs($this->user)
-            ->put(route('compensi-terzi.update', [$this->tenant, $compenso]), $payload);
+        $response = $this->withoutMiddleware([
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+            \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+        ])
+        ->actingAs($this->user)
+        ->put(route('compensi-terzi.update', [$this->tenant, $compenso]), $payload);
 
         $response->assertRedirect();
 
@@ -383,8 +390,12 @@ describe('CompensaTerziController::destroy', function () {
         $svc      = app(CompensaTerziService::class);
         $compenso = $svc->crea($this->tenant, compensoBase());
 
-        $response = $this->actingAs($this->user)
-            ->delete(route('compensi-terzi.destroy', [$this->tenant, $compenso]));
+        $response = $this->withoutMiddleware([
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+            \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+        ])
+        ->actingAs($this->user)
+        ->delete(route('compensi-terzi.destroy', [$this->tenant, $compenso]));
 
         $response->assertRedirect(route('compensi-terzi.index', $this->tenant));
         $this->assertDatabaseMissing('compensi_terzi', ['id' => $compenso->id]);
@@ -414,13 +425,17 @@ describe('CompensaTerziController::versa', function () {
         $svc = app(CompensaTerziService::class);
         $svc->crea($this->tenant, compensoBase(['data_pagamento' => '2026-01-15']));
 
-        $response = $this->actingAs($this->user)
-            ->post(route('compensi-terzi.versa', $this->tenant), [
-                'mese'            => 1,
-                'anno'            => 2026,
-                'data_versamento' => '2026-02-16',
-                'codice_tributo'  => '1040',
-            ]);
+        $response = $this->withoutMiddleware([
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+            \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+        ])
+        ->actingAs($this->user)
+        ->post(route('compensi-terzi.versa', $this->tenant), [
+            'mese'            => 1,
+            'anno'            => 2026,
+            'data_versamento' => '2026-02-16',
+            'codice_tributo'  => '1040',
+        ]);
 
         $response->assertRedirect();
 
@@ -440,14 +455,13 @@ describe('CompensaTerziController::versa', function () {
 describe('CompensaTerziController::riepilogo', function () {
 
     it('restituisce la pagina riepilogo CU', function () {
-        $this->withoutMiddleware(HandleInertiaRequests::class);
-
         $response = $this->actingAs($this->user)
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
             ->get(route('compensi-terzi.riepilogo', $this->tenant));
 
-        $response->assertInertia(
-            fn ($page) => $page->component('CompensaTerzi/Riepilogo')
-        );
+        $response->assertStatus(200);
+        $page = json_decode($response->getContent(), true);
+        expect($page['component'])->toBe('CompensaTerzi/Riepilogo');
     });
 
 });
@@ -455,14 +469,13 @@ describe('CompensaTerziController::riepilogo', function () {
 describe('CompensaTerziController::versamenti', function () {
 
     it('restituisce la pagina lista versamenti', function () {
-        $this->withoutMiddleware(HandleInertiaRequests::class);
-
         $response = $this->actingAs($this->user)
+            ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
             ->get(route('compensi-terzi.versamenti', $this->tenant));
 
-        $response->assertInertia(
-            fn ($page) => $page->component('CompensaTerzi/Versamenti')
-        );
+        $response->assertStatus(200);
+        $page = json_decode($response->getContent(), true);
+        expect($page['component'])->toBe('CompensaTerzi/Versamenti');
     });
 
 });

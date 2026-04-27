@@ -50,7 +50,7 @@ class AuditLog extends Model
 
     // ── Scopes ────────────────────────────────────────────────────────────────
 
-    public function scopeForTenant(Builder $query, int $tenantId): Builder
+    public function scopeForTenant(Builder $query, string $tenantId): Builder
     {
         return $query->where('tenant_id', $tenantId);
     }
@@ -106,7 +106,7 @@ class AuditLog extends Model
         Model   $entity,
         array   $oldValues = [],
         array   $newValues = [],
-        ?int    $tenantId  = null,
+        string|null $tenantId  = null,
     ): static {
         $user   = auth()->user();
         $tenant = $tenantId ?? (app()->bound('current_tenant') ? app('current_tenant')->id : null);

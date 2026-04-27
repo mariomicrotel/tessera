@@ -65,10 +65,17 @@ class CespitiService
             $campiLocked = ['costo_storico', 'data_inizio_ammortamento', 'asset_category_id'];
 
             foreach ($campiLocked as $campo) {
-                if (isset($dati[$campo]) && $dati[$campo] != $asset->{$campo}) {
-                    throw new \RuntimeException(
-                        "Il campo '{$campo}' non può essere modificato dopo la registrazione di ammortamenti definitivi."
-                    );
+                if (isset($dati[$campo])) {
+                    // Normalizza a stringa per confronto sicuro (evita Carbon vs string)
+                    $valoreCorrente = $asset->{$campo};
+                    if ($valoreCorrente instanceof \DateTimeInterface) {
+                        $valoreCorrente = $valoreCorrente->format('Y-m-d');
+                    }
+                    if ((string) $dati[$campo] != (string) $valoreCorrente) {
+                        throw new \RuntimeException(
+                            "Il campo '{$campo}' non può essere modificato dopo la registrazione di ammortamenti definitivi."
+                        );
+                    }
                 }
             }
         }
@@ -134,7 +141,7 @@ class CespitiService
             }
 
             $fondoCumulato = round($fondoCumulato + $quota, 2);
-            $residuo       = max(0, round($costoStorico - $fondoCumulato, 2));
+            $residuo       = (float) max(0, round($costoStorico - $fondoCumulato, 2));
 
             $piano[] = [
                 'esercizio' => $anno,

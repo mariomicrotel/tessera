@@ -132,7 +132,7 @@ class AmortizzamentoService
         }
 
         $fondoFine   = round($fondoInizio + $quotaCalcolata, 2);
-        $valoreResiduo = max(0, round($costoStorico - $fondoFine, 2));
+        $valoreResiduo = (float) max(0, round($costoStorico - $fondoFine, 2));
 
         return [
             'quota_calcolata'          => $quotaCalcolata,

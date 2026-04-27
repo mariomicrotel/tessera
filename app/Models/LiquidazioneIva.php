@@ -24,6 +24,11 @@ class LiquidazioneIva extends Model
 
     protected $appends = ['periodo_label'];
 
+    /** Valori di default Eloquent (rispecchia i default della migration). */
+    protected $attributes = [
+        'status' => self::STATUS_BOZZA,
+    ];
+
     protected $fillable = [
         'tenant_id',
         'anno',

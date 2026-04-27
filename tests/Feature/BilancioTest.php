@@ -10,9 +10,7 @@
  *  - BilancioController: index (Inertia), export PDF SP/CE/Rendiconto, export CSV
  */
 
-use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\ContoContabile;
-use App\Models\MovimentoContabile;
 use App\Models\RigaMovimentoContabile;
 use App\Models\Role;
 use App\Models\Tenant;
@@ -41,24 +39,14 @@ beforeEach(function () {
     $roleAdmin = Role::where('name', 'admin')->first();
 
     $this->admin = User::factory()->create([
-        'tenant_id' => $this->tenant->id,
-        'email'     => 'admin-bil@test.local',
+        'email' => 'admin-bil@test.local',
     ]);
     $this->admin->roles()->attach($roleAdmin);
+    $this->admin->tenants()->attach($this->tenant);
 
     $this->service = app(BilancioService::class);
 
     // Crea piano dei conti minimo
-    $this->setupConti();
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-function setupConti(): void
-{
-    // Conto attivo (cassa)
     $this->contoAttivo = ContoContabile::create([
         'tenant_id'      => $this->tenant->id,
         'codice'         => '2.01.0001',
@@ -72,7 +60,6 @@ function setupConti(): void
         'attivo'         => true,
     ]);
 
-    // Conto passivo (debiti vs fornitori)
     $this->contoPassivo = ContoContabile::create([
         'tenant_id'      => $this->tenant->id,
         'codice'         => '3.01.0001',
@@ -86,7 +73,6 @@ function setupConti(): void
         'attivo'         => true,
     ]);
 
-    // Conto ricavo
     $this->contoRicavo = ContoContabile::create([
         'tenant_id'      => $this->tenant->id,
         'codice'         => '5.01.0001',
@@ -100,7 +86,6 @@ function setupConti(): void
         'attivo'         => true,
     ]);
 
-    // Conto costo
     $this->contoCosto = ContoContabile::create([
         'tenant_id'      => $this->tenant->id,
         'codice'         => '6.01.0001',
@@ -113,18 +98,21 @@ function setupConti(): void
         'di_sistema'     => false,
         'attivo'         => true,
     ]);
-}
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 /** Crea un movimento contabile confermato con 2 righe (DARE/AVERE). */
-function creaMovimento(int $tenantId, int $anno, int $contoDareId, int $contoAvereId, float $importo, string $gestione = null): MovimentoContabile
+function creaMovimentoBilancio(string $tenantId, int $anno, int $contoDareId, int $contoAvereId, float $importo, string $gestione = null): \App\Models\MovimentoContabile
 {
-    $mov = MovimentoContabile::create([
-        'tenant_id'     => $tenantId,
-        'anno_esercizio' => $anno,
-        'data'          => "{$anno}-06-01",
-        'causale'       => 'Test movement',
-        'stato'         => 'confermato',
-        'numero'        => uniqid(),
+    $mov = createTestMovimento([
+        'tenant_id'          => $tenantId,
+        'anno_esercizio'     => $anno,
+        'data_registrazione' => "{$anno}-06-01",
+        'descrizione'        => 'Test movement',
+        'stato'              => 'confermato',
     ]);
 
     RigaMovimentoContabile::create([
@@ -160,7 +148,7 @@ it('statoPatrimoniale restituisce chiavi strutturali', function () {
 
 it('statoPatrimoniale calcola saldo attivo corretto', function () {
     // Ricavi 1000 → avere su ricavo, dare su cassa (attivo)
-    creaMovimento($this->tenant->id, 2024, $this->contoAttivo->id, $this->contoRicavo->id, 1000.0);
+    creaMovimentoBilancio($this->tenant->id, 2024, $this->contoAttivo->id, $this->contoRicavo->id, 1000.0);
 
     $sp = $this->service->statoPatrimoniale($this->tenant, 2024, 2023);
 
@@ -170,7 +158,7 @@ it('statoPatrimoniale calcola saldo attivo corretto', function () {
 
 it('statoPatrimoniale calcola saldo passivo corretto', function () {
     // Costo 500 → dare su costo, avere su passivo (debito)
-    creaMovimento($this->tenant->id, 2024, $this->contoCosto->id, $this->contoPassivo->id, 500.0);
+    creaMovimentoBilancio($this->tenant->id, 2024, $this->contoCosto->id, $this->contoPassivo->id, 500.0);
 
     $sp = $this->service->statoPatrimoniale($this->tenant, 2024, 2023);
 
@@ -178,7 +166,7 @@ it('statoPatrimoniale calcola saldo passivo corretto', function () {
 });
 
 it('statoPatrimoniale ignora movimenti di altri anni', function () {
-    creaMovimento($this->tenant->id, 2023, $this->contoAttivo->id, $this->contoRicavo->id, 999.0);
+    creaMovimentoBilancio($this->tenant->id, 2023, $this->contoAttivo->id, $this->contoRicavo->id, 999.0);
 
     $sp = $this->service->statoPatrimoniale($this->tenant, 2024, 2023);
 
@@ -186,13 +174,11 @@ it('statoPatrimoniale ignora movimenti di altri anni', function () {
 });
 
 it('statoPatrimoniale ignora movimenti non confermati', function () {
-    $mov = MovimentoContabile::create([
-        'tenant_id'     => $this->tenant->id,
-        'anno_esercizio' => 2024,
-        'data'          => '2024-06-01',
-        'causale'       => 'Bozza',
-        'stato'         => 'bozza',
-        'numero'        => uniqid(),
+    createTestMovimento([
+        'anno_esercizio'     => 2024,
+        'data_registrazione' => '2024-06-01',
+        'descrizione'        => 'Bozza',
+        'stato'              => 'bozza',
     ]);
 
     $sp = $this->service->statoPatrimoniale($this->tenant, 2024, 2023);
@@ -215,9 +201,9 @@ it('contoEconomico restituisce chiavi strutturali', function () {
 
 it('contoEconomico calcola risultato avanzo', function () {
     // Ricavo 800 → dare cassa, avere ricavo
-    creaMovimento($this->tenant->id, 2024, $this->contoAttivo->id, $this->contoRicavo->id, 800.0);
+    creaMovimentoBilancio($this->tenant->id, 2024, $this->contoAttivo->id, $this->contoRicavo->id, 800.0);
     // Costo 300 → dare costo, avere passivo
-    creaMovimento($this->tenant->id, 2024, $this->contoCosto->id, $this->contoPassivo->id, 300.0);
+    creaMovimentoBilancio($this->tenant->id, 2024, $this->contoCosto->id, $this->contoPassivo->id, 300.0);
 
     $ce = $this->service->contoEconomico($this->tenant, 2024, 2023);
 
@@ -228,8 +214,8 @@ it('contoEconomico calcola risultato avanzo', function () {
 });
 
 it('contoEconomico calcola risultato disavanzo', function () {
-    creaMovimento($this->tenant->id, 2024, $this->contoAttivo->id, $this->contoRicavo->id, 200.0);
-    creaMovimento($this->tenant->id, 2024, $this->contoCosto->id, $this->contoPassivo->id, 600.0);
+    creaMovimentoBilancio($this->tenant->id, 2024, $this->contoAttivo->id, $this->contoRicavo->id, 200.0);
+    creaMovimentoBilancio($this->tenant->id, 2024, $this->contoCosto->id, $this->contoPassivo->id, 600.0);
 
     $ce = $this->service->contoEconomico($this->tenant, 2024, 2023);
 
@@ -250,9 +236,9 @@ it('rendicontoGestionale restituisce chiavi strutturali', function () {
 
 it('rendicontoGestionale separa entrate per gestione', function () {
     // Ricavo istituzionale
-    creaMovimento($this->tenant->id, 2024, $this->contoAttivo->id, $this->contoRicavo->id, 500.0, 'istituzionale');
+    creaMovimentoBilancio($this->tenant->id, 2024, $this->contoAttivo->id, $this->contoRicavo->id, 500.0, 'istituzionale');
     // Ricavo commerciale
-    creaMovimento($this->tenant->id, 2024, $this->contoAttivo->id, $this->contoRicavo->id, 200.0, 'commerciale');
+    creaMovimentoBilancio($this->tenant->id, 2024, $this->contoAttivo->id, $this->contoRicavo->id, 200.0, 'commerciale');
 
     $r = $this->service->rendicontoGestionale($this->tenant, 2024, 2023);
 
@@ -266,25 +252,27 @@ it('rendicontoGestionale separa entrate per gestione', function () {
 // ─────────────────────────────────────────────────────────────────────────────
 
 it('index restituisce vista Inertia con sp, ce, rendiconto', function () {
-    $this->actingAs($this->admin)
-         ->withoutMiddleware(HandleInertiaRequests::class)
-         ->get(route('bilancio.cee.index', $this->tenant))
-         ->assertOk()
-         ->assertInertia(fn ($page) => $page
-             ->component('Bilancio/CEE/Index')
-             ->has('sp')
-             ->has('ce')
-             ->has('rendiconto')
-             ->has('anno')
-         );
+    $response = $this->actingAs($this->admin)
+         ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+         ->get(route('bilancio.cee.index', $this->tenant));
+
+    $response->assertStatus(200);
+    $page = json_decode($response->getContent(), true);
+    expect($page['component'])->toBe('Bilancio/CEE/Index');
+    expect($page['props'])->toHaveKey('sp');
+    expect($page['props'])->toHaveKey('ce');
+    expect($page['props'])->toHaveKey('rendiconto');
+    expect($page['props'])->toHaveKey('anno');
 });
 
 it('index accetta parametro anno', function () {
-    $this->actingAs($this->admin)
-         ->withoutMiddleware(HandleInertiaRequests::class)
-         ->get(route('bilancio.cee.index', [$this->tenant, 'anno' => 2022]))
-         ->assertOk()
-         ->assertInertia(fn ($page) => $page->where('anno', 2022));
+    $response = $this->actingAs($this->admin)
+         ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+         ->get(route('bilancio.cee.index', [$this->tenant, 'anno' => 2022]));
+
+    $response->assertStatus(200);
+    $page = json_decode($response->getContent(), true);
+    expect($page['props']['anno'])->toBe(2022);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -327,10 +327,7 @@ function withoutAuthMiddleware($test)
     ]);
 }
 
-function inertiaVersion(): string
-{
-    return app(HandleInertiaRequests::class)->version(request()) ?? '';
-}
+// inertiaVersion() is defined globally in tests/Pest.php
 
 describe('FatturaAttivaController::index', function () {
 
@@ -562,7 +559,7 @@ describe('FatturaAttivaService::creaNdiCredito', function () {
         // Verifica righe invertite
         expect($nc->righe)->toHaveCount(1);
         $riga = $nc->righe->first();
-        expect($riga->quantita)->toBe(-2.0);
+        expect((float)$riga->quantita)->toBe(-2.0);
         expect($riga->imponibile)->toBeLessThan(0);
         expect($riga->iva)->toBeLessThan(0);
         expect($riga->totale)->toBeLessThan(0);
@@ -593,7 +590,7 @@ describe('FatturaAttivaService::creaNdiCredito', function () {
         ]);
 
         expect($nc->tipo_documento)->toBe('TD04');
-        expect(abs($nc->totale_documento))->toBeCloseTo($importoMeta, 2);
+        expect(round(abs((float)$nc->totale_documento), 2))->toEqual(round($importoMeta, 2));
     });
 
     it('blocca creazione NC se fattura non è emessa', function () {

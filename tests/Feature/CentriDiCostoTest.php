@@ -9,10 +9,8 @@
  *  - Tenant isolation
  */
 
-use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\CentroCosto;
 use App\Models\ContoContabile;
-use App\Models\MovimentoContabile;
 use App\Models\RigaMovimentoContabile;
 use App\Models\Role;
 use App\Models\Tenant;
@@ -38,14 +36,16 @@ beforeEach(function () {
     (new RoleSeeder)->run();
 
     $makeUser = function (string $role) {
-        $u = User::factory()->create(['tenant_id' => $this->tenant->id]);
+        $u = User::factory()->create();
         $u->roles()->attach(Role::where('name', $role)->first());
+        $u->tenants()->attach($this->tenant);
         return $u;
     };
 
     $this->admin     = $makeUser('admin');
     $this->contabile = $makeUser('contabile');
-    $this->guest     = User::factory()->create(['tenant_id' => $this->tenant->id]);
+    $this->guest     = User::factory()->create();
+    $this->guest->tenants()->attach($this->tenant);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,13 +87,11 @@ it('CentroCosto::saldoAnno calcola dare e avere correttamente', function () {
     ]);
 
     // Movimento confermato con rif. CDC
-    $mov = MovimentoContabile::create([
-        'tenant_id'      => $this->tenant->id,
-        'anno_esercizio' => 2024,
-        'data'           => '2024-06-01',
-        'causale'        => 'Test CDC',
-        'stato'          => 'confermato',
-        'numero'         => uniqid(),
+    $mov = createTestMovimento([
+        'anno_esercizio'     => 2024,
+        'data_registrazione' => '2024-06-01',
+        'descrizione'        => 'Test CDC',
+        'stato'              => 'confermato',
     ]);
 
     RigaMovimentoContabile::create([
@@ -134,15 +132,15 @@ it('CentroCosto::saldoAnno restituisce zero per anno senza movimenti', function 
 it('index restituisce vista Inertia con lista centri', function () {
     CentroCosto::create(['tenant_id' => $this->tenant->id, 'codice' => 'CDC-01', 'descrizione' => 'Alpha', 'attivo' => true]);
 
-    $this->actingAs($this->admin)
-         ->withoutMiddleware(HandleInertiaRequests::class)
-         ->get(route('centri-di-costo.index', $this->tenant))
-         ->assertOk()
-         ->assertInertia(fn ($page) => $page
-             ->component('Contabilita/CentriDiCosto/Index')
-             ->has('centri')
-             ->has('anno')
-         );
+    $response = $this->actingAs($this->admin)
+         ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+         ->get(route('centri-di-costo.index', $this->tenant));
+
+    $response->assertStatus(200);
+    $page = json_decode($response->getContent(), true);
+    expect($page['component'])->toBe('Contabilita/CentriDiCosto/Index');
+    expect($page['props'])->toHaveKey('centri');
+    expect($page['props'])->toHaveKey('anno');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,7 +148,11 @@ it('index restituisce vista Inertia con lista centri', function () {
 // ─────────────────────────────────────────────────────────────────────────────
 
 it('store crea centro e reindirizza a index', function () {
-    $this->actingAs($this->admin)
+    $this->withoutMiddleware([
+            \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+            \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+         ])
+         ->actingAs($this->admin)
          ->post(route('centri-di-costo.store', $this->tenant), [
              'codice'      => 'CDC-NEW',
              'descrizione' => 'Nuovo Centro',
@@ -180,7 +182,11 @@ it('store blocca codice duplicato', function () {
 it('update modifica il centro', function () {
     $centro = CentroCosto::create(['tenant_id' => $this->tenant->id, 'codice' => 'CDC-X', 'descrizione' => 'Old', 'attivo' => true]);
 
-    $this->actingAs($this->admin)
+    $this->withoutMiddleware([
+             \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+             \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+         ])
+         ->actingAs($this->admin)
          ->put(route('centri-di-costo.update', [$this->tenant, $centro]), [
              'codice'      => 'CDC-X',
              'descrizione' => 'New Description',
@@ -194,8 +200,13 @@ it('update modifica il centro', function () {
 it('toggleAttivo inverte lo stato attivo', function () {
     $centro = CentroCosto::create(['tenant_id' => $this->tenant->id, 'codice' => 'T1', 'descrizione' => 'Toggle', 'attivo' => true]);
 
-    $this->actingAs($this->admin)
-         ->post(route('centri-di-costo.toggle-attivo', [$this->tenant, $centro]));
+    $this->withoutMiddleware([
+             \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+             \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+         ])
+         ->actingAs($this->admin)
+         ->post(route('centri-di-costo.toggle-attivo', [$this->tenant, $centro]))
+         ->assertRedirect();
 
     expect($centro->fresh()->attivo)->toBeFalse();
 });
@@ -203,7 +214,11 @@ it('toggleAttivo inverte lo stato attivo', function () {
 it('destroy elimina centro senza movimenti', function () {
     $centro = CentroCosto::create(['tenant_id' => $this->tenant->id, 'codice' => 'D1', 'descrizione' => 'Delete Me', 'attivo' => true]);
 
-    $this->actingAs($this->admin)
+    $this->withoutMiddleware([
+             \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+             \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+         ])
+         ->actingAs($this->admin)
          ->delete(route('centri-di-costo.destroy', [$this->tenant, $centro]))
          ->assertRedirect(route('centri-di-costo.index', $this->tenant));
 

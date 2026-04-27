@@ -22,7 +22,7 @@ return new class extends Migration
     {
         Schema::create('erogazioni_liberali', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('tenant_id')->constrained('tenants')->cascadeOnDelete();
+            $table->foreignUuid('tenant_id')->constrained('tenants')->cascadeOnDelete();
 
             // ── Anno di competenza ─────────────────────────────────────────
             $table->unsignedSmallInteger('anno');

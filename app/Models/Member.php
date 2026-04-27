@@ -169,6 +169,12 @@ class Member extends Model
         return $this->getFullNameAttribute();
     }
 
+    /** Scope: soci con stato = 'attivo' */
+    public function scopeAttivi(Builder $query): Builder
+    {
+        return $query->where('stato', 'attivo');
+    }
+
     /** Scope: filtra solo soci lavoratori */
     public function scopeLavoratori(Builder $query): Builder
     {

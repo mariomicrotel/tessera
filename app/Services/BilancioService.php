@@ -327,7 +327,7 @@ class BilancioService
      *
      * @return Collection keyed by conto_contabile_id
      */
-    private function saldiByConto(int $tenantId, int $anno, ?string $gestione = null): Collection
+    private function saldiByConto(string $tenantId, int $anno, ?string $gestione = null): Collection
     {
         $query = DB::table('righe_movimento_contabile as r')
             ->join('movimenti_contabili as m', 'm.id', '=', 'r.movimento_id')

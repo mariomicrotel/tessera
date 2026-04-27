@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('modelli_f24', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('tenant_id')->constrained()->cascadeOnDelete();
+            $table->foreignUuid('tenant_id')->constrained('tenants')->cascadeOnDelete();
 
             // Periodo di riferimento
             $table->unsignedSmallInteger('anno');
@@ -41,7 +41,7 @@ return new class extends Migration
 
         Schema::create('righe_f24', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('modello_f24_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('modello_f24_id')->constrained('modelli_f24')->cascadeOnDelete();
 
             // Sezione F24
             $table->string('sezione', 20); // erario | inps | regioni | altri_enti | accise

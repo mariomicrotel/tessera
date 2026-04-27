@@ -44,10 +44,10 @@ beforeEach(function () {
     $roleAdmin = Role::where('name', 'admin')->first();
 
     $this->admin = User::factory()->create([
-        'tenant_id' => $this->tenant->id,
-        'email'     => 'admin-erog@test.local',
+        'email' => 'admin-erog@test.local',
     ]);
     $this->admin->roles()->attach($roleAdmin);
+    $this->admin->tenants()->attach($this->tenant);
 
     $this->service = app(ErogazioneLiberaleService::class);
 });
@@ -303,15 +303,14 @@ it('generaXml produce XML valido con struttura corretta', function () {
 it('index restituisce vista con kpi e paginator', function () {
     erogazioneBase($this->tenant);
 
-    $this->actingAs($this->admin)
-         ->withoutMiddleware(HandleInertiaRequests::class)
-         ->get(route('erogazioni-liberali.index', $this->tenant))
-         ->assertOk()
-         ->assertInertia(fn ($page) => $page
-             ->component('Bilancio/ErogazioniLiberali/Index')
-             ->has('erogazioni')
-             ->has('kpi')
-         );
+    $response = $this->actingAs($this->admin)
+         ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+         ->get(route('erogazioni-liberali.index', $this->tenant));
+    $response->assertStatus(200);
+    $page = json_decode($response->getContent(), true);
+    expect($page['component'])->toBe('Bilancio/ErogazioniLiberali/Index');
+    expect($page['props'])->toHaveKey('erogazioni');
+    expect($page['props'])->toHaveKey('kpi');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -319,15 +318,14 @@ it('index restituisce vista con kpi e paginator', function () {
 // ─────────────────────────────────────────────────────────────────────────────
 
 it('create restituisce vista con modalita e tipiDonante', function () {
-    $this->actingAs($this->admin)
-         ->withoutMiddleware(HandleInertiaRequests::class)
-         ->get(route('erogazioni-liberali.create', $this->tenant))
-         ->assertOk()
-         ->assertInertia(fn ($page) => $page
-             ->component('Bilancio/ErogazioniLiberali/Create')
-             ->has('modalita')
-             ->has('tipiDonante')
-         );
+    $response = $this->actingAs($this->admin)
+         ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+         ->get(route('erogazioni-liberali.create', $this->tenant));
+    $response->assertStatus(200);
+    $page = json_decode($response->getContent(), true);
+    expect($page['component'])->toBe('Bilancio/ErogazioniLiberali/Create');
+    expect($page['props'])->toHaveKey('modalita');
+    expect($page['props'])->toHaveKey('tipiDonante');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -335,7 +333,11 @@ it('create restituisce vista con modalita e tipiDonante', function () {
 // ─────────────────────────────────────────────────────────────────────────────
 
 it('store crea erogazione e reindirizza a show', function () {
-    $this->actingAs($this->admin)
+    $this->withoutMiddleware([
+             \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+             \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+         ])
+         ->actingAs($this->admin)
          ->post(route('erogazioni-liberali.store', $this->tenant), [
              'anno'               => 2024,
              'donante_tipo'       => 'persona_fisica',
@@ -356,7 +358,11 @@ it('store crea erogazione e reindirizza a show', function () {
 });
 
 it('store respinge importo negativo con errore di validazione', function () {
-    $this->actingAs($this->admin)
+    $this->withoutMiddleware([
+             \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+             \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+         ])
+         ->actingAs($this->admin)
          ->post(route('erogazioni-liberali.store', $this->tenant), [
              'anno'               => 2024,
              'donante_tipo'       => 'persona_fisica',
@@ -375,14 +381,13 @@ it('store respinge importo negativo con errore di validazione', function () {
 it('show restituisce vista con dati erogazione', function () {
     $e = erogazioneBase($this->tenant);
 
-    $this->actingAs($this->admin)
-         ->withoutMiddleware(HandleInertiaRequests::class)
-         ->get(route('erogazioni-liberali.show', [$this->tenant, $e]))
-         ->assertOk()
-         ->assertInertia(fn ($page) => $page
-             ->component('Bilancio/ErogazioniLiberali/Show')
-             ->has('erogazione')
-         );
+    $response = $this->actingAs($this->admin)
+         ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+         ->get(route('erogazioni-liberali.show', [$this->tenant, $e]));
+    $response->assertStatus(200);
+    $page = json_decode($response->getContent(), true);
+    expect($page['component'])->toBe('Bilancio/ErogazioniLiberali/Show');
+    expect($page['props'])->toHaveKey('erogazione');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -392,7 +397,11 @@ it('show restituisce vista con dati erogazione', function () {
 it('update modifica importo e ricalcola detrazione', function () {
     $e = erogazioneBase($this->tenant);
 
-    $this->actingAs($this->admin)
+    $this->withoutMiddleware([
+             \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+             \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+         ])
+         ->actingAs($this->admin)
          ->put(route('erogazioni-liberali.update', [$this->tenant, $e]), [
              'anno'               => 2024,
              'donante_tipo'       => 'ente',
@@ -415,7 +424,11 @@ it('update modifica importo e ricalcola detrazione', function () {
 it('destroy elimina erogazione', function () {
     $e = erogazioneBase($this->tenant);
 
-    $this->actingAs($this->admin)
+    $this->withoutMiddleware([
+             \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+             \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+         ])
+         ->actingAs($this->admin)
          ->delete(route('erogazioni-liberali.destroy', [$this->tenant, $e]))
          ->assertRedirect(route('erogazioni-liberali.index', $this->tenant));
 
@@ -429,14 +442,13 @@ it('destroy elimina erogazione', function () {
 it('riepilogo restituisce vista con dati aggregati', function () {
     erogazioneBase($this->tenant);
 
-    $this->actingAs($this->admin)
-         ->withoutMiddleware(HandleInertiaRequests::class)
-         ->get(route('erogazioni-liberali.riepilogo', $this->tenant))
-         ->assertOk()
-         ->assertInertia(fn ($page) => $page
-             ->component('Bilancio/ErogazioniLiberali/Riepilogo')
-             ->has('riepilogo')
-         );
+    $response = $this->actingAs($this->admin)
+         ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+         ->get(route('erogazioni-liberali.riepilogo', $this->tenant));
+    $response->assertStatus(200);
+    $page = json_decode($response->getContent(), true);
+    expect($page['component'])->toBe('Bilancio/ErogazioniLiberali/Riepilogo');
+    expect($page['props'])->toHaveKey('riepilogo');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

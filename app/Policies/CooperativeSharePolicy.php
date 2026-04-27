@@ -33,24 +33,24 @@ class CooperativeSharePolicy
         }
 
         // Quote già riscattate non sono modificabili
-        return $share->stato !== 'riscattata';
+        return $share->status !== 'riscattata';
     }
 
     public function delete(User $user, CooperativeShare $share): bool
     {
         return $user->hasRole('admin')
-            && $share->stato === 'bozza';
+            && $share->status === 'bozza';
     }
 
     public function versa(User $user, CooperativeShare $share): bool
     {
         return $user->hasRole('admin', 'contabile')
-            && in_array($share->stato, ['sottoscritta', 'parzialmente_versata'], true);
+            && in_array($share->status, ['sottoscritta', 'parzialmente_versata'], true);
     }
 
     public function riscatta(User $user, CooperativeShare $share): bool
     {
         return $user->hasRole('admin', 'contabile')
-            && $share->stato === 'versata';
+            && $share->status === 'versata';
     }
 }

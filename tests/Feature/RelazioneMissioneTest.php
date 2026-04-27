@@ -43,10 +43,10 @@ beforeEach(function () {
     $roleAdmin = Role::where('name', 'admin')->first();
 
     $this->admin = User::factory()->create([
-        'tenant_id' => $this->tenant->id,
-        'email'     => 'admin-rel@test.local',
+        'email' => 'admin-rel@test.local',
     ]);
     $this->admin->roles()->attach($roleAdmin);
+    $this->admin->tenants()->attach($this->tenant);
 
     $this->service = app(RelazioneMissioneService::class);
 });
@@ -203,14 +203,13 @@ it('interpolaVariabili lascia intatti placeholder sconosciuti', function () {
 it('index restituisce vista Inertia con relazioni', function () {
     relazioneBase($this->tenant);
 
-    $this->actingAs($this->admin)
-         ->withoutMiddleware(HandleInertiaRequests::class)
-         ->get(route('relazione-missione.index', $this->tenant))
-         ->assertOk()
-         ->assertInertia(fn ($page) => $page
-             ->component('Bilancio/RelazioneMissione/Index')
-             ->has('relazioni')
-         );
+    $response = $this->actingAs($this->admin)
+         ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+         ->get(route('relazione-missione.index', $this->tenant));
+    $response->assertStatus(200);
+    $page = json_decode($response->getContent(), true);
+    expect($page['component'])->toBe('Bilancio/RelazioneMissione/Index');
+    expect($page['props'])->toHaveKey('relazioni');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -218,15 +217,14 @@ it('index restituisce vista Inertia con relazioni', function () {
 // ─────────────────────────────────────────────────────────────────────────────
 
 it('create restituisce vista con variabili e sezioniDefault', function () {
-    $this->actingAs($this->admin)
-         ->withoutMiddleware(HandleInertiaRequests::class)
-         ->get(route('relazione-missione.create', $this->tenant))
-         ->assertOk()
-         ->assertInertia(fn ($page) => $page
-             ->component('Bilancio/RelazioneMissione/Create')
-             ->has('variabili')
-             ->has('sezioniDefault')
-         );
+    $response = $this->actingAs($this->admin)
+         ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+         ->get(route('relazione-missione.create', $this->tenant));
+    $response->assertStatus(200);
+    $page = json_decode($response->getContent(), true);
+    expect($page['component'])->toBe('Bilancio/RelazioneMissione/Create');
+    expect($page['props'])->toHaveKey('variabili');
+    expect($page['props'])->toHaveKey('sezioniDefault');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -234,7 +232,11 @@ it('create restituisce vista con variabili e sezioniDefault', function () {
 // ─────────────────────────────────────────────────────────────────────────────
 
 it('store crea relazione e reindirizza a edit', function () {
-    $this->actingAs($this->admin)
+    $this->withoutMiddleware([
+             \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+             \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+         ])
+         ->actingAs($this->admin)
          ->post(route('relazione-missione.store', $this->tenant), [
              'anno'              => 2023,
              'organo_approvante' => 'Assemblea ordinaria',
@@ -266,15 +268,14 @@ it('store respinge anno duplicato con errore flash', function () {
 it('show restituisce vista con sezioniInterpolate', function () {
     $rel = relazioneBase($this->tenant);
 
-    $this->actingAs($this->admin)
-         ->withoutMiddleware(HandleInertiaRequests::class)
-         ->get(route('relazione-missione.show', [$this->tenant, $rel]))
-         ->assertOk()
-         ->assertInertia(fn ($page) => $page
-             ->component('Bilancio/RelazioneMissione/Show')
-             ->has('sezioniInterpolate')
-             ->has('variabili')
-         );
+    $response = $this->actingAs($this->admin)
+         ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+         ->get(route('relazione-missione.show', [$this->tenant, $rel]));
+    $response->assertStatus(200);
+    $page = json_decode($response->getContent(), true);
+    expect($page['component'])->toBe('Bilancio/RelazioneMissione/Show');
+    expect($page['props'])->toHaveKey('sezioniInterpolate');
+    expect($page['props'])->toHaveKey('variabili');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -284,14 +285,13 @@ it('show restituisce vista con sezioniInterpolate', function () {
 it('edit restituisce vista con placeholder_list', function () {
     $rel = relazioneBase($this->tenant);
 
-    $this->actingAs($this->admin)
-         ->withoutMiddleware(HandleInertiaRequests::class)
-         ->get(route('relazione-missione.edit', [$this->tenant, $rel]))
-         ->assertOk()
-         ->assertInertia(fn ($page) => $page
-             ->component('Bilancio/RelazioneMissione/Edit')
-             ->has('placeholder_list')
-         );
+    $response = $this->actingAs($this->admin)
+         ->withHeaders(['X-Inertia' => 'true', 'X-Inertia-Version' => inertiaVersion()])
+         ->get(route('relazione-missione.edit', [$this->tenant, $rel]));
+    $response->assertStatus(200);
+    $page = json_decode($response->getContent(), true);
+    expect($page['component'])->toBe('Bilancio/RelazioneMissione/Edit');
+    expect($page['props'])->toHaveKey('placeholder_list');
 });
 
 it('edit reindirizza a show se relazione approvata', function () {
@@ -313,7 +313,11 @@ it('update salva sezioni aggiornate', function () {
         ...$s, 'testo' => 'Testo aggiornato per ' . $s['titolo'],
     ])->all();
 
-    $this->actingAs($this->admin)
+    $this->withoutMiddleware([
+             \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+             \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+         ])
+         ->actingAs($this->admin)
          ->put(route('relazione-missione.update', [$this->tenant, $rel]), [
              'stato'   => 'definitiva',
              'sezioni' => $sezioni,
@@ -330,7 +334,11 @@ it('update salva sezioni aggiornate', function () {
 it('approva porta relazione ad approvata', function () {
     $rel = relazioneBase($this->tenant);
 
-    $this->actingAs($this->admin)
+    $this->withoutMiddleware([
+             \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+             \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+         ])
+         ->actingAs($this->admin)
          ->post(route('relazione-missione.approva', [$this->tenant, $rel]), [
              'data_approvazione'  => '2024-06-15',
              'organo_approvante'  => 'Assemblea dei soci',
@@ -348,7 +356,11 @@ it('approva porta relazione ad approvata', function () {
 it('destroy elimina relazione in bozza', function () {
     $rel = relazioneBase($this->tenant);
 
-    $this->actingAs($this->admin)
+    $this->withoutMiddleware([
+             \Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
+             \Laravel\Jetstream\Http\Middleware\AuthenticateSession::class,
+         ])
+         ->actingAs($this->admin)
          ->delete(route('relazione-missione.destroy', [$this->tenant, $rel]))
          ->assertRedirect(route('relazione-missione.index', $this->tenant));
 

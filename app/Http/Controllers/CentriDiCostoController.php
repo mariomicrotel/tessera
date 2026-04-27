@@ -177,7 +177,7 @@ class CentriDiCostoController extends Controller
 
         $centroCosto->update(['attivo' => ! $centroCosto->attivo]);
 
-        $stato = $centroCosto->attivo ? 'attivato' : 'disattivato';
+        $stato = $centroCosto->fresh()->attivo ? 'attivato' : 'disattivato';
 
         return back()->with('flash', [
             'type'    => 'success',

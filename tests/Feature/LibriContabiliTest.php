@@ -97,7 +97,7 @@ beforeEach(function () {
 // Helper: crea movimento definitivo
 // ─────────────────────────────────────────────────────────────────────────────
 
-function creaMovimento(\Tests\TestCase $test, string $data, float $importo, string $descr = 'Test')
+function creaMovimentoLibri(\Tests\TestCase $test, string $data, float $importo, string $descr = 'Test')
 {
     $svc = app(MovimentoContabileService::class);
     $mov = $svc->crea($test->tenant, [
@@ -159,10 +159,10 @@ function creaFatturaEmessa(\Tests\TestCase $test, string $data, float $imponibil
 describe('Libro Giornale → Service-level', function () {
 
     it('include solo movimenti definitivi del periodo', function () {
-        creaMovimento($this, '2025-03-10', 100.0);
-        creaMovimento($this, '2025-06-20', 200.0);
-        creaMovimento($this, '2025-09-05', 300.0);
-        creaMovimento($this, '2024-12-31', 999.0); // fuori periodo
+        creaMovimentoLibri($this, '2025-03-10', 100.0);
+        creaMovimentoLibri($this, '2025-06-20', 200.0);
+        creaMovimentoLibri($this, '2025-09-05', 300.0);
+        creaMovimentoLibri($this, '2024-12-31', 999.0); // fuori periodo
 
         $svc = app(MovimentoContabileService::class);
         $bozza = $svc->crea($this->tenant, [
@@ -215,8 +215,8 @@ describe('Registro Vendite → Service-level', function () {
 describe('AccountingReportController → Libro Giornale', function () {
 
     it('libroGiornale ritorna movimenti del periodo con totali corretti', function () {
-        creaMovimento($this, '2025-03-10', 100.0, 'Mov A');
-        creaMovimento($this, '2025-09-15', 250.0, 'Mov B');
+        creaMovimentoLibri($this, '2025-03-10', 100.0, 'Mov A');
+        creaMovimentoLibri($this, '2025-09-15', 250.0, 'Mov B');
 
         $inertiaVersion = app(\App\Http\Middleware\HandleInertiaRequests::class)
             ->version(request()) ?? '';
@@ -247,7 +247,7 @@ describe('AccountingReportController → Libro Giornale', function () {
     });
 
     it('exportLibroGiornale produce CSV con header e righe', function () {
-        creaMovimento($this, '2025-04-10', 150.0, 'Mov X');
+        creaMovimentoLibri($this, '2025-04-10', 150.0, 'Mov X');
 
         $response = $this
             ->withoutMiddleware([

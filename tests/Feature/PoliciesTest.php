@@ -21,6 +21,7 @@ use App\Models\CooperativeShare;
 use App\Models\FatturaAttiva;
 use App\Models\FatturaPassiva;
 use App\Models\Incasso;
+use App\Models\LiquidazioneIva;
 use App\Models\MovimentoContabile;
 use App\Models\Role;
 use App\Models\Tenant;
@@ -47,16 +48,18 @@ beforeEach(function () {
     (new RoleSeeder)->run();
 
     $makeUser = function (string $roleName): User {
-        $user = User::factory()->create(['tenant_id' => $this->tenant->id]);
+        $user = User::factory()->create();
         $role = Role::where('name', $roleName)->firstOrFail();
         $user->roles()->attach($role);
+        $user->tenants()->attach($this->tenant);
         return $user;
     };
 
     $this->admin      = $makeUser('admin');
     $this->contabile  = $makeUser('contabile');
     $this->segreteria = $makeUser('segreteria');
-    $this->guest      = User::factory()->create(['tenant_id' => $this->tenant->id]);
+    $this->guest      = User::factory()->create();
+    $this->guest->tenants()->attach($this->tenant);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -100,8 +103,22 @@ function makeFatturaPassiva(array $overrides = []): FatturaPassiva
 
 function makeShare(array $overrides = []): CooperativeShare
 {
+    $memberType = \App\Models\MemberType::firstOrCreate(
+        ['name' => 'socio-policy'],
+        ['display_name' => 'Socio Policy']
+    );
+    $member = \App\Models\Member::create([
+        'tenant_id'      => app('current_tenant')->id,
+        'member_type_id' => $memberType->id,
+        'nome'           => 'Test',
+        'cognome'        => 'PolicyMember',
+        'data_iscrizione'=> '2024-01-01',
+        'stato'          => 'attivo',
+    ]);
+
     return CooperativeShare::create(array_merge([
         'tenant_id'           => app('current_tenant')->id,
+        'member_id'           => $member->id,
         'numero_quote'        => 5,
         'valore_unitario'     => 50,
         'totale_sottoscritto' => 250,
@@ -113,13 +130,9 @@ function makeShare(array $overrides = []): CooperativeShare
 
 function makeMovimento(array $overrides = []): MovimentoContabile
 {
-    return MovimentoContabile::create(array_merge([
-        'tenant_id'      => app('current_tenant')->id,
-        'anno_esercizio' => 2024,
-        'data'           => '2024-06-01',
-        'causale'        => 'Test policy',
-        'stato'          => MovimentoContabile::STATO_BOZZA,
-        'numero'         => uniqid(),
+    return createTestMovimento(array_merge([
+        'descrizione' => 'Test policy',
+        'stato'       => MovimentoContabile::STATO_BOZZA,
     ], $overrides));
 }
 
@@ -190,7 +203,24 @@ it('FatturaPassivaPolicy: contabile può creare e modificare fattura senza liqui
 });
 
 it('FatturaPassivaPolicy: contabile non può modificare fattura con liquidazione', function () {
-    $fattura = makeFatturaPassiva(['liquidazione_iva_id' => 999]);
+    $liq = LiquidazioneIva::create([
+        'tenant_id'                  => app('current_tenant')->id,
+        'anno'                       => 2024,
+        'periodo'                    => 1,
+        'tipo_periodo'               => 'mensile',
+        'data_inizio'                => '2024-01-01',
+        'data_fine'                  => '2024-01-31',
+        'iva_debito'                 => 1000,
+        'iva_credito'                => 0,
+        'credito_periodo_precedente' => 0,
+        'saldo_periodo'              => 1000,
+        'saldo_finale'               => 1000,
+        'acconto_versato'            => 0,
+        'interessi_trimestrali'      => 0,
+        'status'                     => LiquidazioneIva::STATUS_DEFINITIVA,
+    ]);
+
+    $fattura = makeFatturaPassiva(['liquidazione_iva_id' => $liq->id]);
 
     expect(Gate::forUser($this->contabile)->denies('update', $fattura))->toBeTrue();
 });

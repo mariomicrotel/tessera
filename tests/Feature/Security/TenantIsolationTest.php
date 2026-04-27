@@ -40,10 +40,10 @@ beforeEach(function () {
 
     $makeAdmin = function (Tenant $t, string $suffix): User {
         $user = User::factory()->create([
-            'tenant_id' => $t->id,
-            'email'     => "admin-{$suffix}@test.local",
+            'email' => "admin-{$suffix}@test.local",
         ]);
         $user->roles()->attach(Role::where('name', 'admin')->first());
+        $user->tenants()->attach($t);
         return $user;
     };
 
@@ -86,12 +86,14 @@ function switchTenant(Tenant $t): void
 
 it('Member: tenant B non vede soci di tenant A', function () {
     switchTenant($this->tenantA);
+    $memberType = \App\Models\MemberType::create(['name' => 'socio', 'display_name' => 'Socio']);
     $member = Member::create([
-        'tenant_id'        => $this->tenantA->id,
-        'nome'             => 'Mario',
-        'cognome'          => 'Rossi',
-        'data_iscrizione'  => '2024-01-01',
-        'stato_membership' => 'attivo',
+        'tenant_id'      => $this->tenantA->id,
+        'member_type_id' => $memberType->id,
+        'nome'           => 'Mario',
+        'cognome'        => 'Rossi',
+        'data_iscrizione'=> '2024-01-01',
+        'stato'          => 'attivo',
     ]);
 
     switchTenant($this->tenantB);
@@ -102,12 +104,14 @@ it('Member: tenant B non vede soci di tenant A', function () {
 
 it('Member: accesso HTTP 404 a dettaglio socio di altro tenant', function () {
     switchTenant($this->tenantA);
+    $memberType = \App\Models\MemberType::create(['name' => 'socio', 'display_name' => 'Socio']);
     $member = Member::create([
-        'tenant_id'        => $this->tenantA->id,
-        'nome'             => 'Mario',
-        'cognome'          => 'Rossi',
-        'data_iscrizione'  => '2024-01-01',
-        'stato_membership' => 'attivo',
+        'tenant_id'      => $this->tenantA->id,
+        'member_type_id' => $memberType->id,
+        'nome'           => 'Mario',
+        'cognome'        => 'Rossi',
+        'data_iscrizione'=> '2024-01-01',
+        'stato'          => 'attivo',
     ]);
 
     switchTenant($this->tenantB);
@@ -152,13 +156,12 @@ it('FatturaAttiva: tenant B non vede fatture attive di tenant A', function () {
 
 it('MovimentoContabile: tenant B non vede movimenti di tenant A', function () {
     switchTenant($this->tenantA);
-    $mov = MovimentoContabile::create([
-        'tenant_id'      => $this->tenantA->id,
-        'anno_esercizio' => 2024,
-        'data'           => '2024-06-01',
-        'causale'        => 'Test isolamento',
-        'stato'          => 'bozza',
-        'numero'         => uniqid(),
+    $mov = createTestMovimento([
+        'tenant_id'          => $this->tenantA->id,
+        'anno_esercizio'     => 2024,
+        'data_registrazione' => '2024-06-01',
+        'descrizione'        => 'Test isolamento',
+        'stato'              => 'bozza',
     ]);
 
     switchTenant($this->tenantB);
@@ -217,8 +220,18 @@ it('Incasso: tenant B non vede incassi di tenant A', function () {
 
 it('CooperativeShare: tenant B non vede quote di tenant A', function () {
     switchTenant($this->tenantA);
+    $memberType = \App\Models\MemberType::create(['name' => 'socio', 'display_name' => 'Socio']);
+    $member = Member::create([
+        'tenant_id'      => $this->tenantA->id,
+        'member_type_id' => $memberType->id,
+        'nome'           => 'Mario',
+        'cognome'        => 'Rossi',
+        'data_iscrizione'=> '2024-01-01',
+        'stato'          => 'attivo',
+    ]);
     $share = CooperativeShare::create([
         'tenant_id'           => $this->tenantA->id,
+        'member_id'           => $member->id,
         'numero_quote'        => 5,
         'valore_unitario'     => 50,
         'totale_sottoscritto' => 250,
@@ -245,9 +258,9 @@ it('ErogazioneLiberale: tenant B non vede donazioni di tenant A', function () {
         'data_erogazione'     => '2024-06-01',
         'importo'             => 100.0,
         'donante_tipo'        => 'persona_fisica',
-        'cognome'             => 'Testa',
-        'nome'                => 'Marco',
-        'codice_fiscale'      => 'TSTMRC80A01H501Z',
+        'donante_cognome'     => 'Testa',
+        'donante_nome'        => 'Marco',
+        'donante_cf'          => 'TSTMRC80A01H501Z',
         'modalita_pagamento'  => 'bonifico',
         'is_detraibile'       => true,
         'aliquota_detrazione' => 26,
@@ -266,12 +279,15 @@ it('ErogazioneLiberale: tenant B non vede donazioni di tenant A', function () {
 it('BelongsToTenant auto-setta tenant_id dal contesto corrente', function () {
     switchTenant($this->tenantA);
 
+    $memberType = \App\Models\MemberType::create(['name' => 'socio', 'display_name' => 'Socio']);
+
     // Crea senza specificare tenant_id esplicitamente
     $member = Member::create([
-        'nome'             => 'Auto',
-        'cognome'          => 'TenantSet',
-        'data_iscrizione'  => '2024-01-01',
-        'stato_membership' => 'attivo',
+        'member_type_id' => $memberType->id,
+        'nome'           => 'Auto',
+        'cognome'        => 'TenantSet',
+        'data_iscrizione'=> '2024-01-01',
+        'stato'          => 'attivo',
     ]);
 
     expect($member->tenant_id)->toBe($this->tenantA->id);

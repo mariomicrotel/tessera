@@ -127,7 +127,7 @@ class AuditController extends Controller
 
     // ── Helper privato ────────────────────────────────────────────────────────
 
-    private function entityTypes(int $tenantId): array
+    private function entityTypes(string $tenantId): array
     {
         return AuditLog::forTenant($tenantId)
             ->selectRaw('DISTINCT entity_type')
