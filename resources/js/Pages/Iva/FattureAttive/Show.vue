@@ -11,6 +11,8 @@ import {
     DocumentArrowDownIcon,
     CheckCircleIcon,
     XCircleIcon,
+    CodeBracketIcon,
+    CloudArrowUpIcon,
 } from '@heroicons/vue/24/outline';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -25,6 +27,16 @@ const props = defineProps({
     contiIncasso:  Array,
     contiCrediti:  Array,
 });
+
+/* ── SDI ─────────────────────────────────────────────────────────────────── */
+const showSdiModal = ref(false);
+const sdiForm = useForm({ stato: 'inviata_sdi', sdi_identificativo: '' });
+
+function submitSdi() {
+    sdiForm.post(route('iva.fatture-attive.sdi', props.fattura.id), {
+        onSuccess: () => { showSdiModal.value = false; sdiForm.reset(); },
+    });
+}
 
 const fmt     = (n) => Number(n ?? 0).toFixed(2);
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('it-IT') : '—';
@@ -132,6 +144,18 @@ const isNotaCredito = () => props.fattura.tipo_documento === 'TD04';
                        class="inline-flex items-center gap-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md font-medium text-xs text-gray-700 dark:text-gray-300 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-700">
                         <DocumentArrowDownIcon class="size-4" />PDF
                     </a>
+                    <!-- XML FatturaPA (solo emessa/SDI) -->
+                    <a v-if="['emessa','inviata_sdi','accettata','scartata'].includes(fattura.stato)"
+                       :href="route('iva.fatture-attive.xml', fattura.id)"
+                       class="inline-flex items-center gap-1 px-3 py-2 border border-indigo-300 dark:border-indigo-700 rounded-md font-medium text-xs text-indigo-700 dark:text-indigo-400 uppercase tracking-widest hover:bg-indigo-50 dark:hover:bg-indigo-900/30">
+                        <CodeBracketIcon class="size-4" />XML SDI
+                    </a>
+                    <!-- Aggiorna stato SDI -->
+                    <button v-if="['emessa','inviata_sdi','scartata'].includes(fattura.stato)"
+                        type="button" @click="showSdiModal = true"
+                        class="inline-flex items-center gap-1 px-3 py-2 border border-purple-300 dark:border-purple-700 rounded-md font-medium text-xs text-purple-700 dark:text-purple-400 uppercase tracking-widest hover:bg-purple-50 dark:hover:bg-purple-900/30">
+                        <CloudArrowUpIcon class="size-4" />Stato SDI
+                    </button>
                     <!-- Modifica (solo bozza) -->
                     <Link v-if="isBozza()" :href="route('iva.fatture-attive.edit', fattura.id)">
                         <PrimaryButton>
@@ -251,6 +275,23 @@ const isNotaCredito = () => props.fattura.tipo_documento === 'TD04';
                         <div class="flex justify-between border-t dark:border-gray-700 pt-2 font-semibold">
                             <span>Totale</span>
                             <span class="font-mono">€ {{ fmt(fattura.totale_documento) }}</span>
+                        </div>
+                    </div>
+
+                    <!-- SDI Info -->
+                    <div v-if="fattura.xml_sdi_path || fattura.sdi_identificativo"
+                        class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 shadow rounded-lg p-5 text-sm space-y-2">
+                        <h3 class="text-xs font-semibold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider flex items-center gap-2">
+                            <CodeBracketIcon class="size-3.5" />Fattura Elettronica
+                        </h3>
+                        <div v-if="fattura.xml_sdi_path" class="text-xs text-indigo-700 dark:text-indigo-300">
+                            <span class="font-medium">XML generato</span>
+                            <a :href="route('iva.fatture-attive.xml', fattura.id)"
+                               class="ml-2 underline hover:no-underline">Scarica</a>
+                        </div>
+                        <div v-if="fattura.sdi_identificativo" class="text-xs">
+                            <span class="text-gray-500 dark:text-gray-400">ID SDI:</span>
+                            <span class="font-mono ml-1 text-gray-800 dark:text-gray-200">{{ fattura.sdi_identificativo }}</span>
                         </div>
                     </div>
 
@@ -374,6 +415,48 @@ const isNotaCredito = () => props.fattura.tipo_documento === 'TD04';
                                 <CheckCircleIcon class="size-4 me-2" />Registra
                             </PrimaryButton>
                             <button type="button" @click="closePagModal"
+                                class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md font-medium text-xs text-gray-700 dark:text-gray-300 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-700">
+                                Annulla
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- ── Modal Aggiorna Stato SDI ──────────────────────────────── -->
+        <Teleport to="body">
+            <div v-if="showSdiModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-md p-6 space-y-5">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                            <CloudArrowUpIcon class="size-5 text-purple-600" />Aggiorna stato SDI
+                        </h3>
+                        <button type="button" @click="showSdiModal = false"
+                            class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                            <XCircleIcon class="size-5" />
+                        </button>
+                    </div>
+                    <form @submit.prevent="submitSdi" class="space-y-4">
+                        <div>
+                            <InputLabel for="sdi_stato" value="Nuovo stato *" />
+                            <select id="sdi_stato" v-model="sdiForm.stato"
+                                class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm text-sm">
+                                <option value="inviata_sdi">Inviata SDI</option>
+                                <option value="accettata">Accettata</option>
+                                <option value="scartata">Scartata</option>
+                            </select>
+                        </div>
+                        <div>
+                            <InputLabel for="sdi_id" value="Identificativo SDI" />
+                            <TextInput id="sdi_id" v-model="sdiForm.sdi_identificativo"
+                                type="text" placeholder="Es. 0000001" class="mt-1 block w-full font-mono" />
+                        </div>
+                        <div class="flex gap-3 pt-2">
+                            <PrimaryButton type="submit" :disabled="sdiForm.processing">
+                                <CloudArrowUpIcon class="size-4 me-2" />Aggiorna
+                            </PrimaryButton>
+                            <button type="button" @click="showSdiModal = false"
                                 class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md font-medium text-xs text-gray-700 dark:text-gray-300 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-700">
                                 Annulla
                             </button>

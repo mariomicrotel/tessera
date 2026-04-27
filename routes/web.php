@@ -384,6 +384,8 @@ Route::middleware([
     Route::post('iva/fatture-attive/{fatturaAttiva}/nota-credito', [FatturaAttivaController::class, 'storeNotaCredito'])->name('iva.fatture-attive.store-nota-credito')->middleware('role:admin,contabile');
     Route::delete('iva/fatture-attive/{fatturaAttiva}', [FatturaAttivaController::class, 'destroy'])->name('iva.fatture-attive.destroy')->middleware('role:admin,contabile');
     Route::get('iva/fatture-attive/{fatturaAttiva}/pdf', [FatturaAttivaController::class, 'exportPdf'])->name('iva.fatture-attive.pdf');
+    Route::get('iva/fatture-attive/{fatturaAttiva}/xml', [FatturaAttivaController::class, 'downloadXml'])->name('iva.fatture-attive.xml');
+    Route::post('iva/fatture-attive/{fatturaAttiva}/sdi', [FatturaAttivaController::class, 'aggiornaStatoSdi'])->name('iva.fatture-attive.sdi')->middleware('role:admin,contabile');
     Route::get('reports/libro-giornale',         [AccountingReportController::class, 'libroGiornale'])->name('reports.libro-giornale');
     Route::get('reports/libro-giornale/export',  [AccountingReportController::class, 'exportLibroGiornale'])->name('reports.libro-giornale.export');
     Route::get('reports/registro-vendite',        [AccountingReportController::class, 'registroVendite'])->name('reports.registro-vendite');

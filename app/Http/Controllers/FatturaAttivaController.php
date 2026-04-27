@@ -7,6 +7,7 @@ use App\Models\ContoContabile;
 use App\Models\FatturaAttiva;
 use App\Models\Member;
 use App\Services\FatturaAttivaService;
+use App\Services\FatturaXmlService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class FatturaAttivaController extends Controller
 {
-    public function __construct(private readonly FatturaAttivaService $service) {}
+    public function __construct(
+        private readonly FatturaAttivaService $service,
+        private readonly FatturaXmlService    $xmlService,
+    ) {}
 
     // ─────────────────────────────────────────────────────────────────────
     // Index
@@ -393,5 +397,71 @@ class FatturaAttivaController extends Controller
         ]);
 
         return $pdf->download("fattura-{$fatturaAttiva->numero_fattura}.pdf");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // Fattura Elettronica XML (F2)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /**
+     * Genera l'XML FatturaPA e lo restituisce come download.
+     * Salva anche il path su FatturaAttiva::xml_sdi_path.
+     */
+    public function downloadXml(FatturaAttiva $fatturaAttiva)
+    {
+        $this->authorize('view', $fatturaAttiva);
+
+        if (! in_array($fatturaAttiva->stato, [
+            FatturaAttiva::STATO_EMESSA,
+            FatturaAttiva::STATO_INVIATA_SDI,
+            FatturaAttiva::STATO_ACCETTATA,
+            FatturaAttiva::STATO_SCARTATA,
+        ], true)) {
+            return back()->with('flash', [
+                'type'    => 'error',
+                'message' => 'È possibile generare l\'XML solo per fatture emesse.',
+            ]);
+        }
+
+        $fatturaAttiva->load(['righe.codiceIva']);
+
+        try {
+            $path = $this->xmlService->genera($fatturaAttiva);
+            $filename = basename($path);
+
+            return response()->streamDownload(function () use ($path) {
+                echo \Illuminate\Support\Facades\Storage::disk('private')->get($path);
+            }, $filename, [
+                'Content-Type' => 'application/xml',
+            ]);
+        } catch (\Exception $e) {
+            return back()->with('flash', ['type' => 'error', 'message' => "Errore generazione XML: {$e->getMessage()}"]);
+        }
+    }
+
+    /**
+     * Aggiorna lo stato SDI di una fattura (inviata/accettata/scartata).
+     * In un'integrazione reale questo verrebbe chiamato dal webhook AdE.
+     */
+    public function aggiornaStatoSdi(Request $request, FatturaAttiva $fatturaAttiva): RedirectResponse
+    {
+        $this->authorize('update', $fatturaAttiva);
+
+        $data = $request->validate([
+            'stato'              => 'required|in:inviata_sdi,accettata,scartata',
+            'sdi_identificativo' => 'nullable|string|max:100',
+        ]);
+
+        $fatturaAttiva->update([
+            'stato'              => $data['stato'],
+            'sdi_identificativo' => $data['sdi_identificativo'] ?? $fatturaAttiva->sdi_identificativo,
+        ]);
+
+        return redirect()
+            ->route('iva.fatture-attive.show', [request()->route('tenant'), $fatturaAttiva])
+            ->with('flash', [
+                'type'    => 'success',
+                'message' => "Stato SDI aggiornato: {$data['stato']}.",
+            ]);
     }
 }

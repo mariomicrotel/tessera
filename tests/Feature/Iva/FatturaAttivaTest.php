@@ -20,6 +20,7 @@ use App\Models\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\FatturaAttivaService;
+use App\Services\FatturaXmlService;
 use Database\Seeders\RoleSeeder;
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -667,6 +668,173 @@ describe('FatturaAttivaController::storeNotaCredito', function () {
             'tipo_documento'      => 'TD04',
             'fattura_collegata_id' => $fattura->id,
             'motivo_nota_credito' => 'Reso completo',
+        ]);
+    });
+
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// F2: Fattura Elettronica XML — FatturaXmlService
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('FatturaXmlService::generaStringa', function () {
+
+    it('genera XML valido con tag FatturaElettronica', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-12-01',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $xml = app(FatturaXmlService::class)->generaStringa($fattura);
+
+        expect($xml)->toContain('FatturaElettronica');
+        expect($xml)->toContain('FPR12');
+        expect($xml)->toContain('TD01');
+        expect($xml)->toContain($fattura->numero_fattura);
+        expect($xml)->toContain('EUR');
+    });
+
+    it('include DatiRiepilogo con aliquota IVA 22%', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-12-02',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $xml = app(FatturaXmlService::class)->generaStringa($fattura);
+
+        expect($xml)->toContain('<AliquotaIVA>22.00</AliquotaIVA>');
+        expect($xml)->toContain('<Imposta>220.00</Imposta>');
+        expect($xml)->toContain('<ImponibileImporto>1000.00</ImponibileImporto>');
+    });
+
+    it('genera XML per nota di credito TD04 con riferimento fattura originale', function () {
+        $svc = app(FatturaAttivaService::class);
+
+        $fatturaOriginale = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-12-05',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $nc = $svc->creaNdiCredito($fatturaOriginale, [
+            'tipo_storno'         => 'totale',
+            'motivo_nota_credito' => 'Reso merce',
+        ]);
+
+        $xml = app(FatturaXmlService::class)->generaStringa($nc);
+
+        expect($xml)->toContain('<TipoDocumento>TD04</TipoDocumento>');
+        expect($xml)->toContain($fatturaOriginale->numero_fattura);
+        expect($xml)->toContain('Reso merce');
+    });
+
+    it('include EsigibilitaIVA immediata (I)', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-12-10',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $xml = app(FatturaXmlService::class)->generaStringa($fattura);
+        expect($xml)->toContain('<EsigibilitaIVA>I</EsigibilitaIVA>');
+    });
+
+    it('genera XML per fattura con IVA esente (natura N4)', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-12-15',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva0));
+
+        $xml = app(FatturaXmlService::class)->generaStringa($fattura);
+
+        expect($xml)->toContain('<AliquotaIVA>0.00</AliquotaIVA>');
+        expect($xml)->toContain('<Natura>N4</Natura>');
+    });
+
+});
+
+describe('FatturaAttivaController::downloadXml', function () {
+
+    it('scarica XML per fattura emessa', function () {
+        \Illuminate\Support\Facades\Storage::fake('private');
+
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-12-20',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->get(route('iva.fatture-attive.xml', [$this->tenant->slug, $fattura->id]));
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'application/xml');
+    });
+
+    it('blocca download XML per fattura in bozza', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-12-22',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'bozza',
+        ], righeBase($this->iva22));
+
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->get(route('iva.fatture-attive.xml', [$this->tenant->slug, $fattura->id]));
+
+        $response->assertStatus(302);
+    });
+
+});
+
+describe('FatturaAttivaController::aggiornaStatoSdi', function () {
+
+    it('aggiorna stato a inviata_sdi con identificativo', function () {
+        $svc     = app(FatturaAttivaService::class);
+        $fattura = $svc->crea($this->tenant, [
+            'anno'           => 2026,
+            'data_fattura'   => '2026-12-25',
+            'tipo_documento' => 'TD01',
+            'esigibilita'    => 'immediata',
+            'stato'          => 'emessa',
+        ], righeBase($this->iva22));
+
+        $response = withoutAuthMiddleware($this)
+            ->actingAs($this->user)
+            ->post(route('iva.fatture-attive.sdi', [$this->tenant->slug, $fattura->id]), [
+                'stato'              => 'inviata_sdi',
+                'sdi_identificativo' => 'SDI-TEST-001',
+            ]);
+
+        $response->assertStatus(302);
+        $this->assertDatabaseHas('fatture_attive', [
+            'id'                 => $fattura->id,
+            'stato'              => 'inviata_sdi',
+            'sdi_identificativo' => 'SDI-TEST-001',
         ]);
     });
 
