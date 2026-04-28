@@ -39,14 +39,22 @@ const formConfig = useForm({
 
 const apriConfig = (esercizio) => {
     esercizioInConfig.value = esercizio;
-    formConfig.conto_chiusura_ce_id = esercizio.conto_chiusura_ce_id ?? null;
-    formConfig.conto_apertura_id    = esercizio.conto_apertura_id ?? null;
-    formConfig.note                 = esercizio.note ?? '';
+    formConfig.setData({
+        conto_chiusura_ce_id: esercizio.conto_chiusura_ce_id ?? null,
+        conto_apertura_id:    esercizio.conto_apertura_id ?? null,
+        note:                 esercizio.note ?? '',
+    });
 };
 
 const salvaConfig = () => {
     formConfig.put(route('esercizi.update', [tenant, esercizioInConfig.value.id]), {
-        onSuccess: () => { esercizioInConfig.value = null; },
+        onSuccess: () => {
+            formConfig.reset();
+            esercizioInConfig.value = null;
+        },
+        onError: () => {
+            console.error('Errore salvataggio configurazione', formConfig.errors);
+        },
     });
 };
 
@@ -279,7 +287,7 @@ const contiApertura = computed(() =>
                                       class="w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 text-sm shadow-sm" />
                         </div>
                         <div class="flex justify-end gap-2">
-                            <SecondaryButton type="button" @click="esercizioInConfig = null">Annulla</SecondaryButton>
+                            <SecondaryButton type="button" @click="() => { formConfig.reset(); esercizioInConfig = null; }">Annulla</SecondaryButton>
                             <PrimaryButton type="submit" :disabled="formConfig.processing">Salva configurazione</PrimaryButton>
                         </div>
                     </form>
