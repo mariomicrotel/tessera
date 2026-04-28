@@ -12,6 +12,14 @@
 
         <!-- Scripts -->
         @routes
+        @if(app()->bound('current_tenant'))
+            <script>
+                window.Ziggy = window.Ziggy || {};
+                window.Ziggy.defaults = Object.assign({}, window.Ziggy.defaults || {}, {
+                    tenant: @json(app('current_tenant')->slug)
+                });
+            </script>
+        @endif
         @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
         @inertiaHead
     </head>
