@@ -11,6 +11,9 @@ services:
       - node_modules_data:/var/www/html/node_modules
     environment:
       APP_ENV: local
+      # Permette al PHP built-in server di gestire richieste parallele
+      # (evita ERR_EMPTY_RESPONSE quando il browser fa più richieste in parallelo)
+      PHP_CLI_SERVER_WORKERS: 8
     depends_on:
       db:
         condition: service_healthy
