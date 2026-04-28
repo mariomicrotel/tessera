@@ -9,7 +9,7 @@ import { initializeTheme } from './Composables/useTheme.js';
 
 const defaultAppName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
-// Nome da mostrare (titolo browser): da props Inertia nome_associazione se disponibile
+// Leggi i props iniziali di Inertia dal tag data-page PRIMA di creare l'app Vue
 let appDisplayName = defaultAppName;
 try {
     const el = document.getElementById('app');
@@ -18,6 +18,14 @@ try {
         const data = JSON.parse(pageJson);
         if (data?.props?.nome_associazione) {
             appDisplayName = data.props.nome_associazione;
+        }
+        // Imposta i URL defaults di Ziggy dal tenant corrente PRIMA del primo render
+        // Questo risolve "tenant parameter is required" al primo caricamento dopo il login
+        const tenantSlug = data?.props?.ziggy?.defaults?.tenant
+            ?? data?.props?.currentTenant?.slug
+            ?? null;
+        if (tenantSlug && typeof window !== 'undefined' && window.Ziggy) {
+            window.Ziggy.defaults = { ...(window.Ziggy.defaults ?? {}), tenant: tenantSlug };
         }
     }
 } catch (_) {}
@@ -57,6 +65,15 @@ createInertiaApp({
     title: (title) => `${title} - ${appDisplayName}`,
     resolve: (name) => resolvePageComponent(`./Pages/${name}.vue`, import.meta.glob('./Pages/**/*.vue')),
     setup({ el, App, props, plugin }) {
+        // Imposta i defaults di Ziggy con il tenant PRIMA di montare l'app Vue
+        // così tutte le route() calls nel template trovano il parametro 'tenant'
+        const tenantSlug = props?.initialPage?.props?.ziggy?.defaults?.tenant
+            ?? props?.initialPage?.props?.currentTenant?.slug
+            ?? null;
+        if (tenantSlug && typeof window !== 'undefined' && window.Ziggy) {
+            window.Ziggy.defaults = { ...(window.Ziggy.defaults ?? {}), tenant: tenantSlug };
+        }
+
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)
