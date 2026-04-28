@@ -2,7 +2,8 @@
 import { ref, computed } from 'vue';
 import { Head, router, useForm, usePage } from '@inertiajs/vue3';
 
-const tenant = usePage().props.tenant;
+const page = usePage();
+const tenant = computed(() => page.props.currentTenant?.slug);
 import {
     LockClosedIcon, LockOpenIcon, PlusIcon,
     ExclamationTriangleIcon, CheckCircleIcon, Cog6ToothIcon,
