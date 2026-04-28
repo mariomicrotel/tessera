@@ -18,4 +18,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
 
 WORKDIR /var/www/html
 
+# Aumenta memory_limit per DomPDF e per i test (default PHP CLI = 128M, insufficiente per PDF)
+RUN echo "memory_limit = 512M" > /usr/local/etc/php/conf.d/memory.ini
+
 EXPOSE 8000
