@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, router, useForm } from '@inertiajs/vue3';
+import { Head, router, useForm, usePage } from '@inertiajs/vue3';
+
+const tenant = usePage().props.tenant;
 import {
     LockClosedIcon, LockOpenIcon, PlusIcon,
     ExclamationTriangleIcon, CheckCircleIcon, Cog6ToothIcon,
@@ -22,7 +24,7 @@ const showAperturaModal = ref(false);
 const formApertura = useForm({ anno: props.anno_corrente });
 
 const apriEsercizio = () => {
-    formApertura.post(route('esercizi.store'), {
+    formApertura.post(route('esercizi.store', tenant), {
         onSuccess: () => { showAperturaModal.value = false; },
     });
 };
@@ -43,7 +45,7 @@ const apriConfig = (esercizio) => {
 };
 
 const salvaConfig = () => {
-    formConfig.put(route('esercizi.update', [route().params.tenant, esercizioInConfig.value.id]), {
+    formConfig.put(route('esercizi.update', [tenant, esercizioInConfig.value.id]), {
         onSuccess: () => { esercizioInConfig.value = null; },
     });
 };
@@ -55,19 +57,19 @@ const chiudiEsercizio = (esercizio) => {
     if (!confirm(`Chiudere l'esercizio ${esercizio.anno}? L'operazione blocca tutti i movimenti e genera le scritture di chiusura. Non sarà reversibile se esiste un anno successivo chiuso.`)) {
         return;
     }
-    router.post(route('esercizi.close', [route().params.tenant, esercizio.id]));
+    router.post(route('esercizi.close', [tenant, esercizio.id]));
 };
 
 const riaperiEsercizio = (esercizio) => {
     if (!confirm(`Riaprire l'esercizio ${esercizio.anno}? Le scritture di chiusura generate automaticamente verranno cancellate e i movimenti sbloccati.`)) {
         return;
     }
-    router.post(route('esercizi.reopen', [route().params.tenant, esercizio.id]));
+    router.post(route('esercizi.reopen', [tenant, esercizio.id]));
 };
 
 const eliminaEsercizio = (esercizio) => {
     if (!confirm(`Eliminare l'esercizio ${esercizio.anno}?`)) return;
-    router.delete(route('esercizi.destroy', [route().params.tenant, esercizio.id]));
+    router.delete(route('esercizi.destroy', [tenant, esercizio.id]));
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────

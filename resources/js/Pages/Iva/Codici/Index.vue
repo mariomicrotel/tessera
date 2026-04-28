@@ -74,7 +74,7 @@ const natureSdi = {
                         + Nuovo Codice IVA
                     </Link>
                     <Link
-                        :href="route('iva.index')"
+                        :href="route('iva.dashboard')"
                         class="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
                     >
                         <ArrowLeftIcon class="w-4 h-4 mr-2" />
