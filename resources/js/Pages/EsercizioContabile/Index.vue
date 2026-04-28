@@ -39,11 +39,11 @@ const formConfig = useForm({
 
 const apriConfig = (esercizio) => {
     esercizioInConfig.value = esercizio;
-    formConfig.setData({
-        conto_chiusura_ce_id: esercizio.conto_chiusura_ce_id ?? null,
-        conto_apertura_id:    esercizio.conto_apertura_id ?? null,
-        note:                 esercizio.note ?? '',
-    });
+    // Reset e riempi la form con i dati dell'esercizio
+    formConfig.reset();
+    formConfig.conto_chiusura_ce_id = esercizio.conto_chiusura_ce_id ?? null;
+    formConfig.conto_apertura_id    = esercizio.conto_apertura_id ?? null;
+    formConfig.note                 = esercizio.note ?? '';
 };
 
 const salvaConfig = () => {
