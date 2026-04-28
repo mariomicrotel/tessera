@@ -25,7 +25,7 @@ const showAperturaModal = ref(false);
 const formApertura = useForm({ anno: props.anno_corrente });
 
 const apriEsercizio = () => {
-    formApertura.post(route('esercizi.store', tenant), {
+    formApertura.post(route('esercizi.store', { tenant: tenant.value }), {
         onSuccess: () => { showAperturaModal.value = false; },
     });
 };
@@ -48,7 +48,7 @@ const apriConfig = (esercizio) => {
 };
 
 const salvaConfig = () => {
-    formConfig.put(route('esercizi.update', [tenant, esercizioInConfig.value.id]), {
+    formConfig.put(route('esercizi.update', { tenant: tenant.value, esercizio: esercizioInConfig.value.id }), {
         onSuccess: () => {
             formConfig.reset();
             esercizioInConfig.value = null;
@@ -66,19 +66,19 @@ const chiudiEsercizio = (esercizio) => {
     if (!confirm(`Chiudere l'esercizio ${esercizio.anno}? L'operazione blocca tutti i movimenti e genera le scritture di chiusura. Non sarà reversibile se esiste un anno successivo chiuso.`)) {
         return;
     }
-    router.post(route('esercizi.close', [tenant, esercizio.id]));
+    router.post(route('esercizi.close', { tenant: tenant.value, esercizio: esercizio.id }));
 };
 
 const riaperiEsercizio = (esercizio) => {
     if (!confirm(`Riaprire l'esercizio ${esercizio.anno}? Le scritture di chiusura generate automaticamente verranno cancellate e i movimenti sbloccati.`)) {
         return;
     }
-    router.post(route('esercizi.reopen', [tenant, esercizio.id]));
+    router.post(route('esercizi.reopen', { tenant: tenant.value, esercizio: esercizio.id }));
 };
 
 const eliminaEsercizio = (esercizio) => {
     if (!confirm(`Eliminare l'esercizio ${esercizio.anno}?`)) return;
-    router.delete(route('esercizi.destroy', [tenant, esercizio.id]));
+    router.delete(route('esercizi.destroy', { tenant: tenant.value, esercizio: esercizio.id }));
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────
