@@ -64,6 +64,13 @@ class Cooperative2025Seeder extends Seeder
         }
 
         $tenant->users()->syncWithoutDetaching([$admin->id => ['role' => 'admin']]);
+
+        // Crea ruolo admin se non esiste e assegnalo
+        $adminRole = \App\Models\Role::firstOrCreate(
+            ['name' => 'admin'],
+            ['display_name' => 'Admin']
+        );
+        $admin->roles()->syncWithoutDetaching([$adminRole->id]);
         $this->command->info("✓ Utente admin: {$admin->email}");
 
         // ────────────────────────────────────────────────────────────────────
