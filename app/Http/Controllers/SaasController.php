@@ -44,9 +44,10 @@ class SaasController extends Controller
                 'role' => $t->pivot->role,
             ]);
 
-        // Se ha un solo tenant, redirect diretto
+        // Se ha un solo tenant, redirect diretto con Inertia location per preservare contesto
         if ($tenants->count() === 1) {
-            return redirect()->route('dashboard', ['tenant' => $tenants->first()['slug']]);
+            $tenantSlug = $tenants->first()['slug'];
+            return Inertia::location(route('dashboard', ['tenant' => $tenantSlug]));
         }
 
         return Inertia::render('Saas/SelectTenant', [
@@ -66,6 +67,7 @@ class SaasController extends Controller
             abort(403);
         }
 
-        return redirect()->route('dashboard', ['tenant' => $tenant->slug]);
+        // Usa Inertia::location per preservare il contesto Inertia
+        return Inertia::location(route('dashboard', ['tenant' => $tenant->slug]));
     }
 }
