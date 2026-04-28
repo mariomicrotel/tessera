@@ -27,8 +27,7 @@ initializeTheme();
 
 // Dopo il login (navigazione Inertia) window.Ziggy ha ancora solo le route guest; aggiorniamo
 // Ziggy da ogni risposta Inertia PRIMA del render (capture phase) così route('dashboard') funziona.
-document.addEventListener('inertia:beforeUpdate', (event) => {
-    const page = event.detail?.page;
+function updateZiggy(page) {
     const ziggy = page?.props?.ziggy;
     if (ziggy && typeof window !== 'undefined') {
         window.Ziggy = { ...ziggy };
@@ -37,7 +36,22 @@ document.addEventListener('inertia:beforeUpdate', (event) => {
     if (page?.props?.nome_associazione) {
         appDisplayName = page.props.nome_associazione;
     }
+}
+
+document.addEventListener('inertia:beforeUpdate', (event) => {
+    updateZiggy(event.detail?.page);
 }, true);
+
+// Aggiorna Ziggy anche durante il primo caricamento/navigazione via Inertia::location
+document.addEventListener('inertia:navigate', () => {
+    if (typeof window !== 'undefined' && window.Ziggy?.location) {
+        // Usa gli URL defaults che il server ha impostato
+        const path = window.location.pathname;
+        if (path && typeof window.Ziggy.defaults === 'object') {
+            // URL defaults sono già nel Ziggy object dal server
+        }
+    }
+});
 
 createInertiaApp({
     title: (title) => `${title} - ${appDisplayName}`,

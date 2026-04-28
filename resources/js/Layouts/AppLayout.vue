@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     HomeIcon,
@@ -43,6 +43,14 @@ defineProps({
 
 const page = usePage();
 const showingNavigationDropdown = ref(false);
+
+// Ottieni il tenant dai props di Inertia
+const tenant = computed(() => page.props.currentTenant?.slug);
+
+// Helper per route con tenant
+const dashboardRoute = computed(() =>
+    tenant.value ? route('dashboard', { tenant: tenant.value }) : '#'
+);
 
 const flash = ref(null);
 
@@ -146,7 +154,7 @@ const logout = () => {
         <div class="h-screen bg-gray-100 dark:bg-gray-900 flex flex-col sm:flex-row overflow-hidden">
             <!-- Mobile: top bar (logo, hamburger, user) -->
             <div class="flex sm:hidden items-center justify-between h-16 px-4 bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700">
-                <Link :href="route('dashboard')" class="shrink-0 flex items-center gap-2 min-w-0">
+                <Link :href="dashboardRoute" class="shrink-0 flex items-center gap-2 min-w-0">
                     <img v-if="$page.props.logo_url" :src="$page.props.logo_url" alt="Logo" class="block h-8 w-auto max-w-[120px] object-contain object-left shrink-0" />
                     <ApplicationMark v-else class="block h-8 w-auto shrink-0" />
                     <div v-if="$page.props.currentTenant" class="min-w-0 hidden xs:block">
@@ -232,7 +240,7 @@ const logout = () => {
             <!-- Mobile: responsive navigation menu (sovrapposto al contenuto) -->
             <div :class="{'block': showingNavigationDropdown, 'hidden': ! showingNavigationDropdown}" class="sm:hidden fixed inset-0 top-16 z-40 overflow-y-auto border-b border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800">
                 <div class="pt-2 pb-3 space-y-1 px-4">
-                    <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')">
+                    <ResponsiveNavLink :href="dashboardRoute" :active="route().current('dashboard')">
                         <HomeIcon class="size-5 shrink-0" aria-hidden="true" />
                         Dashboard
                     </ResponsiveNavLink>
@@ -592,7 +600,7 @@ const logout = () => {
             <aside class="hidden sm:flex sm:flex-col sm:w-64 sm:shrink-0 sm:h-screen bg-white dark:bg-gray-800 border-b sm:border-b-0 sm:border-r border-gray-100 dark:border-gray-700">
                 <div class="flex flex-col h-full min-h-0">
                     <div class="shrink-0 flex flex-col px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-                        <Link :href="route('dashboard')" class="shrink-0 min-w-0 mb-2">
+                        <Link :href="dashboardRoute" class="shrink-0 min-w-0 mb-2">
                             <img v-if="$page.props.logo_url" :src="$page.props.logo_url" alt="Logo" class="block h-8 w-auto max-w-[140px] object-contain object-left" />
                             <ApplicationMark v-else class="block h-8 w-auto" />
                         </Link>
@@ -616,7 +624,7 @@ const logout = () => {
                     </div>
                     <nav class="flex-1 overflow-y-auto py-4 px-3">
                         <div class="mt-1 space-y-1">
-                            <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
+                            <NavLink :href="dashboardRoute" :active="route().current('dashboard')">
                                 <HomeIcon class="size-5 shrink-0" aria-hidden="true" />
                                 Dashboard
                             </NavLink>
