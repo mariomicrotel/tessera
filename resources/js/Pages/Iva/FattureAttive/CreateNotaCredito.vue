@@ -36,7 +36,7 @@ const importoSuggerito = computed(() => {
 });
 
 function submit() {
-    form.post(route('iva.fatture-attive.store-nota-credito', props.fattura.id));
+    form.post(route('iva.fatture-attive.store-nota-credito', { fatturaAttiva: props.fattura.id }));
 }
 </script>
 
@@ -45,7 +45,7 @@ function submit() {
         <Head :title="`Crea Nota di Credito per ${fattura.numero_fattura}`" />
         <template #header>
             <div class="flex items-center gap-3">
-                <Link :href="route('iva.fatture-attive.show', fattura.id)"
+                <Link :href="route('iva.fatture-attive.show', { fatturaAttiva: fattura.id })"
                       class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
                     <ArrowLeftIcon class="size-5" aria-hidden="true" />
                 </Link>
@@ -169,7 +169,7 @@ function submit() {
                     <PrimaryButton type="submit" :disabled="form.processing">
                         <CheckIcon class="size-4 me-2" aria-hidden="true" />Crea Nota di Credito
                     </PrimaryButton>
-                    <Link :href="route('iva.fatture-attive.show', fattura.id)"
+                    <Link :href="route('iva.fatture-attive.show', { fatturaAttiva: fattura.id })"
                         class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md font-medium text-xs text-gray-700 dark:text-gray-300 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-700">
                         <ArrowLeftIcon class="size-4" />Annulla
                     </Link>

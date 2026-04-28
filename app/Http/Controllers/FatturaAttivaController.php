@@ -174,7 +174,7 @@ class FatturaAttivaController extends Controller
     {
         $this->authorize('view', $fatturaAttiva);
 
-        $fatturaAttiva->load(['righe.codiceIva', 'liquidazione']);
+        $fatturaAttiva->load(['righe.codiceIva', 'liquidazione', 'fatturaCollegata', 'noteCredito']);
 
         return Inertia::render('Iva/FattureAttive/Show', [
             'fattura'         => $fatturaAttiva,

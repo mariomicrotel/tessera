@@ -33,7 +33,7 @@ const showSdiModal = ref(false);
 const sdiForm = useForm({ stato: 'inviata_sdi', sdi_identificativo: '' });
 
 function submitSdi() {
-    sdiForm.post(route('iva.fatture-attive.sdi', props.fattura.id), {
+    sdiForm.post(route('iva.fatture-attive.sdi', { fatturaAttiva: props.fattura.id }), {
         onSuccess: () => { showSdiModal.value = false; sdiForm.reset(); },
     });
 }
@@ -92,7 +92,7 @@ function openPagModal() { showPagModal.value = true; }
 function closePagModal() { showPagModal.value = false; pagForm.reset(); }
 
 function submitPagamento() {
-    pagForm.post(route('iva.fatture-attive.paga', props.fattura.id), {
+    pagForm.post(route('iva.fatture-attive.paga', { fatturaAttiva: props.fattura.id }), {
         onSuccess: () => closePagModal(),
     });
 }
@@ -100,12 +100,12 @@ function submitPagamento() {
 /* ── Azioni ──────────────────────────────────────────────────────────────── */
 function storna() {
     if (!confirm(`Generare una nota di credito per la fattura "${props.fattura.numero_fattura}"? La fattura verrà annullata.`)) return;
-    router.post(route('iva.fatture-attive.storna', props.fattura.id));
+    router.post(route('iva.fatture-attive.storna', { fatturaAttiva: props.fattura.id }));
 }
 
 function destroy() {
     if (!confirm(`Eliminare definitivamente la fattura "${props.fattura.numero_fattura}"?`)) return;
-    router.delete(route('iva.fatture-attive.destroy', props.fattura.id));
+    router.delete(route('iva.fatture-attive.destroy', { fatturaAttiva: props.fattura.id }));
 }
 
 const isBozza     = () => props.fattura.stato === 'bozza';
@@ -121,7 +121,7 @@ const isNotaCredito = () => props.fattura.tipo_documento === 'TD04';
         <template #header>
             <div class="flex flex-wrap justify-between items-center gap-3">
                 <div class="flex items-center gap-3">
-                    <Link :href="route('iva.fatture-attive.index')"
+                    <Link :href="route('iva.fatture-attive.index', {})"
                           class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
                         <ArrowLeftIcon class="size-5" aria-hidden="true" />
                     </Link>
@@ -140,13 +140,13 @@ const isNotaCredito = () => props.fattura.tipo_documento === 'TD04';
                 </div>
                 <div class="flex flex-wrap gap-2">
                     <!-- PDF -->
-                    <a :href="route('iva.fatture-attive.pdf', fattura.id)" target="_blank"
+                    <a :href="route('iva.fatture-attive.pdf', { fatturaAttiva: fattura.id })" target="_blank"
                        class="inline-flex items-center gap-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md font-medium text-xs text-gray-700 dark:text-gray-300 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-700">
                         <DocumentArrowDownIcon class="size-4" />PDF
                     </a>
                     <!-- XML FatturaPA (solo emessa/SDI) -->
                     <a v-if="['emessa','inviata_sdi','accettata','scartata'].includes(fattura.stato)"
-                       :href="route('iva.fatture-attive.xml', fattura.id)"
+                       :href="route('iva.fatture-attive.xml', { fatturaAttiva: fattura.id })"
                        class="inline-flex items-center gap-1 px-3 py-2 border border-indigo-300 dark:border-indigo-700 rounded-md font-medium text-xs text-indigo-700 dark:text-indigo-400 uppercase tracking-widest hover:bg-indigo-50 dark:hover:bg-indigo-900/30">
                         <CodeBracketIcon class="size-4" />XML SDI
                     </a>
@@ -157,7 +157,7 @@ const isNotaCredito = () => props.fattura.tipo_documento === 'TD04';
                         <CloudArrowUpIcon class="size-4" />Stato SDI
                     </button>
                     <!-- Modifica (solo bozza) -->
-                    <Link v-if="isBozza()" :href="route('iva.fatture-attive.edit', fattura.id)">
+                    <Link v-if="isBozza()" :href="route('iva.fatture-attive.edit', { fatturaAttiva: fattura.id })">
                         <PrimaryButton>
                             <PencilSquareIcon class="size-4 me-2" aria-hidden="true" />Modifica
                         </PrimaryButton>
@@ -169,7 +169,7 @@ const isNotaCredito = () => props.fattura.tipo_documento === 'TD04';
                         <CheckCircleIcon class="size-4" />Registra incasso
                     </button>
                     <!-- Crea Nota di Credito (emessa + da_incassare, tipo TD01) -->
-                    <Link v-if="isEmessa() && isDaIncassare() && !isNotaCredito()" :href="route('iva.fatture-attive.crea-nota-credito', fattura.id)"
+                    <Link v-if="isEmessa() && isDaIncassare() && !isNotaCredito()" :href="route('iva.fatture-attive.crea-nota-credito', { fatturaAttiva: fattura.id })"
                         class="inline-flex items-center gap-1 px-3 py-2 border border-orange-300 dark:border-orange-700 rounded-md font-medium text-xs text-orange-700 dark:text-orange-400 uppercase tracking-widest hover:bg-orange-50 dark:hover:bg-orange-900/30">
                         <ArrowPathIcon class="size-4" />Crea NC
                     </Link>
@@ -244,18 +244,39 @@ const isNotaCredito = () => props.fattura.tipo_documento === 'TD04';
                         <p v-else class="text-gray-400 italic">Non specificato</p>
                     </div>
 
-                    <!-- Documento collegato (se NC) -->
+                    <!-- Documento collegato (se NC → fattura originale) -->
                     <div v-if="isNotaCredito() && fattura.fattura_collegata_id" class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 shadow rounded-lg p-5 text-sm space-y-3">
                         <h3 class="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-2">
-                            <DocumentTextIcon class="size-3.5" />Documento collegato
+                            <DocumentTextIcon class="size-3.5" />Storno di fattura
                         </h3>
                         <div class="space-y-1">
-                            <p class="text-blue-700 dark:text-blue-300 font-medium">
-                                Storno di: <span class="font-mono">{{ fattura.fattura_collegata_id }}</span>
+                            <Link v-if="fattura.fattura_collegata"
+                                  :href="route('iva.fatture-attive.show', fattura.fattura_collegata.id)"
+                                  class="font-mono text-blue-700 dark:text-blue-300 font-semibold hover:underline">
+                                {{ fattura.fattura_collegata.numero_fattura }}
+                            </Link>
+                            <p v-else class="font-mono text-blue-700 dark:text-blue-300 font-semibold">
+                                #{{ fattura.fattura_collegata_id }}
                             </p>
-                            <p v-if="fattura.motivo_nota_credito" class="text-sm text-blue-600 dark:text-blue-400">
-                                {{ fattura.motivo_nota_credito }}
+                            <p v-if="fattura.motivo_nota_credito" class="text-xs text-blue-600 dark:text-blue-400 italic">
+                                "{{ fattura.motivo_nota_credito }}"
                             </p>
+                        </div>
+                    </div>
+
+                    <!-- Note di credito emesse su questa fattura (se TD01) -->
+                    <div v-if="!isNotaCredito() && fattura.note_credito?.length" class="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 shadow rounded-lg p-5 text-sm space-y-2">
+                        <h3 class="text-xs font-semibold text-orange-600 dark:text-orange-400 uppercase tracking-wider flex items-center gap-2">
+                            <ArrowPathIcon class="size-3.5" />Note di credito emesse
+                        </h3>
+                        <div v-for="nc in fattura.note_credito" :key="nc.id" class="flex justify-between items-center">
+                            <Link :href="route('iva.fatture-attive.show', nc.id)"
+                                  class="font-mono text-orange-700 dark:text-orange-300 hover:underline text-xs">
+                                {{ nc.numero_fattura }}
+                            </Link>
+                            <span class="font-mono text-xs text-orange-600 dark:text-orange-400">
+                                € {{ Number(nc.totale_documento).toFixed(2) }}
+                            </span>
                         </div>
                     </div>
 
@@ -286,7 +307,7 @@ const isNotaCredito = () => props.fattura.tipo_documento === 'TD04';
                         </h3>
                         <div v-if="fattura.xml_sdi_path" class="text-xs text-indigo-700 dark:text-indigo-300">
                             <span class="font-medium">XML generato</span>
-                            <a :href="route('iva.fatture-attive.xml', fattura.id)"
+                            <a :href="route('iva.fatture-attive.xml', { fatturaAttiva: fattura.id })"
                                class="ml-2 underline hover:no-underline">Scarica</a>
                         </div>
                         <div v-if="fattura.sdi_identificativo" class="text-xs">

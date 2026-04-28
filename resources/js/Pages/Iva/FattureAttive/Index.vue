@@ -36,7 +36,7 @@ watch([search, statoFiltro, statoPagFiltro, tipoDocFiltro, annoFiltro], () => {
 
 function applyFilters() {
     router.get(
-        route('iva.fatture-attive.index'),
+        route('iva.fatture-attive.index', {}),
         {
             numero:           search.value         || undefined,
             stato:            statoFiltro.value     || undefined,
@@ -89,7 +89,7 @@ const anni = Array.from({ length: 5 }, (_, i) => currentYear - i);
                     </h2>
                     <span class="ml-1 text-sm text-gray-500 dark:text-gray-400">({{ fatture.total }} totali)</span>
                 </div>
-                <Link :href="route('iva.fatture-attive.create')">
+                <Link :href="route('iva.fatture-attive.create', {})">
                     <PrimaryButton>
                         <PlusIcon class="size-4 me-2" aria-hidden="true" />Nuova fattura
                     </PrimaryButton>
@@ -189,7 +189,7 @@ const anni = Array.from({ length: 5 }, (_, i) => currentYear - i);
                             class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                             <td class="px-4 py-3 text-gray-600 dark:text-gray-400 whitespace-nowrap">{{ fmtDate(fa.data_fattura) }}</td>
                             <td class="px-4 py-3 font-medium whitespace-nowrap">
-                                <Link :href="route('iva.fatture-attive.show', fa.id)"
+                                <Link :href="route('iva.fatture-attive.show', { fatturaAttiva: fa.id })"
                                       class="text-indigo-600 dark:text-indigo-400 hover:underline font-mono">
                                     {{ fa.numero_fattura }}
                                 </Link>
@@ -226,7 +226,7 @@ const anni = Array.from({ length: 5 }, (_, i) => currentYear - i);
                                 </span>
                             </td>
                             <td class="px-4 py-3">
-                                <Link :href="route('iva.fatture-attive.show', fa.id)"
+                                <Link :href="route('iva.fatture-attive.show', { fatturaAttiva: fa.id })"
                                       class="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">
                                     Dettaglio
                                 </Link>
