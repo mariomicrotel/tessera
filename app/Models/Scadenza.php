@@ -28,6 +28,8 @@ class Scadenza extends Model
         'note',
     ];
 
+    protected $appends = ['is_scaduta', 'giorni_alla_scadenza'];
+
     protected function casts(): array
     {
         return [

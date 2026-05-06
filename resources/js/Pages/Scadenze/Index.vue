@@ -1,13 +1,13 @@
 <script setup>
-import { reactive } from 'vue';
+import { reactive, ref } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import {
     PlusIcon, FunnelIcon, PencilSquareIcon, TrashIcon,
     CheckCircleIcon, ArrowPathIcon, ChevronLeftIcon, ChevronRightIcon,
+    XMarkIcon,
 } from '@heroicons/vue/24/outline';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
-import DangerButton from '@/Components/DangerButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 
 const props = defineProps({
@@ -32,6 +32,27 @@ const destroy = (scadenza) => {
     if (confirm(`Eliminare la scadenza "${scadenza.descrizione}"?`)) {
         router.delete(route('scadenze.destroy', scadenza));
     }
+};
+
+// ── Modal "Marca come pagata" ──────────────────────────────────────────────
+const pagataModal = ref(null);
+const pagataForm = reactive({ data_pagamento: '', conto_id: '' });
+const pagataProcessing = ref(false);
+
+const openPagataModal = (scadenza) => {
+    pagataModal.value = scadenza;
+    pagataForm.data_pagamento = new Date().toISOString().substring(0, 10);
+    pagataForm.conto_id = scadenza.conto_id ?? '';
+};
+
+const submitPagata = () => {
+    pagataProcessing.value = true;
+    router.post(route('scadenze.mark-pagata', pagataModal.value), pagataForm, {
+        onFinish: () => {
+            pagataProcessing.value = false;
+            pagataModal.value = null;
+        },
+    });
 };
 
 const badgeClass = (stato) => {
@@ -101,13 +122,12 @@ const formatEur  = (n) => n != null ? Number(n).toLocaleString('it-IT', { style:
                     <PrimaryButton type="submit"><FunnelIcon class="size-4 me-1" />Filtra</PrimaryButton>
                 </form>
 
-                <!-- Azioni globali -->
+                <!-- Ripresa anno precedente -->
                 <div class="flex justify-end">
-                    <form :action="route('scadenze.riprendi')" method="POST" @submit.prevent="router.post(route('scadenze.riprendi'))">
-                        <SecondaryButton type="submit">
-                            <ArrowPathIcon class="size-4 me-2" />Riprendi scadenze anno precedente
-                        </SecondaryButton>
-                    </form>
+                    <SecondaryButton type="button"
+                        @click="() => { if (confirm('Creare le scadenze ricorrenti per l\'anno corrente dall\'anno precedente?')) { router.post(route('scadenze.riprendi')); } }">
+                        <ArrowPathIcon class="size-4 me-2" />Riprendi scadenze anno precedente
+                    </SecondaryButton>
                 </div>
 
                 <!-- Tabella -->
@@ -121,7 +141,7 @@ const formatEur  = (n) => n != null ? Number(n).toLocaleString('it-IT', { style:
                                 <th class="px-4 py-3 text-right font-semibold text-gray-600 dark:text-gray-300">Importo</th>
                                 <th class="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">Stato</th>
                                 <th class="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">Riferimento</th>
-                                <th class="px-4 py-3"></th>
+                                <th class="px-4 py-3 text-center font-semibold text-gray-600 dark:text-gray-300">Azioni</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
@@ -131,13 +151,23 @@ const formatEur  = (n) => n != null ? Number(n).toLocaleString('it-IT', { style:
                                 </td>
                             </tr>
                             <tr v-for="s in scadenze.data" :key="s.id"
-                                :class="['hover:bg-gray-50 dark:hover:bg-gray-750', s.is_scaduta ? 'bg-red-50 dark:bg-red-900/10' : '']">
-                                <td class="px-4 py-3 whitespace-nowrap font-medium" :class="s.is_scaduta ? 'text-red-700 dark:text-red-400' : 'text-gray-900 dark:text-gray-100'">
+                                :class="['hover:bg-gray-50 dark:hover:bg-gray-750',
+                                         s.is_scaduta ? 'bg-red-50 dark:bg-red-900/10' :
+                                         (s.giorni_alla_scadenza <= 7 && s.stato === 'aperta') ? 'bg-orange-50 dark:bg-orange-900/10' : '']">
+                                <td class="px-4 py-3 whitespace-nowrap font-medium"
+                                    :class="s.is_scaduta ? 'text-red-700 dark:text-red-400' :
+                                            (s.giorni_alla_scadenza <= 7 && s.stato === 'aperta') ? 'text-orange-700 dark:text-orange-400' :
+                                            'text-gray-900 dark:text-gray-100'">
                                     {{ formatDate(s.data_scadenza) }}
                                     <span v-if="s.is_scaduta" class="ml-1 text-xs text-red-500">(scaduta)</span>
+                                    <span v-else-if="s.giorni_alla_scadenza <= 7 && s.stato === 'aperta'"
+                                          class="ml-1 text-xs text-orange-500">({{ s.giorni_alla_scadenza }}gg)</span>
                                 </td>
                                 <td class="px-4 py-3 text-gray-500 dark:text-gray-400 capitalize">{{ tipi[s.tipo] ?? s.tipo }}</td>
-                                <td class="px-4 py-3 text-gray-800 dark:text-gray-200">{{ s.descrizione }}</td>
+                                <td class="px-4 py-3 text-gray-800 dark:text-gray-200">
+                                    {{ s.descrizione }}
+                                    <span v-if="s.ricorrente" class="ml-1 text-xs text-indigo-500" title="Ricorrente">↺</span>
+                                </td>
                                 <td class="px-4 py-3 text-right text-gray-800 dark:text-gray-200">{{ formatEur(s.importo) }}</td>
                                 <td class="px-4 py-3">
                                     <span :class="['px-2 py-0.5 rounded-full text-xs font-medium', badgeClass(s.stato)]">
@@ -145,12 +175,20 @@ const formatEur  = (n) => n != null ? Number(n).toLocaleString('it-IT', { style:
                                     </span>
                                 </td>
                                 <td class="px-4 py-3 text-gray-500 dark:text-gray-400 text-xs">{{ s.riferimento ?? '—' }}</td>
-                                <td class="px-4 py-3 text-right whitespace-nowrap space-x-2">
-                                    <Link v-if="s.stato !== 'pagata'" :href="route('scadenze.edit', s)"
+                                <td class="px-4 py-3 text-center whitespace-nowrap space-x-2">
+                                    <button v-if="s.stato === 'aperta'"
+                                            @click="openPagataModal(s)"
+                                            title="Marca come pagata"
+                                            class="inline-flex items-center text-green-600 hover:text-green-800 dark:text-green-400">
+                                        <CheckCircleIcon class="size-4" />
+                                    </button>
+                                    <Link :href="route('scadenze.edit', s)"
+                                          title="Modifica"
                                           class="inline-flex items-center text-indigo-600 hover:text-indigo-800 dark:text-indigo-400">
                                         <PencilSquareIcon class="size-4" />
                                     </Link>
                                     <button @click="destroy(s)"
+                                            title="Elimina"
                                             class="text-red-600 hover:text-red-800 dark:text-red-400">
                                         <TrashIcon class="size-4" />
                                     </button>
@@ -176,5 +214,46 @@ const formatEur  = (n) => n != null ? Number(n).toLocaleString('it-IT', { style:
                 </div>
             </div>
         </div>
+
+        <!-- Modal: Marca come pagata -->
+        <Teleport to="body">
+            <div v-if="pagataModal"
+                 class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                 @click.self="pagataModal = null">
+                <div class="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Marca come pagata</h3>
+                        <button @click="pagataModal = null" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                            <XMarkIcon class="size-5" />
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                        <span class="font-medium text-gray-900 dark:text-gray-100">{{ pagataModal.descrizione }}</span>
+                        <span v-if="pagataModal.importo"> — {{ formatEur(pagataModal.importo) }}</span>
+                    </p>
+                    <form @submit.prevent="submitPagata" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Data pagamento *</label>
+                            <input v-model="pagataForm.data_pagamento" type="date" required
+                                   class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm text-sm" />
+                        </div>
+                        <div v-if="conti.length > 0">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Conto utilizzato</label>
+                            <select v-model="pagataForm.conto_id"
+                                    class="block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm text-sm">
+                                <option value="">— Nessuno —</option>
+                                <option v-for="c in conti" :key="c.id" :value="c.id">{{ c.name }} ({{ c.code }})</option>
+                            </select>
+                        </div>
+                        <div class="flex justify-end gap-3 pt-2">
+                            <SecondaryButton type="button" @click="pagataModal = null">Annulla</SecondaryButton>
+                            <PrimaryButton type="submit" :disabled="pagataProcessing">
+                                <CheckCircleIcon class="size-4 me-2" />Conferma pagamento
+                            </PrimaryButton>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </Teleport>
     </AppLayout>
 </template>
