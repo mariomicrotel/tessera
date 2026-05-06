@@ -33,11 +33,18 @@ class SaasController extends Controller
      */
     public function selectTenant(Request $request)
     {
-        $tenants = $request->user()->tenants()
+        $user = $request->user();
+
+        // Il superadmin va direttamente al pannello admin
+        if ($user->is_super_admin) {
+            return Inertia::location(route('admin.tenants'));
+        }
+
+        $tenants = $user->tenants()
             ->where('is_active', true)
             ->get()
             ->map(fn (Tenant $t) => [
-                'id' => $t->id,
+                'id'   => $t->id,
                 'name' => $t->name,
                 'slug' => $t->slug,
                 'plan' => $t->plan,
@@ -51,7 +58,9 @@ class SaasController extends Controller
         }
 
         return Inertia::render('Saas/SelectTenant', [
-            'tenants' => $tenants,
+            'tenants'      => $tenants,
+            'isSuperAdmin' => false,
+            'adminUrl'     => null,
         ]);
     }
 
