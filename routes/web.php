@@ -59,6 +59,9 @@ use App\Http\Controllers\RelazioneMissioneController;
 use App\Http\Controllers\AuditController;
 use App\Http\Controllers\CentriDiCostoController;
 use App\Http\Controllers\ApiDocsController;
+use App\Http\Controllers\EtsComplianceController;
+use App\Http\Controllers\EtsStatutoController;
+use App\Http\Controllers\EtsAttoCostitutivoController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -610,5 +613,27 @@ Route::middleware([
         Route::get('admin/audit/export',                [AuditController::class, 'export'])->name('audit.export');
         Route::get('admin/audit/{auditLog}',            [AuditController::class, 'show'])->name('audit.show');
         Route::get('admin/audit/entity/{type}/{id}',    [AuditController::class, 'forEntity'])->name('audit.entity');
+    });
+
+    // ── ETS Compliance, Statuto, Atto Costitutivo (D1) ─────────────────────
+    Route::prefix('ets')->name('ets.')->group(function () {
+
+        // Compliance dashboard e check
+        Route::get('compliance',                    [EtsComplianceController::class, 'dashboard'])->name('compliance.dashboard');
+        Route::post('compliance/run',               [EtsComplianceController::class, 'runCheck'])->name('compliance.run')->middleware('role:admin,segreteria');
+        Route::get('compliance/{check}',            [EtsComplianceController::class, 'show'])->name('compliance.show');
+
+        // Statuto (versioning + clausole)
+        Route::post('statuto/{statuto}/approva',    [EtsStatutoController::class, 'approva'])->name('statuto.approva')->middleware('role:admin,segreteria');
+        Route::post('statuto/{statuto}/archivia',   [EtsStatutoController::class, 'archivia'])->name('statuto.archivia')->middleware('role:admin,segreteria');
+        Route::post('statuto/{statuto}/attachments',[EtsStatutoController::class, 'storeAttachment'])->name('statuto.attachments.store')->middleware('role:admin,segreteria');
+        Route::delete('statuto/{statuto}/attachments/{attachment}', [EtsStatutoController::class, 'destroyAttachment'])->name('statuto.attachments.destroy')->middleware('role:admin,segreteria');
+        Route::resource('statuto', EtsStatutoController::class)->parameters(['statuto' => 'statuto']);
+
+        // Atto Costitutivo
+        Route::post('atto-costitutivo/{attoCostituivo}/registra',   [EtsAttoCostitutivoController::class, 'registra'])->name('atto-costitutivo.registra')->middleware('role:admin,segreteria');
+        Route::post('atto-costitutivo/{attoCostituivo}/attachments',[EtsAttoCostitutivoController::class, 'storeAttachment'])->name('atto-costitutivo.attachments.store')->middleware('role:admin,segreteria');
+        Route::delete('atto-costitutivo/{attoCostituivo}/attachments/{attachment}', [EtsAttoCostitutivoController::class, 'destroyAttachment'])->name('atto-costitutivo.attachments.destroy')->middleware('role:admin,segreteria');
+        Route::resource('atto-costitutivo', EtsAttoCostitutivoController::class)->parameters(['atto-costitutivo' => 'attoCostituivo']);
     });
 });

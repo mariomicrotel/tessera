@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             MemberTypeSeeder::class,
             EmailTemplatesSeeder::class,
+            EtsComplianceRulesSeeder::class,
         ]);
 
         Settings::set('quota_annuale', 50);
