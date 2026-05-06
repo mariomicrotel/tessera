@@ -111,9 +111,13 @@ class User extends Authenticatable
 
     /**
      * Verifica se l'utente è super admin della piattaforma SaaS.
+     * Priorità: flag DB `is_super_admin`; fallback su email configurata.
      */
     public function getIsSuperAdminAttribute(): bool
     {
+        if (! empty($this->attributes['is_super_admin'])) {
+            return (bool) $this->attributes['is_super_admin'];
+        }
         return $this->email === config('saas.super_admin_email');
     }
 

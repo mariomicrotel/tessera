@@ -145,6 +145,8 @@ Route::middleware([
     Route::get('/tenants', [AdminController::class, 'tenants'])->name('tenants');
     Route::get('/tenants/create', [AdminController::class, 'createTenant'])->name('tenants.create');
     Route::post('/tenants', [AdminController::class, 'storeTenant'])->name('tenants.store');
+    Route::get('/tenants/{tenant}/wizard', [AdminController::class, 'wizard'])->name('tenants.wizard');
+    Route::post('/tenants/{tenant}/wizard', [AdminController::class, 'wizardSave'])->name('tenants.wizard.save');
     Route::get('/tenants/{tenant}', [AdminController::class, 'showTenant'])->name('tenants.show');
     Route::put('/tenants/{tenant}', [AdminController::class, 'updateTenant'])->name('tenants.update');
     Route::delete('/tenants/{tenant}', [AdminController::class, 'destroyTenant'])->name('tenants.destroy');

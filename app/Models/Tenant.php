@@ -118,16 +118,35 @@ class Tenant extends Model
         'nazione',
         'telefono',
         'sito_web',
+        // ETS compliance (D.Lgs. 117/2017)
+        'runts_numero',
+        'runts_sezione',
+        'runts_data_iscrizione',
+        'personalita_giuridica',
+        'patrimonio_destinato',
+        'ambiti_attivita',
+        'attivita_principale',
+        'fascia_entrate',
+        'assicurazione_volontari_polizza',
+        'assicurazione_volontari_compagnia',
+        'assicurazione_volontari_scadenza',
+        'bilancio_url_pubblicazione',
     ];
 
     protected $casts = [
-        'is_active'            => 'boolean',
-        'settings'             => 'array',
-        'plan_expires_at'      => 'datetime',
-        'capitale_sottoscritto' => 'decimal:2',
-        'capitale_versato'     => 'decimal:2',
-        'wizard_completato_at' => 'datetime',
-        'wizard_step_corrente' => 'integer',
+        'is_active'                        => 'boolean',
+        'settings'                         => 'array',
+        'plan_expires_at'                  => 'datetime',
+        'capitale_sottoscritto'            => 'decimal:2',
+        'capitale_versato'                 => 'decimal:2',
+        'wizard_completato_at'             => 'datetime',
+        'wizard_step_corrente'             => 'integer',
+        // ETS
+        'runts_data_iscrizione'            => 'date',
+        'personalita_giuridica'            => 'boolean',
+        'patrimonio_destinato'             => 'decimal:2',
+        'ambiti_attivita'                  => 'array',
+        'assicurazione_volontari_scadenza' => 'date',
     ];
 
     // ─────────────────────────────────────────────────────────────────────────

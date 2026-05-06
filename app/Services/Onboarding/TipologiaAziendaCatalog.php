@@ -240,6 +240,305 @@ final class TipologiaAziendaCatalog
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Vincoli normativi
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Note normative per ciascuna dimensione di bilancio.
+     * Riferimenti: art. 2435-bis/ter c.c., D.M. 5/3/2020 per ETS.
+     */
+    public static function noteDimensione(): array
+    {
+        return [
+            Tenant::DIM_MICRO => [
+                'titolo'   => 'Micro-impresa',
+                'fonte'    => 'art. 2435-ter c.c.',
+                'limiti'   => 'Per 2 esercizi consecutivi: attivo ≤ 175.000 € · ricavi ≤ 350.000 € · dipendenti ≤ 5',
+                'descr'    => 'Schema super-semplificato senza nota integrativa. Decadenza al superamento di 2 limiti su 3 per due anni.',
+            ],
+            Tenant::DIM_ABBREVIATO => [
+                'titolo'   => 'Bilancio abbreviato',
+                'fonte'    => 'art. 2435-bis c.c.',
+                'limiti'   => 'Per 2 esercizi consecutivi: attivo ≤ 4.400.000 € · ricavi ≤ 8.800.000 € · dipendenti ≤ 50',
+                'descr'    => 'Schema CEE semplificato con nota integrativa ridotta.',
+            ],
+            Tenant::DIM_ORDINARIO_CEE => [
+                'titolo'   => 'Bilancio ordinario CEE',
+                'fonte'    => 'artt. 2424-2425 c.c.',
+                'limiti'   => 'Oltre i limiti dell\'abbreviato',
+                'descr'    => 'Schema completo con Stato Patrimoniale, Conto Economico, Nota Integrativa, Rendiconto Finanziario.',
+            ],
+            Tenant::DIM_ETS_D => [
+                'titolo'   => 'Bilancio ETS modello D',
+                'fonte'    => 'D.M. 5/3/2020',
+                'limiti'   => 'Rendiconto di cassa per ETS con entrate ≤ 220.000 € · sopra: SP + Rendiconto Gestionale',
+                'descr'    => 'Schema specifico per Enti del Terzo Settore. Modulo D: rendiconto entrate/uscite per cassa.',
+            ],
+            Tenant::DIM_COOPERATIVA => [
+                'titolo'   => 'Bilancio cooperativa',
+                'fonte'    => 'artt. 2511 e ss. c.c.',
+                'limiti'   => 'Schema CEE con sezioni specifiche per ristorni, capitale sociale variabile, prestito sociale.',
+                'descr'    => 'Bilancio CEE adattato alle peculiarità cooperative.',
+            ],
+            Tenant::DIM_NON_APPLICABILE => [
+                'titolo'   => 'Non applicabile',
+                'fonte'    => '—',
+                'limiti'   => 'Nessun bilancio civilistico (regime forfettario, società semplice, autonomi)',
+                'descr'    => 'Solo registrazioni contabili semplificate, nessun bilancio formale.',
+            ],
+        ];
+    }
+
+    /**
+     * Note normative per ciascun regime contabile.
+     * Riferimenti: art. 18 DPR 600/73, L. 190/2014, art. 2214 c.c.
+     */
+    public static function noteRegimeContabile(): array
+    {
+        return [
+            Tenant::RC_ORDINARIO => [
+                'titolo' => 'Contabilità ordinaria',
+                'fonte'  => 'art. 2214 c.c., DPR 600/73',
+                'limiti' => 'Obbligatoria per società di capitali, cooperative e per imprese che superano €500.000 (beni) o €300.000 (servizi) di ricavi annui.',
+            ],
+            Tenant::RC_SEMPLIFICATO => [
+                'titolo' => 'Contabilità semplificata',
+                'fonte'  => 'art. 18 DPR 600/73',
+                'limiti' => 'Imprese minori: ricavi ≤ 500.000 € (cessione beni) o ≤ 300.000 € (servizi). Riservata a imprese individuali e società di persone.',
+            ],
+            Tenant::RC_FORFETTARIO => [
+                'titolo' => 'Regime forfettario',
+                'fonte'  => 'L. 190/2014, art. 1 c. 54-89',
+                'limiti' => 'Ricavi/compensi ≤ 85.000 € annui. Sostitutiva 15% (5% startup). Solo persone fisiche. Non compatibile con socio di società di capitali nello stesso settore.',
+            ],
+            Tenant::RC_NON_APPLICABILE => [
+                'titolo' => 'Non applicabile',
+                'fonte'  => '—',
+                'limiti' => 'Per società semplici, ETS in regime decommercializzato, enti senza attività commerciale.',
+            ],
+        ];
+    }
+
+    /**
+     * Note normative per ciascun regime IVA.
+     * Riferimenti: DPR 633/72, art. 34 (agricolo), art. 36 (margine), L. 190/2014.
+     */
+    public static function noteRegimeIva(): array
+    {
+        return [
+            Tenant::IVA_ORDINARIO => [
+                'titolo' => 'IVA ordinaria',
+                'fonte'  => 'DPR 633/72',
+                'limiti' => 'Liquidazione mensile o trimestrale, registri IVA acquisti/vendite, dichiarazione annuale.',
+            ],
+            Tenant::IVA_FORFETTARIO => [
+                'titolo' => 'Escluso IVA (forfettario)',
+                'fonte'  => 'L. 190/2014',
+                'limiti' => 'Niente addebito IVA in fattura, niente liquidazione, niente registri. Solo per regime contabile forfettario.',
+            ],
+            Tenant::IVA_AGRICOLO => [
+                'titolo' => 'Regime IVA agricolo',
+                'fonte'  => 'art. 34 DPR 633/72',
+                'limiti' => 'Detrazione forfettaria con aliquote di compensazione. Solo per produttori agricoli e cooperative agricole.',
+            ],
+            Tenant::IVA_MARGINE => [
+                'titolo' => 'Regime del margine',
+                'fonte'  => 'art. 36 DL 41/95',
+                'limiti' => 'Beni usati, oggetti d\'arte, antiquariato, collezione. IVA solo sulla differenza prezzo vendita - costo acquisto.',
+            ],
+            Tenant::IVA_EDITORIA => [
+                'titolo' => 'Regime editoria',
+                'fonte'  => 'L. 62/2001',
+                'limiti' => 'IVA assolta dall\'editore in monofase con aliquote specifiche.',
+            ],
+            Tenant::IVA_ESENTE => [
+                'titolo' => 'Esente IVA',
+                'fonte'  => 'art. 10 DPR 633/72',
+                'limiti' => 'Operazioni esenti (sanitarie, didattiche, sociali, finanziarie). Niente IVA addebitata, indetraibilità acquisti.',
+            ],
+            Tenant::IVA_NON_APPLICABILE => [
+                'titolo' => 'Fuori campo IVA',
+                'fonte'  => 'art. 4 DPR 633/72',
+                'limiti' => 'Soggetto non IVA (società semplici non commerciali, enti senza attività commerciale).',
+            ],
+        ];
+    }
+
+    /**
+     * Restituisce i regimi IVA effettivamente compatibili con un dato regime contabile.
+     *
+     * Regole:
+     *  - Forfettario: SOLO IVA forfettario (vincolo bidirezionale)
+     *  - Ordinario:   tutti tranne forfettario
+     *  - Semplificato: tutti tranne forfettario
+     *  - Non applicabile: solo non_applicabile o esente
+     */
+    public static function regimiIvaCompatibili(string $regimeContabile, array $regimiIvaDellaForma): array
+    {
+        return match ($regimeContabile) {
+            Tenant::RC_FORFETTARIO => array_values(array_intersect($regimiIvaDellaForma, [Tenant::IVA_FORFETTARIO])),
+            Tenant::RC_ORDINARIO,
+            Tenant::RC_SEMPLIFICATO => array_values(array_filter($regimiIvaDellaForma, fn ($r) => $r !== Tenant::IVA_FORFETTARIO)),
+            Tenant::RC_NON_APPLICABILE => array_values(array_intersect($regimiIvaDellaForma, [Tenant::IVA_NON_APPLICABILE, Tenant::IVA_ESENTE])),
+            default => $regimiIvaDellaForma,
+        };
+    }
+
+    /**
+     * Valida una combinazione completa forma + dimensione + regime contabile + regime IVA.
+     * Accetta opzionalmente parametri ETS extra per validazioni di compliance.
+     *
+     * @param array $extra ['runts_sezione', 'personalita_giuridica', 'patrimonio_destinato',
+     *                      'fascia_entrate', 'ambiti_attivita', 'attivita_principale',
+     *                      'assicurazione_volontari_polizza']
+     *
+     * @return array{valid: bool, errors: string[], warnings: string[]}
+     */
+    public static function validaCombinazione(
+        string $formaGiuridica,
+        ?string $dimensione,
+        ?string $regimeContabile,
+        ?string $regimeIva,
+        array $extra = []
+    ): array {
+        $errors = [];
+        $warnings = [];
+
+        $profilo = self::profilo($formaGiuridica);
+
+        // 1. Dimensione deve essere tra quelle disponibili per la forma
+        if ($dimensione && ! in_array($dimensione, $profilo['dimensioni_disponibili'], true)) {
+            $errors[] = "La dimensione di bilancio scelta non è ammessa per questa forma giuridica.";
+        }
+
+        // 2. Regime contabile deve essere tra quelli disponibili
+        if ($regimeContabile && ! in_array($regimeContabile, $profilo['regimi_contabili'], true)) {
+            $errors[] = "Il regime contabile scelto non è ammesso per questa forma giuridica.";
+        }
+
+        // 3. Regime IVA deve essere tra quelli disponibili
+        if ($regimeIva && ! in_array($regimeIva, $profilo['regimi_iva'], true)) {
+            $errors[] = "Il regime IVA scelto non è ammesso per questa forma giuridica.";
+        }
+
+        // 4. Vincolo: forfettario contabile ↔ IVA forfettaria
+        if ($regimeContabile === Tenant::RC_FORFETTARIO && $regimeIva && $regimeIva !== Tenant::IVA_FORFETTARIO) {
+            $errors[] = "Il regime forfettario (L. 190/2014) impone il regime IVA forfettario.";
+        }
+        if ($regimeIva === Tenant::IVA_FORFETTARIO && $regimeContabile && $regimeContabile !== Tenant::RC_FORFETTARIO) {
+            $errors[] = "Il regime IVA forfettario è applicabile solo con regime contabile forfettario.";
+        }
+
+        // 5. Società di capitali / cooperative → ordinario obbligatorio (art. 2214 c.c.)
+        $obbligateOrdinarie = [
+            Tenant::FG_SRL, Tenant::FG_SRLS, Tenant::FG_SPA, Tenant::FG_SAPA,
+            Tenant::FG_COOP_LAVORO, Tenant::FG_COOP_SOCIALE_A, Tenant::FG_COOP_SOCIALE_B,
+            Tenant::FG_COOP_AGRICOLA, Tenant::FG_COOP_CONSORTILE, Tenant::FG_COOP_CONSUMO,
+            Tenant::FG_COOP_ABITAZIONE, Tenant::FG_COOP_COMUNITA,
+        ];
+        if (in_array($formaGiuridica, $obbligateOrdinarie, true)
+            && $regimeContabile && $regimeContabile !== Tenant::RC_ORDINARIO) {
+            $errors[] = "Le società di capitali e le cooperative hanno l'obbligo di contabilità ordinaria (art. 2214 c.c., art. 2519 c.c.).";
+        }
+
+        // 6. ETS → schema ETS-D obbligatorio (D.M. 5/3/2020)
+        if (str_starts_with($formaGiuridica, 'ets_')
+            && $dimensione && $dimensione !== Tenant::DIM_ETS_D) {
+            $errors[] = "Gli Enti del Terzo Settore devono adottare lo schema bilancio ETS-D (D.M. 5/3/2020).";
+        }
+
+        // 7. Cooperative → schema cooperativa o sotto-dimensioni CEE
+        if (str_starts_with($formaGiuridica, 'coop_') && $dimensione === Tenant::DIM_ETS_D) {
+            $errors[] = "Lo schema ETS-D è riservato agli Enti del Terzo Settore.";
+        }
+
+        // 8. SS — IVA non applicabile (no attività commerciale tipica)
+        if ($formaGiuridica === Tenant::FG_SS
+            && $regimeIva && ! in_array($regimeIva, [Tenant::IVA_NON_APPLICABILE], true)) {
+            $errors[] = "La Società Semplice non esercita di norma attività commerciale: regime IVA non applicabile.";
+        }
+
+        // 9. IVA agricolo → solo per coop agricole o ditte/professionisti agricoli
+        if ($regimeIva === Tenant::IVA_AGRICOLO
+            && ! in_array($formaGiuridica, [Tenant::FG_COOP_AGRICOLA, Tenant::FG_DITTA_IND], true)) {
+            $warnings[] = "Il regime IVA agricolo (art. 34 DPR 633/72) è riservato a produttori agricoli e cooperative agricole.";
+        }
+
+        // 10. Soglie (warning informativi)
+        if ($regimeContabile === Tenant::RC_FORFETTARIO) {
+            $warnings[] = "Soglia massima ricavi/compensi forfettario: 85.000 €/anno (L. 197/2022).";
+        }
+        if ($dimensione === Tenant::DIM_MICRO) {
+            $warnings[] = "Limiti micro: attivo ≤ 175.000 € · ricavi ≤ 350.000 € · dipendenti ≤ 5 (su 2 esercizi).";
+        }
+        if ($dimensione === Tenant::DIM_ABBREVIATO) {
+            $warnings[] = "Limiti abbreviato: attivo ≤ 4.400.000 € · ricavi ≤ 8.800.000 € · dipendenti ≤ 50 (su 2 esercizi).";
+        }
+
+        // ── Vincoli ETS-specifici (D.Lgs. 117/2017 e circolari ministeriali) ──
+        if (str_starts_with($formaGiuridica, 'ets_')) {
+            $sezione        = $extra['runts_sezione']                  ?? null;
+            $personalita    = $extra['personalita_giuridica']          ?? null;
+            $patrimonio     = (float) ($extra['patrimonio_destinato']  ?? 0);
+            $fascia         = $extra['fascia_entrate']                 ?? null;
+            $ambiti         = $extra['ambiti_attivita']                ?? [];
+            $polizza        = $extra['assicurazione_volontari_polizza'] ?? null;
+
+            // 11. Coerenza sezione RUNTS ↔ forma giuridica
+            $sezioneAttesa = match ($formaGiuridica) {
+                Tenant::FG_ETS_ODV        => 'a',
+                Tenant::FG_ETS_APS        => 'b',
+                default                   => null,
+            };
+            if ($sezioneAttesa && $sezione && $sezione !== $sezioneAttesa) {
+                $errors[] = "La sezione RUNTS non è coerente con la forma giuridica scelta (attesa: '{$sezioneAttesa}', ricevuta: '{$sezione}'). Cfr. art. 46 D.Lgs. 117/2017.";
+            }
+
+            // 12. Personalità giuridica → patrimonio minimo (art. 22 CTS)
+            if ($personalita === true || $personalita === '1' || $personalita === 1) {
+                $minimoRichiesto = $formaGiuridica === Tenant::FG_ETS_FONDAZIONE ? 30000.0 : 15000.0;
+                if ($patrimonio > 0 && $patrimonio < $minimoRichiesto) {
+                    $errors[] = sprintf(
+                        "Patrimonio destinato insufficiente per personalità giuridica: %s € (minimo richiesto: %s €). Art. 22 c.4 D.Lgs. 117/2017.",
+                        number_format($patrimonio, 0, ',', '.'),
+                        number_format($minimoRichiesto, 0, ',', '.')
+                    );
+                }
+            }
+
+            // 13. Fascia entrate ↔ schema bilancio (art. 13 CTS)
+            if ($fascia === 'sopra_220k' || $fascia === 'sopra_1m') {
+                if ($dimensione && $dimensione === Tenant::DIM_ETS_D) {
+                    $warnings[] = "ETS con entrate > 220.000 €: il rendiconto per cassa (Modello D) non è ammesso. Obbligatori Stato Patrimoniale + Rendiconto Gestionale (artt. 13 c.1-2 CTS).";
+                }
+            }
+            if ($fascia === 'sopra_1m') {
+                $warnings[] = "ETS con entrate > 1.000.000 €: bilancio sociale obbligatorio e organo di controllo richiesto (artt. 14, 30 CTS).";
+            }
+
+            // 14. OdV/APS → polizza assicurativa volontari (art. 18 CTS)
+            if (in_array($formaGiuridica, [Tenant::FG_ETS_ODV, Tenant::FG_ETS_APS], true)
+                && $polizza !== null && empty($polizza)) {
+                $warnings[] = "OdV e APS hanno l'obbligo di assicurazione per i volontari (art. 18 c.1 D.Lgs. 117/2017). Specifica numero polizza.";
+            }
+
+            // 15. Coerenza ambiti art. 5 ↔ sezione RUNTS
+            if ($sezione && ! empty($ambiti) && is_array($ambiti)) {
+                $erroriAmbiti = \App\Services\Onboarding\AmbitiInteresseGenerale::validaAmbiti($sezione, $ambiti);
+                foreach ($erroriAmbiti as $e) {
+                    $warnings[] = $e; // warning (non bloccante: l'ente potrebbe motivare)
+                }
+            }
+        }
+
+        return [
+            'valid'    => empty($errors),
+            'errors'   => $errors,
+            'warnings' => $warnings,
+        ];
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Matrice interna
     // ─────────────────────────────────────────────────────────────────────────
 

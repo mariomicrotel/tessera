@@ -78,6 +78,14 @@ const planColors = {
                             <Link :href="route('admin.tenants.show', tenant.slug)" class="text-blue-600 hover:text-blue-800 font-medium">
                                 {{ tenant.name }}
                             </Link>
+                            <div v-if="tenant.wizard_pendente" class="mt-1">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                                    ⚙️ Wizard da completare
+                                </span>
+                            </div>
+                            <div v-else-if="tenant.forma_giuridica_label && tenant.forma_giuridica_label !== '—'" class="mt-1 text-xs text-gray-500">
+                                {{ tenant.forma_giuridica_label }}
+                            </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
                             {{ tenant.slug }}
@@ -102,7 +110,12 @@ const planColors = {
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ new Date(tenant.created_at).toLocaleDateString('it-IT') }}
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm space-x-2">
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm space-x-3">
+                            <Link :href="route('admin.tenants.wizard', tenant.slug)"
+                                class="text-amber-600 hover:text-amber-800"
+                                :class="{ 'font-semibold': tenant.wizard_pendente }">
+                                {{ tenant.wizard_pendente ? '⚙️ Configura' : 'Configura' }}
+                            </Link>
                             <Link :href="route('admin.tenants.show', tenant.slug)" class="text-blue-600 hover:text-blue-800">
                                 Dettagli
                             </Link>
