@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
             MemberTypeSeeder::class,
             EmailTemplatesSeeder::class,
             EtsComplianceRulesSeeder::class,
+            TenantTestDataSeeder::class,
         ]);
 
         Settings::set('quota_annuale', 50);
