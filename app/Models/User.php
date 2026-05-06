@@ -85,9 +85,14 @@ class User extends Authenticatable
 
     /**
      * Verifica se l'utente ha uno dei ruoli indicati.
+     * Il superadmin bypassa qualsiasi vincolo di ruolo.
      */
     public function hasRole(string ...$roles): bool
     {
+        if ($this->is_super_admin) {
+            return true;
+        }
+
         return $this->roles()->whereIn('name', $roles)->exists();
     }
 

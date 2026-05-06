@@ -57,6 +57,9 @@ class ResolveTenant
             // Imposta il ruolo dell'utente nel contesto del tenant
             if ($membership) {
                 $request->attributes->set('tenant_role', $membership->pivot->role);
+            } elseif ($user->is_super_admin) {
+                // Il superadmin opera con ruolo admin in tutti i tenant
+                $request->attributes->set('tenant_role', 'admin');
             }
         }
 

@@ -79,8 +79,10 @@ class HandleInertiaRequests extends Middleware
             ],
             // Token CSRF per form nativi (es. upload allegati)
             'csrf_token' => csrf_token(),
-            // Ruoli utente per menu e permessi frontend (Jetstream gestisce auth.user)
-            'userRoles' => $user ? $user->roles->pluck('name')->toArray() : [],
+            // Ruoli utente per menu e permessi frontend; superadmin = admin ovunque
+            'userRoles' => $user
+                ? ($user->is_super_admin ? ['admin'] : $user->roles->pluck('name')->toArray())
+                : [],
             // Tenant corrente (se risolto dal middleware)
             'currentTenant' => fn () => app()->bound('current_tenant') ? [
                 'id' => app('current_tenant')->id,
