@@ -24,7 +24,8 @@ class DashboardController extends Controller
         $tenant = app('current_tenant');
 
         // Utente senza alcun ruolo: nessun dato sensibile
-        if (! $user->roles()->exists()) {
+        // Il superadmin bypassa questo check (non ha righe in role_user ma ha accesso completo)
+        if (! $user->is_super_admin && ! $user->roles()->exists()) {
             return Inertia::render('Dashboard', [
                 'forSocio' => false,
                 'noRole' => true,
