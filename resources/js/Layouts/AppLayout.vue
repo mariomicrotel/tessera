@@ -269,7 +269,7 @@ const logout = () => {
                                     <UserCircleIcon class="size-4 shrink-0" aria-hidden="true" />
                                     Tipologie socio
                                 </ResponsiveNavLink>
-                                <ResponsiveNavLink :href="route('tessere.index')" :active="route().current('tessere.*')">
+                                <ResponsiveNavLink v-if="!$page.props.is_cooperativa" :href="route('tessere.index')" :active="route().current('tessere.*')">
                                     <TicketIcon class="size-4 shrink-0" aria-hidden="true" />
                                     Tessere
                                 </ResponsiveNavLink>
@@ -700,7 +700,7 @@ const logout = () => {
                                             <UserCircleIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Tipologie socio
                                         </NavLink>
-                                        <NavLink :href="route('tessere.index')" :active="route().current('tessere.*')">
+                                        <NavLink v-if="!$page.props.is_cooperativa" :href="route('tessere.index')" :active="route().current('tessere.*')">
                                             <TicketIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Tessere
                                         </NavLink>

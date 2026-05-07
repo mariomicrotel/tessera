@@ -385,8 +385,8 @@ const fmt = (d) => d ? new Date(d).toLocaleDateString('it-IT') : '—';
                 </div>
             </div>
 
-            <!-- Tessere -->
-            <div v-if="canManage" class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+            <!-- Tessere (solo ETS, non cooperative) -->
+            <div v-if="canManage && !$page.props.is_cooperativa" class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Tessere</h3>
                     <PrimaryButton v-if="!showTesseraForm" type="button" @click="showTesseraForm = true">
