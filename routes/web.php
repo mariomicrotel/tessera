@@ -25,6 +25,7 @@ use App\Http\Controllers\ContoController;
 use App\Http\Controllers\PropertyController;
 use App\Http\Controllers\PublicDownloadController;
 use App\Http\Controllers\PublicSiteController;
+use App\Http\Controllers\AnagraficaController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SpesaController;
 use App\Http\Controllers\PrimaNotaController;
@@ -291,6 +292,11 @@ Route::middleware([
     });
     Route::get('elezioni/{elezione}/vota', [ElezioneController::class, 'vota'])->name('elezioni.vota');
     Route::post('elezioni/{elezione}/vota', [ElezioneController::class, 'storeVoto'])->name('elezioni.vota.store');
+    // ── Anagrafica ──────────────────────────────────────────────────────────
+    Route::get('anagrafica', [AnagraficaController::class, 'index'])->name('anagrafica.index');
+    Route::put('anagrafica', [AnagraficaController::class, 'update'])->name('anagrafica.update');
+    Route::post('anagrafica/allegati/{tipo}', [AnagraficaController::class, 'uploadAllegato'])->name('anagrafica.allegato.upload');
+    Route::delete('anagrafica/allegati/{tipo}', [AnagraficaController::class, 'deleteAllegato'])->name('anagrafica.allegato.delete');
     Route::get('settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::post('settings/logo', [SettingsController::class, 'uploadLogo'])->name('settings.logo.upload');

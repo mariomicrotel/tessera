@@ -635,6 +635,10 @@ const logout = () => {
                         <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
                         Audit Trail
                     </ResponsiveNavLink>
+                    <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('anagrafica.index')" :active="route().current('anagrafica.*')">
+                        <BuildingOffice2Icon class="size-5 shrink-0" aria-hidden="true" />
+                        Anagrafica
+                    </ResponsiveNavLink>
                     <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('settings.index')" :active="route().current('settings.*')">
                         <Cog6ToothIcon class="size-5 shrink-0" aria-hidden="true" />
                         Impostazioni
@@ -1070,6 +1074,10 @@ const logout = () => {
                                 <NavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('audit.index')" :active="route().current('audit.*')">
                                     <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
                                     Audit Trail
+                                </NavLink>
+                                <NavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('anagrafica.index')" :active="route().current('anagrafica.*')">
+                                    <BuildingOffice2Icon class="size-5 shrink-0" aria-hidden="true" />
+                                    Anagrafica
                                 </NavLink>
                                 <NavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('settings.index')" :active="route().current('settings.*')">
                                     <Cog6ToothIcon class="size-5 shrink-0" aria-hidden="true" />
