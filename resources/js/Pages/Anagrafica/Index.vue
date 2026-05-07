@@ -67,6 +67,7 @@ const form = useForm({
     runts_sezione:                props.tenant.runts_sezione ?? '',
     runts_data_iscrizione:        props.tenant.runts_data_iscrizione ?? '',
     fascia_entrate:               props.tenant.fascia_entrate ?? '',
+    periodicita_liquidazione_iva: props.settings.periodicita_liquidazione_iva ?? 'mensile',
     // Tenant — Amministrativo
     pec:                                props.tenant.pec ?? '',
     telefono:                           props.tenant.telefono ?? '',
@@ -308,6 +309,40 @@ const runtsSezioni = [
                                     <TextInput id="attivita_ateco" v-model="form.attivita_ateco" type="text" class="mt-1 block w-full" maxlength="10" placeholder="es. 94.99.9" />
                                     <InputError class="mt-1" :message="form.errors.attivita_ateco" />
                                 </div>
+                            </div>
+                            <!-- Periodicità liquidazione IVA -->
+                            <div>
+                                <InputLabel value="Periodicità liquidazione IVA" />
+                                <p class="mt-0.5 mb-2 text-xs text-gray-500 dark:text-gray-400">
+                                    Determina il default nei registri e nella liquidazione IVA. Mensile: volume annuo &gt; 400.000 €; Trimestrale: ≤ 400.000 € (maggiorazione 1% art. 7 DPR 542/99).
+                                </p>
+                                <div class="flex items-center gap-6">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            v-model="form.periodicita_liquidazione_iva"
+                                            type="radio"
+                                            value="mensile"
+                                            class="text-indigo-600 border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700"
+                                        />
+                                        <span class="text-sm text-gray-700 dark:text-gray-300">
+                                            <strong>Mensile</strong>
+                                            <span class="text-xs text-gray-500 dark:text-gray-400 ml-1">— 12 liquidazioni/anno</span>
+                                        </span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            v-model="form.periodicita_liquidazione_iva"
+                                            type="radio"
+                                            value="trimestrale"
+                                            class="text-indigo-600 border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700"
+                                        />
+                                        <span class="text-sm text-gray-700 dark:text-gray-300">
+                                            <strong>Trimestrale</strong>
+                                            <span class="text-xs text-gray-500 dark:text-gray-400 ml-1">— 4 liquidazioni/anno + maggiorazione 1%</span>
+                                        </span>
+                                    </label>
+                                </div>
+                                <InputError class="mt-1" :message="form.errors.periodicita_liquidazione_iva" />
                             </div>
                         </section>
 

@@ -9,6 +9,7 @@ use App\Models\FatturaPassiva;
 use App\Models\FatturaAttiva;
 use App\Models\LiquidazioneIva;
 use App\Services\AccontoIvaService;
+use App\Models\Settings;
 use App\Services\IvaService;
 use App\Services\LipeXmlService;
 use Illuminate\Http\RedirectResponse;
@@ -185,7 +186,7 @@ class IvaController extends Controller
         $tenant      = app('current_tenant');
         $anno        = (int) $request->input('anno', now()->year);
         $periodo     = (int) $request->input('periodo', now()->month);
-        $tipoPeriodo = $request->input('tipo_periodo', LiquidazioneIva::TIPO_MENSILE);
+        $tipoPeriodo = $request->input('tipo_periodo', Settings::get('periodicita_liquidazione_iva', LiquidazioneIva::TIPO_MENSILE));
 
         $service    = app(IvaService::class);
         $dataInizio = null;
@@ -240,7 +241,7 @@ class IvaController extends Controller
         $tenant      = app('current_tenant');
         $anno        = (int) $request->input('anno', now()->year);
         $periodo     = (int) $request->input('periodo', now()->month);
-        $tipoPeriodo = $request->input('tipo_periodo', LiquidazioneIva::TIPO_MENSILE);
+        $tipoPeriodo = $request->input('tipo_periodo', Settings::get('periodicita_liquidazione_iva', LiquidazioneIva::TIPO_MENSILE));
 
         $service    = app(IvaService::class);
         $dataInizio = null;
@@ -295,7 +296,7 @@ class IvaController extends Controller
         $tenant      = app('current_tenant');
         $anno        = (int) $request->input('anno', now()->year);
         $periodo     = (int) $request->input('periodo', now()->month);
-        $tipoPeriodo = $request->input('tipo_periodo', LiquidazioneIva::TIPO_MENSILE);
+        $tipoPeriodo = $request->input('tipo_periodo', Settings::get('periodicita_liquidazione_iva', LiquidazioneIva::TIPO_MENSILE));
 
         $service = app(IvaService::class);
         $saldi   = null;

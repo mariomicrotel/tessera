@@ -120,6 +120,10 @@ class HandleInertiaRequests extends Middleware
             'is_cooperativa' => fn () => app()->bound('current_tenant')
                 ? app('current_tenant')->isCooperativa()
                 : false,
+            // Periodicità liquidazione IVA predefinita: 'mensile' | 'trimestrale'
+            'periodicita_liquidazione_iva' => fn () => app()->bound('current_tenant')
+                ? Settings::get('periodicita_liquidazione_iva', 'mensile')
+                : null,
         ];
     }
 }

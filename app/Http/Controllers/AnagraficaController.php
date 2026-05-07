@@ -68,6 +68,7 @@ class AnagraficaController extends Controller
                 'data_costituzione_associazione'     => self::normDate(Settings::get('data_costituzione_associazione', '')),
                 'ets_è_odv'                          => (bool) Settings::get('ets_è_odv', false),
                 'luogo_emissione_ricevute'           => Settings::get('luogo_emissione_ricevute', ''),
+                'periodicita_liquidazione_iva'       => Settings::get('periodicita_liquidazione_iva', 'mensile'),
             ],
             'labels' => [
                 'forma_giuridica'    => $tenant->formaGiuridicaLabel(),
@@ -91,6 +92,7 @@ class AnagraficaController extends Controller
             'data_costituzione_associazione'     => 'nullable|date',
             'ets_è_odv'                          => 'nullable|boolean',
             'luogo_emissione_ricevute'           => 'nullable|string|max:255',
+            'periodicita_liquidazione_iva'       => 'nullable|string|in:mensile,trimestrale',
             // Tenant — Civilistico
             'codice_fiscale'                     => 'nullable|string|max:16',
             'partita_iva'                        => 'nullable|string|max:20',
@@ -140,6 +142,7 @@ class AnagraficaController extends Controller
         Settings::set('data_costituzione_associazione', $validated['data_costituzione_associazione'] ?? '');
         Settings::set('ets_è_odv', ($validated['ets_è_odv'] ?? false) ? '1' : '0');
         Settings::set('luogo_emissione_ricevute', $validated['luogo_emissione_ricevute'] ?? '');
+        Settings::set('periodicita_liquidazione_iva', $validated['periodicita_liquidazione_iva'] ?? 'mensile');
         // Mantiene sync con campi duplicati nelle impostazioni PDF
         Settings::set('codice_fiscale_associazione', $validated['codice_fiscale'] ?? '');
         Settings::set('partita_iva_associazione', $validated['partita_iva'] ?? '');
