@@ -129,6 +129,21 @@ class AdminController extends Controller
 
         $formaCorrente = $tenant->forma_giuridica;
 
+        // Filtra le forme giuridiche in base al tipo di organizzazione del tenant:
+        // ETS → solo gruppi ETS e Associazioni; Cooperative → solo Cooperative.
+        $tutteLeFormeRaggruppate = TipologiaAziendaCatalog::tutteRaggruppate();
+        $orgType = $tenant->organization_type ?? 'ets';
+        if ($orgType === 'cooperative') {
+            $gruppiConsentiti = ['Cooperative'];
+        } else {
+            $gruppiConsentiti = ['ETS — Enti del Terzo Settore', 'Associazioni e fondazioni'];
+        }
+        $formeRaggruppate = array_filter(
+            $tutteLeFormeRaggruppate,
+            fn ($k) => in_array($k, $gruppiConsentiti),
+            ARRAY_FILTER_USE_KEY
+        );
+
         return Inertia::render('Admin/Tenants/Wizard', [
             'tenant'              => $tenant->only([
                 'id', 'slug', 'name', 'forma_giuridica', 'dimensione_bilancio',
@@ -144,8 +159,9 @@ class AdminController extends Controller
                 'assicurazione_volontari_polizza', 'assicurazione_volontari_compagnia',
                 'assicurazione_volontari_scadenza', 'bilancio_url_pubblicazione',
                 'wizard_completato_at', 'wizard_step_corrente',
+                'organization_type',
             ]),
-            'formeRaggruppate'    => TipologiaAziendaCatalog::tutteRaggruppate(),
+            'formeRaggruppate'    => $formeRaggruppate,
             'formaLabels'         => Tenant::formaGiuridicaLabels(),
             // Profilo della forma corrente (se selezionata): determina dimensioni/regimi/campi
             'profiloCorrente'     => $formaCorrente
