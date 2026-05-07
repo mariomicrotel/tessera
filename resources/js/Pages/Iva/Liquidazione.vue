@@ -41,11 +41,11 @@ const form = reactive({
     tipo_periodo: props.filters?.tipoPeriodo  ?? 'mensile',
 });
 
-const periodOptions = computed(() =>
-    form.tipo_periodo === 'mensile'
-        ? mesiLabel.map((label, i) => ({ value: i + 1, label }))
-        : trimestriLabel.map((label, i) => ({ value: i + 1, label })),
-);
+const periodOptions = computed(() => {
+    if (form.tipo_periodo === 'mensile')     return mesiLabel.map((label, i) => ({ value: i + 1, label }));
+    if (form.tipo_periodo === 'trimestrale') return trimestriLabel.map((label, i) => ({ value: i + 1, label }));
+    return [{ value: 1, label: 'Anno completo' }];
+});
 
 function applyFilters() {
     router.get(
@@ -161,6 +161,7 @@ const statusLabel = {
                             >
                                 <option value="mensile">Mensile</option>
                                 <option value="trimestrale">Trimestrale</option>
+                                <option value="annuale">Annuale</option>
                             </select>
                         </div>
                         <div>

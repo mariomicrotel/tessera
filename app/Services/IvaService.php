@@ -296,8 +296,9 @@ class IvaService
         }
 
         return match ($tipoPeriodo) {
-            LiquidazioneIva::TIPO_MENSILE => $this->rangeMensile($anno, $periodo),
+            LiquidazioneIva::TIPO_MENSILE     => $this->rangeMensile($anno, $periodo),
             LiquidazioneIva::TIPO_TRIMESTRALE => $this->rangeTrimestrale($anno, $periodo),
+            LiquidazioneIva::TIPO_ANNUALE     => $this->rangeAnnuale($anno, $periodo),
             default => throw new IvaPeriodoNonValidoException("Tipo periodo sconosciuto: '{$tipoPeriodo}'."),
         };
     }
@@ -315,6 +316,23 @@ class IvaService
         $fine   = $inizio->copy()->endOfMonth();
 
         return [$inizio->toDateString(), $fine->toDateString()];
+    }
+
+    /**
+     * Range per regime annuale (periodo sempre 1 = intero anno solare).
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function rangeAnnuale(int $anno, int $periodo): array
+    {
+        if ($periodo !== 1) {
+            throw new IvaPeriodoNonValidoException("Per il regime annuale il periodo deve essere 1.");
+        }
+
+        return [
+            Carbon::create($anno, 1, 1)->startOfDay()->toDateString(),
+            Carbon::create($anno, 12, 31)->endOfDay()->toDateString(),
+        ];
     }
 
     /**

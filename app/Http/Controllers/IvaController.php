@@ -341,7 +341,7 @@ class IvaController extends Controller
         $request->validate([
             'anno'        => 'required|integer|min:2000|max:2100',
             'periodo'     => 'required|integer|min:1|max:12',
-            'tipo_periodo' => ['required', 'in:mensile,trimestrale'],
+            'tipo_periodo' => ['required', 'in:mensile,trimestrale,annuale'],
         ]);
 
         $tenant  = app('current_tenant');

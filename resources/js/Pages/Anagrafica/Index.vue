@@ -68,6 +68,7 @@ const form = useForm({
     runts_data_iscrizione:        props.tenant.runts_data_iscrizione ?? '',
     fascia_entrate:               props.tenant.fascia_entrate ?? '',
     periodicita_liquidazione_iva: props.settings.periodicita_liquidazione_iva ?? 'mensile',
+    regime_398_1991:              props.settings.regime_398_1991 ?? false,
     // Tenant — Amministrativo
     pec:                                props.tenant.pec ?? '',
     telefono:                           props.tenant.telefono ?? '',
@@ -314,35 +315,48 @@ const runtsSezioni = [
                             <div>
                                 <InputLabel value="Periodicità liquidazione IVA" />
                                 <p class="mt-0.5 mb-2 text-xs text-gray-500 dark:text-gray-400">
-                                    Determina il default nei registri e nella liquidazione IVA. Mensile: volume annuo &gt; 400.000 €; Trimestrale: ≤ 400.000 € (maggiorazione 1% art. 7 DPR 542/99).
+                                    Determina il default nei registri e nella liquidazione IVA.
                                 </p>
-                                <div class="flex items-center gap-6">
-                                    <label class="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            v-model="form.periodicita_liquidazione_iva"
-                                            type="radio"
-                                            value="mensile"
-                                            class="text-indigo-600 border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700"
-                                        />
+                                <div class="flex flex-wrap items-start gap-x-6 gap-y-3">
+                                    <label class="flex items-start gap-2 cursor-pointer">
+                                        <input v-model="form.periodicita_liquidazione_iva" type="radio" value="mensile" class="mt-0.5 text-indigo-600 border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700" />
                                         <span class="text-sm text-gray-700 dark:text-gray-300">
                                             <strong>Mensile</strong>
-                                            <span class="text-xs text-gray-500 dark:text-gray-400 ml-1">— 12 liquidazioni/anno</span>
+                                            <span class="block text-xs text-gray-500 dark:text-gray-400">Volume IVA annuo &gt; 400.000 € — 12 liquidazioni/anno</span>
                                         </span>
                                     </label>
-                                    <label class="flex items-center gap-2 cursor-pointer">
-                                        <input
-                                            v-model="form.periodicita_liquidazione_iva"
-                                            type="radio"
-                                            value="trimestrale"
-                                            class="text-indigo-600 border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700"
-                                        />
+                                    <label class="flex items-start gap-2 cursor-pointer">
+                                        <input v-model="form.periodicita_liquidazione_iva" type="radio" value="trimestrale" class="mt-0.5 text-indigo-600 border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700" />
                                         <span class="text-sm text-gray-700 dark:text-gray-300">
                                             <strong>Trimestrale</strong>
-                                            <span class="text-xs text-gray-500 dark:text-gray-400 ml-1">— 4 liquidazioni/anno + maggiorazione 1%</span>
+                                            <span class="block text-xs text-gray-500 dark:text-gray-400">Volume IVA ≤ 400.000 € — 4 liquidazioni/anno + maggiorazione 1% (art. 7 DPR 542/99)</span>
+                                        </span>
+                                    </label>
+                                    <label class="flex items-start gap-2 cursor-pointer">
+                                        <input v-model="form.periodicita_liquidazione_iva" type="radio" value="annuale" class="mt-0.5 text-indigo-600 border-gray-300 dark:border-gray-600 focus:ring-indigo-500 dark:bg-gray-700" />
+                                        <span class="text-sm text-gray-700 dark:text-gray-300">
+                                            <strong>Annuale</strong>
+                                            <span class="block text-xs text-gray-500 dark:text-gray-400">Enti non commerciali con attività commerciale marginale — unica liquidazione con dichiarazione IVA annuale</span>
                                         </span>
                                     </label>
                                 </div>
                                 <InputError class="mt-1" :message="form.errors.periodicita_liquidazione_iva" />
+                            </div>
+
+                            <!-- Regime L. 398/1991 (solo ETS) -->
+                            <div v-if="isEts" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg p-4 space-y-2">
+                                <label class="flex items-start gap-3 cursor-pointer">
+                                    <input v-model="form.regime_398_1991" type="checkbox" class="mt-0.5 rounded border-gray-300 dark:border-gray-600 text-amber-600 focus:ring-amber-500 dark:bg-gray-700" />
+                                    <div>
+                                        <span class="text-sm font-semibold text-amber-800 dark:text-amber-300">Regime forfettario L. 398/1991</span>
+                                        <p class="mt-1 text-xs text-amber-700 dark:text-amber-400 space-y-1">
+                                            Applicabile ad APS, OdV, associazioni sportive dilettantistiche e simili con <strong>proventi commerciali ≤ 400.000 €/anno</strong>.<br />
+                                            Effetti: IVA detraibile forfettariamente al 50% sui proventi commerciali (o 1/3 per sponsorizzazioni); nessun registro IVA ordinario;
+                                            esonero dalla dichiarazione IVA annuale se i proventi sono inferiori alla soglia; contabilità semplificata (solo rendiconto).
+                                        </p>
+                                    </div>
+                                </label>
+                                <InputError :message="form.errors.regime_398_1991" />
                             </div>
                         </section>
 

@@ -15,6 +15,7 @@ class LiquidazioneIva extends Model
 
     public const TIPO_MENSILE     = 'mensile';
     public const TIPO_TRIMESTRALE = 'trimestrale';
+    public const TIPO_ANNUALE     = 'annuale';
 
     public const STATUS_BOZZA      = 'bozza';
     public const STATUS_DEFINITIVA = 'definitiva';
@@ -104,6 +105,10 @@ class LiquidazioneIva extends Model
      */
     public function getPeriodoLabelAttribute(): string
     {
+        if ($this->tipo_periodo === self::TIPO_ANNUALE) {
+            return "Anno {$this->anno}";
+        }
+
         if ($this->tipo_periodo === self::TIPO_TRIMESTRALE) {
             return "Q{$this->periodo} {$this->anno}";
         }

@@ -120,10 +120,14 @@ class HandleInertiaRequests extends Middleware
             'is_cooperativa' => fn () => app()->bound('current_tenant')
                 ? app('current_tenant')->isCooperativa()
                 : false,
-            // Periodicità liquidazione IVA predefinita: 'mensile' | 'trimestrale'
+            // Periodicità liquidazione IVA predefinita: 'mensile' | 'trimestrale' | 'annuale'
             'periodicita_liquidazione_iva' => fn () => app()->bound('current_tenant')
                 ? Settings::get('periodicita_liquidazione_iva', 'mensile')
                 : null,
+            // Regime forfettario L. 398/1991 (ETS/associazioni con proventi commerciali ≤ 400.000 €)
+            'regime_398_1991' => fn () => app()->bound('current_tenant')
+                ? (bool) Settings::get('regime_398_1991', false)
+                : false,
         ];
     }
 }
