@@ -109,6 +109,16 @@ Progettata per semplificare l'amministrazione di organizzazioni non profit, con 
 | **Audit Trail** | Log modifiche, chi ha fatto cosa | ✅ Completo | 8 |
 | **Multi-Tenant Isolation** | Row-level security, BelongsToTenant | ✅ Completo | 12 |
 
+### **SVILUPPI v1.1.0** ✅ COMPLETO
+
+| Modulo | Descrizione | Status |
+|--------|-------------|--------|
+| **G-CU: Certificazione Unica** | PDF CU per compensi a terzi, quadri LAV | ✅ Completo |
+| **H-BI: Dashboard Analytics** | Grafici interattivi su dashboard (Chart.js lazy-loaded) | ✅ Completo |
+| **H-XLS: Export Excel** | Export XLSX per soci, prima nota, registri IVA, cespiti, compensi | ✅ Completo |
+| **H-POL: Policies Avanzate** | Policy granulare per Cespiti, Tessere, Fatture, Incassi | ✅ Completo |
+| **Tessere Soci** | Gestione completa tessere: numero progressivo, scadenza, stati | ✅ Completo |
+
 ---
 
 ## 🎯 Funzionalità Per Tipo Organizzazione
@@ -119,6 +129,7 @@ Progettata per semplificare l'amministrazione di organizzazioni non profit, con 
 - ✅ Soci e volontari — Anagrafica, tipologie socio, stati (domanda, ammissione, cessazione, morosità, dimissioni)
 - ✅ Libro soci — Elenco approvato, filtri, export PDF
 - ✅ Approvazione domande — Singola e bulk con notifica email
+- ✅ Tessere soci — Numero progressivo per anno (`YYYY-NNN`), stati bozza/emessa/scaduta/revocata, emissione bulk, aggiornamento automatico scadute
 
 #### 💰 Cassa e Incassi
 - ✅ Incassi — Quote, donazioni, rimborsi spese
@@ -138,12 +149,14 @@ Progettata per semplificare l'amministrazione di organizzazioni non profit, con 
 - ✅ Conto Economico — Sezioni A-E, risultato esercizio
 - ✅ Rendiconto Gestionale — Per area di attività
 - ✅ Bilancio XBRL — Export per CCIAA
+- ✅ Dashboard Analytics — Grafici incassi/uscite, composizione soci, andamento iscrizioni, distribuzione donazioni (Chart.js v4, caricamento lazy)
+- ✅ Export Excel — XLSX per soci, prima nota, registri IVA, cespiti, capitale sociale, compensi terzi
 
 #### ⚖️ Adempimenti Fiscali
 - ✅ Relazione di Missione — Art. 13 D.Lgs. 117/2017
 - ✅ Erogazioni Liberali — 5x1000, detrazioni
 - ✅ Modello F24 — Codici tributo, tributi IVA/IRPEF
-- ✅ Ritenute d'Acconto — Compensi terzi, CU
+- ✅ Ritenute d'Acconto — Compensi terzi, CU (Certificazione Unica PDF DomPDF)
 
 #### 🏛️ Governance
 - ✅ Organi e cariche — Consiglio, assemblea, organo controllo (configurabili)
@@ -322,7 +335,15 @@ php artisan migrate:fresh --seed
 - ✅ **Fase 8**: Anagrafi (soci, volontari, cassa)
 - ✅ **Fase 9**: Security (policies, audit, multi-tenant)
 
-### PIANIFICATO (v1.1.0 - Q3/Q4 2026)
+### COMPLETATO (v1.1.0 - Maggio 2026)
+
+- ✅ **G-CU** — Certificazione Unica PDF per compensi a terzi (quadro LAV)
+- ✅ **H-BI** — Dashboard analytics con 4 grafici Chart.js (lazy-loaded, no SSR issues)
+- ✅ **H-XLS** — Export XLSX multi-sheet per 6 moduli (maatwebsite/excel)
+- ✅ **H-POL** — Model Policies granulari per tutti i moduli critici
+- ✅ **Tessere** — Gestione completa tessere soci con numero progressivo, stati, emissione bulk
+
+### PIANIFICATO (v1.2.0 - Q3/Q4 2026)
 
 - 🟡 **Portale Soci** — Self-service per soci (bilancio, quote, ristorni)
 - 🟡 **API Pubblica** — REST API documentata per integrazioni
@@ -398,6 +419,7 @@ members                         Soci e volontari
 member_types                    Tipologie socio
 incassi                         Incassi (quote, donazioni)
 ricevute                        Ricevute/quietanze
+tessere                         Tessere socio per anno
 ```
 
 **Tutte le tabelle includono `tenant_id` per isolamento multi-tenant.**
@@ -507,6 +529,16 @@ docker compose down -v
 
 ## 📝 Changelog
 
+### v1.1.0 (Maggio 2026) ✅ RELEASE
+
+**Nuove funzionalità:**
+
+- ✅ **Certificazione Unica (G-CU)** — Genera PDF CU per compensi a terzi: sezioni sostituto d'imposta, percipiente, quadro LAV, riepilogo ritenute. Template DomPDF compatibile con stampa A4.
+- ✅ **Dashboard Analytics (H-BI)** — 4 grafici interattivi: BarChart incassi/uscite (12 mesi), DoughnutChart composizione soci, LineChart andamento iscrizioni/cessazioni, DoughnutChart distribuzione donazioni (solo ETS). Chart.js v4 caricato via dynamic `import()` in `onMounted` per evitare conflitti Vite SSR.
+- ✅ **Export Excel (H-XLS)** — Download XLSX con `maatwebsite/excel` per: soci (multi-sheet per stato), prima nota, registri IVA acquisti/vendite, cespiti (registro + piano ammortamento), capitale sociale, compensi terzi per anno.
+- ✅ **Model Policies (H-POL)** — Policy granulari per `Cespiti`, `Tessere`, `FatturaAttiva` (emetti/paga), `FatturaPassiva` (paga, blocco su liquidazione definitiva), `Incasso` (annulla). Admin bypass globale via `Gate::before`.
+- ✅ **Gestione Tessere** — CRUD completo tessere soci: numero progressivo `ANNO-NNN` per tenant, stati `bozza/emessa/scaduta/revocata`, emissione bulk delle bozze, aggiornamento automatico scadute, integrazione nella scheda socio e menu navigazione.
+
 ### v1.0.0 (17 Aprile 2026) ✅ RELEASE
 
 **Completamento Fase 1-9:**
@@ -529,7 +561,7 @@ GNU GPL v3 — Vedi [LICENSE](LICENSE)
 
 ---
 
-**Versione:** 1.0.0  
-**Ultimo aggiornamento:** 27 Aprile 2026  
+**Versione:** 1.1.0  
+**Ultimo aggiornamento:** 7 Maggio 2026  
 **Ambiente:** Laravel 12 + Vue 3 + MySQL 8.0 + Docker Compose  
 **Mantainer:** [Network GTC](https://github.com/mariomicrotel)

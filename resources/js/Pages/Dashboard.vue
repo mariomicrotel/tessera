@@ -9,6 +9,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, usePage } from '@inertiajs/vue3';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import ScadenziarioPagamentiWidget from '@/Components/Dashboard/ScadenziarioPagamentiWidget.vue';
+import AnalyticsCharts from '@/Components/Dashboard/AnalyticsCharts.vue';
 import { computed } from 'vue';
 
 const props = defineProps({
@@ -35,6 +36,14 @@ const props = defineProps({
     cooperative_type: { type: String, default: null },
     // Scadenziario pagamenti (presenti solo se is_cooperativa con modulo IVA)
     fatture_in_scadenza: { type: Array, default: () => [] },
+    // Analytics grafici
+    grafico_labels:     { type: Array,  default: () => [] },
+    grafico_incassi:    { type: Array,  default: () => [] },
+    grafico_uscite:     { type: Array,  default: () => [] },
+    grafico_soci_stato: { type: Object, default: () => ({}) },
+    grafico_iscrizioni: { type: Array,  default: () => [] },
+    grafico_cessazioni: { type: Array,  default: () => [] },
+    grafico_donazioni:  { type: Object, default: null },
 });
 
 const page = usePage();
@@ -288,6 +297,18 @@ const fmtEur = (v) => '€\u00a0' + Number(v ?? 0).toLocaleString('it-IT', { min
                             </div>
                         </div>
                     </div>
+
+                    <!-- Analytics Grafici -->
+                    <AnalyticsCharts
+                        :labels="grafico_labels"
+                        :incassi="grafico_incassi"
+                        :uscite="grafico_uscite"
+                        :soci-stato="grafico_soci_stato"
+                        :iscrizioni="grafico_iscrizioni"
+                        :cessazioni="grafico_cessazioni"
+                        :donazioni="grafico_donazioni"
+                        :is-cooperativa="is_cooperativa"
+                    />
 
                     <!-- Card Mandati in scadenza -->
                     <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-4">

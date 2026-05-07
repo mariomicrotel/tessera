@@ -1,5 +1,5 @@
 <script setup>
-import { PencilSquareIcon, ArrowLeftIcon, TrashIcon, PlusIcon, BanknotesIcon, EyeIcon } from '@heroicons/vue/24/outline';
+import { PencilSquareIcon, ArrowLeftIcon, TrashIcon, PlusIcon, BanknotesIcon, EyeIcon, IdentificationIcon } from '@heroicons/vue/24/outline';
 import { ref, computed } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -9,7 +9,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 
-const props = defineProps({ member: Object, caricheSociali: { type: Array, default: () => [] }, roles: { type: Array, default: () => [] }, accessError: String, accessSuccess: String });
+const props = defineProps({ member: Object, caricheSociali: { type: Array, default: () => [] }, roles: { type: Array, default: () => [] }, accessError: String, accessSuccess: String, tessere: { type: Array, default: () => [] } });
 const page = usePage();
 const canManage = computed(() => page.props?.userRoles?.includes('admin') || page.props?.userRoles?.includes('segreteria'));
 const canAssignRoles = computed(() => page.props?.userRoles?.includes('admin'));
@@ -96,6 +96,29 @@ const submitEsclusione = () => {
     router.post(route('members.register-esclusione', props.member.id), { motivo_esclusione: esclusioneMotivo.value, data_cessazione: esclusioneData.value }, { preserveScroll: true });
     showEsclusioneForm.value = false;
 };
+
+/* ── Tessere ────────────────────────────────────────────────────────────── */
+const showTesseraForm = ref(false);
+const tesseraForm = ref({
+    anno:           new Date().getFullYear(),
+    data_emissione: new Date().toISOString().slice(0, 10),
+    data_scadenza:  '',
+    stato:          'emessa',
+    note:           '',
+});
+const submitTessera = () => {
+    router.post(route('tessere.store-singola'), {
+        ...tesseraForm.value,
+        member_id: props.member.id,
+    }, { preserveScroll: true, onSuccess: () => { showTesseraForm.value = false; } });
+};
+const statoBadgeTessera = (stato) => ({
+    bozza:    'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+    emessa:   'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
+    scaduta:  'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
+    revocata: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
+}[stato] ?? 'bg-gray-100 text-gray-700');
+const fmt = (d) => d ? new Date(d).toLocaleDateString('it-IT') : '—';
 </script>
 
 <template>
@@ -105,6 +128,9 @@ const submitEsclusione = () => {
             <div class="flex justify-between items-center">
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">{{ member.cognome }} {{ member.nome }}</h2>
                 <div class="flex gap-2">
+                    <a :href="route('members.tessera-pdf', member.id)" target="_blank">
+                        <SecondaryButton><IdentificationIcon class="size-4 me-1" aria-hidden="true" />Tessera PDF</SecondaryButton>
+                    </a>
                     <Link v-if="$page.props.auth.user && canEdit" :href="route('members.edit', member.id)">
                         <PrimaryButton><PencilSquareIcon class="size-4 me-2" aria-hidden="true" />Modifica</PrimaryButton>
                     </Link>
@@ -356,6 +382,72 @@ const submitEsclusione = () => {
                             <SecondaryButton type="button" @click="showEsclusioneForm = false">Annulla</SecondaryButton>
                         </div>
                     </form>
+                </div>
+            </div>
+
+            <!-- Tessere -->
+            <div v-if="canManage" class="bg-white dark:bg-gray-800 shadow rounded-lg p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">Tessere</h3>
+                    <PrimaryButton v-if="!showTesseraForm" type="button" @click="showTesseraForm = true">
+                        <PlusIcon class="size-4 me-1" />Nuova tessera
+                    </PrimaryButton>
+                </div>
+
+                <form v-if="showTesseraForm" @submit.prevent="submitTessera" class="mb-4 p-4 rounded-lg border border-gray-200 dark:border-gray-600 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <InputLabel for="t_anno" value="Anno *" />
+                        <TextInput id="t_anno" v-model.number="tesseraForm.anno" type="number" class="mt-1 block w-full" required />
+                    </div>
+                    <div>
+                        <InputLabel for="t_stato" value="Stato *" />
+                        <select id="t_stato" v-model="tesseraForm.stato" class="mt-1 block w-full rounded-md border-gray-300 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 shadow-sm text-sm" required>
+                            <option value="bozza">Bozza</option>
+                            <option value="emessa">Emessa</option>
+                        </select>
+                    </div>
+                    <div>
+                        <InputLabel for="t_emissione" value="Data emissione" />
+                        <TextInput id="t_emissione" v-model="tesseraForm.data_emissione" type="date" class="mt-1 block w-full" />
+                    </div>
+                    <div>
+                        <InputLabel for="t_scadenza" value="Data scadenza" />
+                        <TextInput id="t_scadenza" v-model="tesseraForm.data_scadenza" type="date" class="mt-1 block w-full" />
+                    </div>
+                    <div class="sm:col-span-2 flex gap-2">
+                        <PrimaryButton type="submit">Crea tessera</PrimaryButton>
+                        <SecondaryButton type="button" @click="showTesseraForm = false">Annulla</SecondaryButton>
+                    </div>
+                </form>
+
+                <template v-if="tessere.length">
+                    <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
+                        <thead class="bg-gray-50 dark:bg-gray-700">
+                            <tr>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">N°</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Anno</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Stato</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Emissione</th>
+                                <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Scadenza</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 dark:divide-gray-700">
+                            <tr v-for="t in tessere" :key="t.id">
+                                <td class="px-4 py-2 font-mono">{{ t.numero }}</td>
+                                <td class="px-4 py-2">{{ t.anno }}</td>
+                                <td class="px-4 py-2">
+                                    <span class="px-2 py-0.5 rounded text-xs" :class="statoBadgeTessera(t.stato)">{{ t.stato }}</span>
+                                </td>
+                                <td class="px-4 py-2">{{ fmt(t.data_emissione) }}</td>
+                                <td class="px-4 py-2">{{ fmt(t.data_scadenza) }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </template>
+                <p v-else class="text-sm text-gray-500 dark:text-gray-400 py-2">Nessuna tessera emessa.</p>
+
+                <div class="mt-3">
+                    <a :href="route('tessere.index')" class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">Gestione tessere →</a>
                 </div>
             </div>
 

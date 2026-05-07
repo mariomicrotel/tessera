@@ -9,9 +9,12 @@ use App\Models\EmailTemplate;
 use App\Models\Member;
 use App\Models\MemberType;
 use App\Models\Role;
+use App\Models\Tessera;
 use App\Models\Settings;
 use App\Models\User;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
@@ -125,11 +128,13 @@ class MemberController extends Controller
         $member->in_regola_con_quota = $member->isInRegolaConQuota();
         $caricheSociali = \App\Models\CaricaSociale::with('organo')->orderBy('ordine')->orderBy('nome')->get(['id', 'organo_id', 'nome', 'ordine']);
         $roles = Role::orderBy('name')->get(['id', 'name', 'display_name']);
+        $tessere = Tessera::where('member_id', $member->id)->orderByDesc('anno')->get();
 
         return Inertia::render('Members/Show', [
             'member' => $member,
             'caricheSociali' => $caricheSociali,
             'roles' => $roles,
+            'tessere' => $tessere,
         ]);
     }
 
@@ -267,11 +272,13 @@ class MemberController extends Controller
         $member->in_regola_con_quota = $member->isInRegolaConQuota();
         $caricheSociali = \App\Models\CaricaSociale::with('organo')->orderBy('ordine')->orderBy('nome')->get(['id', 'organo_id', 'nome', 'ordine']);
         $roles = Role::orderBy('name')->get(['id', 'name', 'display_name']);
+        $tessere = Tessera::where('member_id', $member->id)->orderByDesc('anno')->get();
 
         return Inertia::render('Members/Show', [
             'member' => $member,
             'caricheSociali' => $caricheSociali,
             'roles' => $roles,
+            'tessere' => $tessere,
             'accessSuccess' => $message,
         ])->toResponse(request());
     }
@@ -290,11 +297,13 @@ class MemberController extends Controller
         $member->in_regola_con_quota = $member->isInRegolaConQuota();
         $caricheSociali = \App\Models\CaricaSociale::with('organo')->orderBy('ordine')->orderBy('nome')->get(['id', 'organo_id', 'nome', 'ordine']);
         $roles = Role::orderBy('name')->get(['id', 'name', 'display_name']);
+        $tessere = Tessera::where('member_id', $member->id)->orderByDesc('anno')->get();
 
         return Inertia::render('Members/Show', [
             'member' => $member,
             'caricheSociali' => $caricheSociali,
             'roles' => $roles,
+            'tessere' => $tessere,
             'accessError' => $message,
         ])->toResponse(request())->setStatusCode(422);
     }
@@ -660,5 +669,79 @@ class MemberController extends Controller
         };
 
         return response()->stream($callback, 200, $headers);
+    }
+
+    // ──────────────────────────────────────────────────────────────────────
+    // TESSERE PDF
+    // ──────────────────────────────────────────────────────────────────────
+
+    /**
+     * Stampa la tessera PDF di un singolo socio.
+     */
+    public function tesseraPdf(Member $member): Response
+    {
+        $currentTenant = app('current_tenant');
+        if ($member->tenant_id !== $currentTenant->id) {
+            abort(404);
+        }
+        $this->authorize('view', $member);
+        $member->load('memberType');
+
+        return $this->buildTesserePdf([$member]);
+    }
+
+    /**
+     * Stampa le tessere PDF in blocco.
+     * Accetta `ids[]` (soci selezionati) o tutti gli attivi se nessun ID passato.
+     */
+    public function tessereMultiplePdf(Request $request): Response
+    {
+        $this->authorize('viewAny', Member::class);
+
+        $query = Member::query()->with('memberType');
+
+        if ($request->filled('ids')) {
+            $query->whereIn('id', (array) $request->ids);
+        } else {
+            $query->where('stato', 'attivo');
+        }
+
+        $members = $query->orderBy('cognome')->orderBy('nome')->get();
+
+        if ($members->isEmpty()) {
+            abort(422, 'Nessun socio trovato.');
+        }
+
+        return $this->buildTesserePdf($members->all());
+    }
+
+    private function buildTesserePdf(array $members): Response
+    {
+        $nomeOrg = Settings::get('nome_associazione', config('app.name'));
+        $colore  = Settings::get('tessera_colore', '#1e40af');
+        $anno    = now()->year;
+
+        $data = array_map(fn (Member $m) => [
+            'cognome'        => $m->cognome ?? '',
+            'nome'           => $m->nome    ?? '',
+            'ragione_sociale' => $m->ragione_sociale ?? null,
+            'numero_tessera' => $m->numero_tessera,
+            'tipo'           => $m->memberType?->display_name ?? $m->memberType?->name ?? 'Socio',
+            'data_iscrizione' => $m->data_iscrizione,
+            'codice_fiscale' => $m->codice_fiscale ?? null,
+        ], $members);
+
+        $pdf = Pdf::loadView('pdf.tessera', [
+            'members'            => $data,
+            'nomeOrganizzazione' => $nomeOrg,
+            'colore'             => $colore,
+            'anno'               => $anno,
+        ])->setPaper('A4', 'portrait');
+
+        $filename = count($members) === 1
+            ? 'tessera_' . str_replace(' ', '_', strtolower($members[0]->cognome ?? 'socio')) . '.pdf'
+            : 'tessere_' . $anno . '_' . now()->format('Ymd') . '.pdf';
+
+        return $pdf->download($filename);
     }
 }

@@ -14,6 +14,7 @@ use App\Models\Organo;
 use App\Models\PrestitoSocialeLibretto;
 use App\Models\Ristorno;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Inertia\Inertia;
 
 class DashboardController extends Controller
@@ -183,6 +184,94 @@ class DashboardController extends Controller
             $stats['fatture_in_scadenza'] = $fattureInScadenza;
         }
 
+        // ── Analytics grafici ─────────────────────────────────────────────
+        $stats = array_merge($stats, $this->buildAnalytics($tenant));
+
         return Inertia::render('Dashboard', $stats);
+    }
+
+    private function buildAnalytics($tenant): array
+    {
+        $from = Carbon::now()->startOfMonth()->subMonths(11);
+        $to   = Carbon::now()->endOfMonth();
+
+        // Etichette mesi (12 mesi)
+        $labels = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $labels[] = Carbon::now()->startOfMonth()->subMonths($i)->locale('it')->isoFormat('MMM YY');
+        }
+
+        // Grafico 1 — Incassi per mese
+        $incassiRaw = Incasso::selectRaw("DATE_FORMAT(paid_at, '%Y-%m') as mese, SUM(amount) as totale")
+            ->whereBetween('paid_at', [$from, $to])
+            ->groupBy('mese')
+            ->pluck('totale', 'mese');
+
+        // Grafico 1 — Uscite per mese (fatture passive non annullate)
+        $usciteRaw = FatturaPassiva::selectRaw("DATE_FORMAT(data_fattura, '%Y-%m') as mese, SUM(totale_documento) as totale")
+            ->where('stato_pagamento', '!=', FatturaPassiva::STATO_ANNULLATA)
+            ->whereBetween('data_fattura', [$from, $to])
+            ->groupBy('mese')
+            ->pluck('totale', 'mese');
+
+        $incassiMensili = [];
+        $usciteMensili  = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $key = Carbon::now()->startOfMonth()->subMonths($i)->format('Y-m');
+            $incassiMensili[] = round((float) ($incassiRaw[$key] ?? 0), 2);
+            $usciteMensili[]  = round((float) ($usciteRaw[$key] ?? 0), 2);
+        }
+
+        // Grafico 2 — Composizione soci per stato
+        $sociPerStato = Member::selectRaw('stato, COUNT(*) as totale')
+            ->groupBy('stato')
+            ->pluck('totale', 'stato')
+            ->toArray();
+
+        // Grafico 5 — Andamento soci: iscrizioni vs cessazioni per mese
+        $iscrizioniRaw = Member::selectRaw("DATE_FORMAT(data_iscrizione, '%Y-%m') as mese, COUNT(*) as totale")
+            ->whereBetween('data_iscrizione', [$from, $to])
+            ->groupBy('mese')
+            ->pluck('totale', 'mese');
+
+        $cessazioniRaw = Member::selectRaw("DATE_FORMAT(data_cessazione, '%Y-%m') as mese, COUNT(*) as totale")
+            ->whereNotNull('data_cessazione')
+            ->whereBetween('data_cessazione', [$from, $to])
+            ->groupBy('mese')
+            ->pluck('totale', 'mese');
+
+        $iscrizioniMensili  = [];
+        $cessazioniMensili  = [];
+        for ($i = 11; $i >= 0; $i--) {
+            $key = Carbon::now()->startOfMonth()->subMonths($i)->format('Y-m');
+            $iscrizioniMensili[]  = (int) ($iscrizioniRaw[$key] ?? 0);
+            $cessazioniMensili[]  = (int) ($cessazioniRaw[$key] ?? 0);
+        }
+
+        $analytics = [
+            'grafico_labels'       => $labels,
+            'grafico_incassi'      => $incassiMensili,
+            'grafico_uscite'       => $usciteMensili,
+            'grafico_soci_stato'   => $sociPerStato,
+            'grafico_iscrizioni'   => $iscrizioniMensili,
+            'grafico_cessazioni'   => $cessazioniMensili,
+        ];
+
+        // Grafico 6 — Distribuzione donazioni (solo non-cooperativa)
+        if (! ($tenant && $tenant->isCooperativa())) {
+            $donRaw = Incasso::selectRaw("type, SUM(amount) as totale")
+                ->whereBetween('paid_at', [$from, $to])
+                ->whereIn('type', [Incasso::TYPE_QUOTA, Incasso::TYPE_DONAZIONE, Incasso::TYPE_ALTRO])
+                ->groupBy('type')
+                ->pluck('totale', 'type');
+
+            $analytics['grafico_donazioni'] = [
+                'quote'     => round((float) ($donRaw[Incasso::TYPE_QUOTA] ?? 0), 2),
+                'donazioni' => round((float) ($donRaw[Incasso::TYPE_DONAZIONE] ?? 0), 2),
+                'altri'     => round((float) ($donRaw[Incasso::TYPE_ALTRO] ?? 0), 2),
+            ];
+        }
+
+        return $analytics;
     }
 }

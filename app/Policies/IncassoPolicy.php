@@ -42,4 +42,9 @@ class IncassoPolicy
     {
         return $user->hasRole('admin', 'contabile');
     }
+
+    public function annulla(User $user, Incasso $incasso): bool
+    {
+        return $user->hasRole('admin', 'contabile');
+    }
 }

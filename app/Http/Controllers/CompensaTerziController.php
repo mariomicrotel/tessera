@@ -5,10 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\CompensaTerzi;
 use App\Models\ContoContabile;
 use App\Models\Member;
+use App\Models\Settings;
 use App\Models\VersamentoRitenuta;
 use App\Services\CompensaTerziService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -282,6 +285,70 @@ class CompensaTerziController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────
+    // Certificazione Unica
+    // ─────────────────────────────────────────────────────────────────────
+
+    public function generaCU(Request $request): HttpResponse
+    {
+        $anno = $request->integer('anno', now()->year);
+
+        $tenant = app('current_tenant');
+
+        $compensi = CompensaTerzi::where('anno_competenza', $anno)
+            ->orderBy('nome_percipiente')
+            ->get();
+
+        if ($compensi->isEmpty()) {
+            abort(422, "Nessun compenso trovato per l'anno {$anno}.");
+        }
+
+        // Raggruppa per percipiente (codice_fiscale)
+        $grouped = $compensi->groupBy('codice_fiscale');
+
+        $tipiLabel = [
+            'occasionale'    => 'Lavoro autonomo occasionale',
+            'professionale'  => 'Lavoro autonomo professionale',
+            'provvigioni'    => 'Provvigioni/Agenti',
+        ];
+
+        $percipienti = $grouped->map(function ($items) use ($tipiLabel) {
+            $first = $items->first();
+            return [
+                'nome_percipiente'      => $first->nome_percipiente,
+                'codice_fiscale'        => $first->codice_fiscale,
+                'partita_iva'           => $first->partita_iva,
+                'indirizzo'             => $first->indirizzo,
+                'codice_causale'        => $first->codice_causale,
+                'tipo_rapporto_label'   => $tipiLabel[$first->tipo_rapporto] ?? $first->tipo_rapporto,
+                'compenso_lordo'        => $items->sum('compenso_lordo'),
+                'base_imponibile_ritenuta' => $items->sum('base_imponibile_ritenuta'),
+                'aliquota_ritenuta'     => $first->aliquota_ritenuta ?? 20,
+                'totale_ritenuta'       => $items->sum('ritenuta'),
+                'rimborsi_spese'        => $items->sum('rimborsi_spese'),
+                'netto_erogato'         => $items->sum('compenso_lordo') - $items->sum('ritenuta'),
+                'prestazioni'           => $items->map(fn ($c) => [
+                    'data'     => $c->data_pagamento?->format('d/m/Y') ?? '—',
+                    'causale'  => $c->causale_prestazione,
+                    'lordo'    => (float) $c->compenso_lordo,
+                    'ritenuta' => (float) $c->ritenuta,
+                ])->values()->all(),
+            ];
+        })->values()->all();
+
+        $sostituto = [
+            'nome'            => Settings::get('nome_associazione', config('app.name')),
+            'codice_fiscale'  => Settings::get('codice_fiscale_associazione', ''),
+            'indirizzo'       => Settings::get('indirizzo_associazione', ''),
+            'luogo'           => Settings::get('luogo_emissione_ricevute', ''),
+        ];
+
+        $pdf = Pdf::loadView('fiscale.certificazione-unica', compact('percipienti', 'sostituto', 'anno'))
+            ->setPaper('A4', 'portrait');
+
+        return $pdf->download("certificazione_unica_{$anno}.pdf");
+    }
+
     // Lista versamenti
     // ─────────────────────────────────────────────────────────────────────
 

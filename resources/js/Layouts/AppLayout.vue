@@ -70,7 +70,7 @@ const openSections = ref({
 
 function sectionForRoute(name) {
     if (!name) return null;
-    if (name.startsWith('members.') || name.startsWith('libro-soci.') || name.startsWith('member-types.')) return 'soci';
+    if (name.startsWith('members.') || name.startsWith('libro-soci.') || name.startsWith('member-types.') || name.startsWith('tessere.')) return 'soci';
     if (name.startsWith('incassi.') || name.startsWith('incassi-generici.') || name.startsWith('quote-sociali.') || name.startsWith('donazioni.') || name.startsWith('receipts.') || name.startsWith('spese.') || name.startsWith('expense-refunds.')) return 'cassa';
     if (name.startsWith('documents.') || name.startsWith('verbali.') || name.startsWith('templates.') || name.startsWith('email-templates.') || name.startsWith('receipt-templates.')) return 'documenti';
     if (name.startsWith('organi.') || name.startsWith('elezioni.')) return 'organiVotazioni';
@@ -268,6 +268,10 @@ const logout = () => {
                                 <ResponsiveNavLink :href="route('member-types.index')" :active="route().current('member-types.*')">
                                     <UserCircleIcon class="size-4 shrink-0" aria-hidden="true" />
                                     Tipologie socio
+                                </ResponsiveNavLink>
+                                <ResponsiveNavLink :href="route('tessere.index')" :active="route().current('tessere.*')">
+                                    <TicketIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Tessere
                                 </ResponsiveNavLink>
                             </div>
                         </div>
@@ -566,6 +570,25 @@ const logout = () => {
                                 </template>
                             </div>
                     </div>
+                    <!-- Organizzazione ETS -->
+                    <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" class="pt-2">
+                        <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('ets')">
+                            <DocumentTextIcon class="size-5 shrink-0" aria-hidden="true" />
+                            <span class="flex-1">Organizzazione</span>
+                            <ChevronDownIcon v-if="openSections.ets" class="size-4 shrink-0" aria-hidden="true" />
+                            <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
+                        </button>
+                        <div v-show="openSections.ets" class="space-y-0.5 ps-6">
+                            <ResponsiveNavLink :href="route('ets.statuto.index')" :active="route().current('ets.statuto.*')">
+                                <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                Statuto
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('ets.atto-costitutivo.index')" :active="route().current('ets.atto-costitutivo.*')">
+                                <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                Atto Costitutivo
+                            </ResponsiveNavLink>
+                        </div>
+                    </div>
                     <!-- Adempimenti Fiscali -->
                     <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile')" class="pt-2">
                         <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('adempimenti')">
@@ -585,9 +608,32 @@ const logout = () => {
                             </ResponsiveNavLink>
                         </div>
                     </div>
+                    <!-- Banking & Riconciliazione -->
+                    <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile')" class="pt-2">
+                        <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('banking')">
+                            <CreditCardIcon class="size-5 shrink-0" aria-hidden="true" />
+                            <span class="flex-1">Banking</span>
+                            <ChevronDownIcon v-if="openSections.banking" class="size-4 shrink-0" aria-hidden="true" />
+                            <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
+                        </button>
+                        <div v-show="openSections.banking" class="space-y-0.5 ps-6">
+                            <ResponsiveNavLink :href="route('riba.index')" :active="route().current('riba.*')">
+                                <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                RI.BA / CBI
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('riconciliazione.index')" :active="route().current('riconciliazione.*')">
+                                <BanknotesIcon class="size-4 shrink-0" aria-hidden="true" />
+                                Riconciliazione bancaria
+                            </ResponsiveNavLink>
+                        </div>
+                    </div>
                     <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('users.index')" :active="route().current('users.*')">
                             <UsersIcon class="size-5 shrink-0" aria-hidden="true" />
                             Utenti
+                    </ResponsiveNavLink>
+                    <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('audit.index')" :active="route().current('audit.*')">
+                        <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
+                        Audit Trail
                     </ResponsiveNavLink>
                     <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('settings.index')" :active="route().current('settings.*')">
                         <Cog6ToothIcon class="size-5 shrink-0" aria-hidden="true" />
@@ -653,6 +699,10 @@ const logout = () => {
                                         <NavLink :href="route('member-types.index')" :active="route().current('member-types.*')">
                                             <UserCircleIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Tipologie socio
+                                        </NavLink>
+                                        <NavLink :href="route('tessere.index')" :active="route().current('tessere.*')">
+                                            <TicketIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Tessere
                                         </NavLink>
                                     </div>
                                 </div>
@@ -975,9 +1025,51 @@ const logout = () => {
                                         </NavLink>
                                     </div>
                                 </div>
+                                <!-- Banking & Riconciliazione -->
+                                <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile')" class="mt-2">
+                                    <button type="button" class="block w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border-l-4 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50" @click="toggleSection('banking')">
+                                        <CreditCardIcon class="size-5 shrink-0" aria-hidden="true" />
+                                        <span class="flex-1 text-start">Banking</span>
+                                        <ChevronDownIcon v-if="openSections.banking" class="size-4 shrink-0" aria-hidden="true" />
+                                        <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
+                                    </button>
+                                    <div v-show="openSections.banking" class="space-y-0.5 pl-4 ml-1 border-l border-gray-200 dark:border-gray-600">
+                                        <NavLink :href="route('riba.index')" :active="route().current('riba.*')">
+                                            <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            RI.BA / CBI
+                                        </NavLink>
+                                        <NavLink :href="route('riconciliazione.index')" :active="route().current('riconciliazione.*')">
+                                            <BanknotesIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Riconciliazione bancaria
+                                        </NavLink>
+                                    </div>
+                                </div>
+                                <!-- Organizzazione ETS -->
+                                <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" class="mt-2">
+                                    <button type="button" class="block w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border-l-4 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50" @click="toggleSection('ets')">
+                                        <DocumentTextIcon class="size-5 shrink-0" aria-hidden="true" />
+                                        <span class="flex-1 text-start">Organizzazione</span>
+                                        <ChevronDownIcon v-if="openSections.ets" class="size-4 shrink-0" aria-hidden="true" />
+                                        <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
+                                    </button>
+                                    <div v-show="openSections.ets" class="space-y-0.5 pl-4 ml-1 border-l border-gray-200 dark:border-gray-600">
+                                        <NavLink :href="route('ets.statuto.index')" :active="route().current('ets.statuto.*')">
+                                            <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Statuto
+                                        </NavLink>
+                                        <NavLink :href="route('ets.atto-costitutivo.index')" :active="route().current('ets.atto-costitutivo.*')">
+                                            <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Atto Costitutivo
+                                        </NavLink>
+                                    </div>
+                                </div>
                                 <NavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('users.index')" :active="route().current('users.*')">
                                     <UsersIcon class="size-5 shrink-0" aria-hidden="true" />
                                     Utenti
+                                </NavLink>
+                                <NavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('audit.index')" :active="route().current('audit.*')">
+                                    <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
+                                    Audit Trail
                                 </NavLink>
                                 <NavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('settings.index')" :active="route().current('settings.*')">
                                     <Cog6ToothIcon class="size-5 shrink-0" aria-hidden="true" />

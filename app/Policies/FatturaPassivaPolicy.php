@@ -56,4 +56,11 @@ class FatturaPassivaPolicy
     {
         return $user->hasRole('admin', 'contabile');
     }
+
+    public function paga(User $user, FatturaPassiva $fattura): bool
+    {
+        return $user->hasRole('admin', 'contabile')
+            && $fattura->stato_pagamento !== FatturaPassiva::STATO_PAGATA
+            && $fattura->stato !== FatturaPassiva::STATO_ANNULLATA;
+    }
 }

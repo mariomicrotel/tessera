@@ -45,6 +45,7 @@ use App\Http\Controllers\TemplateController;
 use App\Http\Controllers\WarehouseController;
 use App\Http\Controllers\IvaController;
 use App\Http\Controllers\FatturaPassivaController;
+use App\Http\Controllers\FatturaPassivaXmlImportController;
 use App\Http\Controllers\FatturaAttivaController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\CespitiController;
@@ -52,6 +53,8 @@ use App\Http\Controllers\AmmortamentoController;
 use App\Http\Controllers\AssetCategoryController;
 use App\Http\Controllers\DismissioneCespitiController;
 use App\Http\Controllers\CompensaTerziController;
+use App\Http\Controllers\RibaController;
+use App\Http\Controllers\RiconciliazioneController;
 use App\Http\Controllers\ModelloF24Controller;
 use App\Http\Controllers\BilancioController;
 use App\Http\Controllers\ErogazioneLiberaleController;
@@ -62,6 +65,8 @@ use App\Http\Controllers\ApiDocsController;
 use App\Http\Controllers\EtsComplianceController;
 use App\Http\Controllers\EtsStatutoController;
 use App\Http\Controllers\EtsAttoCostitutivoController;
+use App\Http\Controllers\ExcelExportController;
+use App\Http\Controllers\TesseraController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -188,7 +193,9 @@ Route::middleware([
     // Soci e volontari
     Route::get('members/invites/create', [MemberInviteController::class, 'create'])->name('members.invites.create')->middleware('role:admin,segreteria');
     Route::post('members/invites', [MemberInviteController::class, 'store'])->name('members.invites.store')->middleware('role:admin,segreteria');
+    Route::get('members/tessere-pdf', [MemberController::class, 'tessereMultiplePdf'])->name('members.tessere-pdf');
     Route::resource('members', MemberController::class);
+    Route::get('members/{member}/tessera-pdf', [MemberController::class, 'tesseraPdf'])->name('members.tessera-pdf');
     Route::post('members/accept-admission-bulk', [MemberController::class, 'acceptAdmissionBulk'])->name('members.accept-admission-bulk');
     Route::post('members/{member}/accept-admission', [MemberController::class, 'acceptAdmission'])->name('members.accept-admission');
     Route::post('members/{member}/reject-admission', [MemberController::class, 'rejectAdmission'])->name('members.reject-admission');
@@ -207,6 +214,17 @@ Route::middleware([
     Route::delete('incarichi/{incarico}', [IncaricoController::class, 'destroy'])->name('incarichi.destroy');
     Route::get('libro-soci', [MemberController::class, 'libroSoci'])->name('libro-soci.index');
     Route::get('libro-soci/export-coop', [MemberController::class, 'exportLibroSociCoop'])->name('libro-soci.export-coop');
+
+    // Tessere
+    Route::prefix('tessere')->name('tessere.')->middleware('role:admin,segreteria,contabile')->group(function () {
+        Route::get('/', [TesseraController::class, 'index'])->name('index');
+        Route::post('/', [TesseraController::class, 'store'])->name('store');
+        Route::post('/singola', [TesseraController::class, 'storeSingola'])->name('store-singola');
+        Route::post('/emetti-bulk', [TesseraController::class, 'emettiBulk'])->name('emetti-bulk');
+        Route::post('/aggiorna-scadute', [TesseraController::class, 'aggiornaScadute'])->name('aggiorna-scadute');
+        Route::put('/{tessera}', [TesseraController::class, 'update'])->name('update');
+        Route::delete('/{tessera}', [TesseraController::class, 'destroy'])->name('destroy');
+    });
 
     // Capitale sociale (solo cooperative)
     Route::middleware(['cooperative'])->prefix('capitale-sociale')->name('capitale-sociale.')->group(function () {
@@ -309,6 +327,9 @@ Route::middleware([
         Route::post('iva/fatture-passive/{fatturaPassiva}/marca-parzialmente-pagata', [FatturaPassivaController::class, 'marcaParzialmentePagata'])->name('iva.fatture-passive.marca-parzialmente-pagata')->middleware('role:admin,segreteria,contabile');
         Route::post('iva/fatture-passive/{fatturaPassiva}/reimposta-da-pagare', [FatturaPassivaController::class, 'reimpostaDaPagare'])->name('iva.fatture-passive.reimposta-da-pagare')->middleware('role:admin,segreteria,contabile');
         Route::post('iva/fatture-passive/{fatturaPassiva}/annulla', [FatturaPassivaController::class, 'annulla'])->name('iva.fatture-passive.annulla')->middleware('role:admin,segreteria,contabile');
+        Route::get('iva/fatture-passive-xml/import',    [FatturaPassivaXmlImportController::class, 'index'])->name('iva.fatture-passive.xml-import');
+        Route::post('iva/fatture-passive-xml/preview',  [FatturaPassivaXmlImportController::class, 'preview'])->name('iva.fatture-passive.xml-preview');
+        Route::post('iva/fatture-passive-xml/store',    [FatturaPassivaXmlImportController::class, 'store'])->name('iva.fatture-passive.xml-store');
         Route::get('iva/liquidazioni', [IvaController::class, 'liquidazioniIndex'])->name('iva.liquidazioni.index');
         Route::get('iva/liquidazioni/{liquidazioneIva}', [IvaController::class, 'liquidazioneShow'])->name('iva.liquidazioni.show');
         // Registri e liquidazione periodica
@@ -396,10 +417,34 @@ Route::middleware([
     Route::get('iva/fatture-attive/{fatturaAttiva}/pdf', [FatturaAttivaController::class, 'exportPdf'])->name('iva.fatture-attive.pdf');
     Route::get('iva/fatture-attive/{fatturaAttiva}/xml', [FatturaAttivaController::class, 'downloadXml'])->name('iva.fatture-attive.xml');
     Route::post('iva/fatture-attive/{fatturaAttiva}/sdi', [FatturaAttivaController::class, 'aggiornaStatoSdi'])->name('iva.fatture-attive.sdi')->middleware('role:admin,contabile');
-    Route::get('reports/libro-giornale',         [AccountingReportController::class, 'libroGiornale'])->name('reports.libro-giornale');
-    Route::get('reports/libro-giornale/export',  [AccountingReportController::class, 'exportLibroGiornale'])->name('reports.libro-giornale.export');
-    Route::get('reports/registro-vendite',        [AccountingReportController::class, 'registroVendite'])->name('reports.registro-vendite');
-    Route::get('reports/registro-vendite/export', [AccountingReportController::class, 'exportRegistroVendite'])->name('reports.registro-vendite.export');
+    Route::get('reports/libro-giornale',             [AccountingReportController::class, 'libroGiornale'])->name('reports.libro-giornale');
+    Route::get('reports/libro-giornale/export',      [AccountingReportController::class, 'exportLibroGiornale'])->name('reports.libro-giornale.export');
+    Route::get('reports/libro-giornale/pdf',         [AccountingReportController::class, 'exportLibroGiornalePdf'])->name('reports.libro-giornale.pdf');
+    Route::get('reports/registro-vendite',            [AccountingReportController::class, 'registroVendite'])->name('reports.registro-vendite');
+    Route::get('reports/registro-vendite/export',    [AccountingReportController::class, 'exportRegistroVendite'])->name('reports.registro-vendite.export');
+    Route::get('reports/registro-vendite/pdf',       [AccountingReportController::class, 'exportRegistroVenditePdf'])->name('reports.registro-vendite.pdf');
+
+    // ── RI.BA / CBI ──────────────────────────────────────────────────────
+    Route::get('riba',                         [RibaController::class, 'index'])->name('riba.index');
+    Route::get('riba/create',                  [RibaController::class, 'create'])->name('riba.create');
+    Route::post('riba',                        [RibaController::class, 'store'])->name('riba.store');
+    Route::get('riba/{riba}',                  [RibaController::class, 'show'])->name('riba.show');
+    Route::post('riba/{riba}/inviata',         [RibaController::class, 'markInviata'])->name('riba.inviata');
+    Route::post('riba/{riba}/pagata',          [RibaController::class, 'markPagata'])->name('riba.pagata');
+    Route::post('riba/{riba}/insoluta',        [RibaController::class, 'markInsoluta'])->name('riba.insoluta');
+    Route::delete('riba/{riba}',               [RibaController::class, 'destroy'])->name('riba.destroy');
+    Route::get('riba/export/cbi',              [RibaController::class, 'exportCbi'])->name('riba.export-cbi');
+
+    // ── Riconciliazione bancaria ──────────────────────────────────────────
+    Route::get('riconciliazione',                          [RiconciliazioneController::class, 'index'])->name('riconciliazione.index');
+    Route::get('riconciliazione/upload',                   [RiconciliazioneController::class, 'create'])->name('riconciliazione.create');
+    Route::post('riconciliazione/upload/preview',          [RiconciliazioneController::class, 'previewUpload'])->name('riconciliazione.preview');
+    Route::post('riconciliazione',                         [RiconciliazioneController::class, 'store'])->name('riconciliazione.store');
+    Route::get('riconciliazione/{riconciliazione}',        [RiconciliazioneController::class, 'show'])->name('riconciliazione.show');
+    Route::delete('riconciliazione/{riconciliazione}',     [RiconciliazioneController::class, 'destroy'])->name('riconciliazione.destroy');
+    Route::post('riconciliazione/movimenti/{movimento}/match',   [RiconciliazioneController::class, 'match'])->name('riconciliazione.match');
+    Route::delete('riconciliazione/movimenti/{movimento}/match', [RiconciliazioneController::class, 'unmatch'])->name('riconciliazione.unmatch');
+    Route::get('riconciliazione/movimenti/{movimento}/suggerisci', [RiconciliazioneController::class, 'suggerisci'])->name('riconciliazione.suggerisci');
 
     // ── Compensi a Terzi / Ritenute d'Acconto (G1) ───────────────────────
     Route::get('compensi-terzi',                                      [CompensaTerziController::class, 'index'])->name('compensi-terzi.index')->middleware('role:admin,contabile');
@@ -408,6 +453,7 @@ Route::middleware([
     Route::get('compensi-terzi/riepilogo',                            [CompensaTerziController::class, 'riepilogo'])->name('compensi-terzi.riepilogo');
     Route::get('compensi-terzi/versamenti',                           [CompensaTerziController::class, 'versamenti'])->name('compensi-terzi.versamenti');
     Route::post('compensi-terzi/versa',                               [CompensaTerziController::class, 'versa'])->name('compensi-terzi.versa')->middleware('role:admin,contabile');
+    Route::get('compensi-terzi/genera-cu',                            [CompensaTerziController::class, 'generaCU'])->name('compensi-terzi.genera-cu')->middleware('role:admin,contabile');
     Route::get('compensi-terzi/versamenti/{versamento}',              [CompensaTerziController::class, 'versamentoShow'])->name('compensi-terzi.versamento.show');
     Route::get('compensi-terzi/{compensiTerzi}',                      [CompensaTerziController::class, 'show'])->name('compensi-terzi.show');
     Route::get('compensi-terzi/{compensiTerzi}/edit',                 [CompensaTerziController::class, 'edit'])->name('compensi-terzi.edit')->middleware('role:admin,contabile');
@@ -494,6 +540,18 @@ Route::middleware([
     Route::get('reports/rendiconto-cassa', [RendicontoCassaController::class, 'index'])->name('reports.rendiconto-cassa');
     Route::get('reports/rendiconto-cassa/export-pdf', [RendicontoCassaController::class, 'exportPdf'])->name('reports.rendiconto-cassa.export-pdf');
     Route::post('reports/rendiconto-cassa/export-pdf', [RendicontoCassaController::class, 'exportPdfFromPayload'])->name('reports.rendiconto-cassa.export-pdf.post');
+
+    // ── Export Excel (H-XLS) ─────────────────────────────────────────────
+    Route::prefix('export')->name('export.')->middleware('role:admin,contabile,segreteria')->group(function () {
+        Route::get('soci',            [ExcelExportController::class, 'soci'])->name('soci');
+        Route::get('prima-nota',      [ExcelExportController::class, 'primaNota'])->name('prima-nota');
+        Route::get('registro-iva',    [ExcelExportController::class, 'registroIva'])->name('registro-iva');
+        Route::get('cespiti',         [ExcelExportController::class, 'cespiti'])->name('cespiti');
+        Route::get('compensi-terzi',  [ExcelExportController::class, 'compensaTerzi'])->name('compensi-terzi')->middleware('role:admin,contabile');
+        Route::middleware(['cooperative'])->group(function () {
+            Route::get('capitale-sociale', [ExcelExportController::class, 'capitaleSociale'])->name('capitale-sociale');
+        });
+    });
 
     // Report cooperativa (solo cooperative)
     Route::middleware(['cooperative'])->group(function () {

@@ -9,6 +9,7 @@ import {
     ExclamationCircleIcon,
     DocumentTextIcon,
     ClipboardDocumentListIcon,
+    ArrowDownTrayIcon,
 } from '@heroicons/vue/24/outline';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -76,6 +77,11 @@ const tipiLabel = {
                         class="inline-flex items-center gap-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md font-medium text-xs text-gray-700 dark:text-gray-300 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-700">
                         <ClipboardDocumentListIcon class="size-4" />CU Riepilogo
                     </Link>
+                    <a :href="route('compensi-terzi.genera-cu') + '?anno=' + annoFiltro"
+                        target="_blank"
+                        class="inline-flex items-center gap-1 px-3 py-2 border border-indigo-300 dark:border-indigo-600 rounded-md font-medium text-xs text-indigo-700 dark:text-indigo-300 uppercase tracking-widest hover:bg-indigo-50 dark:hover:bg-indigo-900/20">
+                        <ArrowDownTrayIcon class="size-4" />Genera CU {{ annoFiltro }}
+                    </a>
                     <Link :href="route('compensi-terzi.versamenti')"
                         class="inline-flex items-center gap-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md font-medium text-xs text-gray-700 dark:text-gray-300 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-700">
                         <BanknotesIcon class="size-4" />Versamenti F24
