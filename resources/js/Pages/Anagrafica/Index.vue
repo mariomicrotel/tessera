@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import {
     BuildingOffice2Icon,
     ScaleIcon,
@@ -12,6 +12,9 @@ import {
     ArrowLeftIcon,
     PaperClipIcon,
     ExclamationTriangleIcon,
+    MagnifyingGlassIcon,
+    ArrowPathIcon,
+    SignalIcon,
 } from '@heroicons/vue/24/outline';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -150,6 +153,143 @@ const runtsSezioni = [
     { value: 'enti_religiosi',    label: 'Enti Religiosi Civilmente Riconosciuti' },
     { value: 'ets_altro',         label: 'Altri ETS' },
 ];
+
+// ─── Arricchimento dati via OpenAPI Company ─────────────────────────────────
+const enrichIdentifier = ref('');
+const enrichLoading = ref(false);
+const enrichError = ref(null);
+const enrichData = ref(null);
+const enrichSource = ref(null);
+const enrichCachedAt = ref(null);
+const apiUsage = ref({ used: 0, limit: 100, remaining: 100, status: 'ok' });
+
+const fieldLabels = {
+    ragione_sociale: 'Ragione sociale',
+    partita_iva: 'Partita IVA',
+    codice_fiscale: 'Codice fiscale',
+    stato_attivita: 'Stato attività',
+    data_registrazione: 'Data registrazione',
+    codice_sdi: 'Codice SDI',
+    indirizzo: 'Indirizzo',
+    comune: 'Comune',
+    provincia: 'Provincia',
+    cap: 'CAP',
+    nazione: 'Nazione',
+    attivita_ateco: 'Codice ATECO',
+    rea_numero: 'Numero REA',
+    rea_citta: 'Provincia REA',
+    pec: 'PEC',
+    telefono: 'Telefono',
+    sito_web: 'Sito web',
+};
+
+// Mapping campo API → campo form
+const fieldMapping = {
+    ragione_sociale: 'nome_associazione',
+    partita_iva:     'partita_iva',
+    codice_fiscale:  'codice_fiscale',
+    indirizzo:       'indirizzo',
+    comune:          'citta',
+    provincia:       'provincia',
+    cap:             'cap',
+    nazione:         'nazione',
+    attivita_ateco:  'attivita_ateco',
+    rea_numero:      'rea_numero',
+    rea_citta:       'rea_citta',
+    pec:             'pec',
+    telefono:        'telefono',
+    sito_web:        'sito_web',
+};
+
+// Se l'utente vuole anche PEC (chiamata API extra)
+const includePec = ref(false);
+
+const usageStatusColor = computed(() => {
+    if (apiUsage.value.status === 'blocked') return 'text-red-600 dark:text-red-400';
+    if (apiUsage.value.status === 'warning') return 'text-amber-600 dark:text-amber-400';
+    return 'text-green-600 dark:text-green-400';
+});
+
+const usageBarPercent = computed(() => Math.min(100, (apiUsage.value.used / apiUsage.value.limit) * 100));
+
+function hasConflict(apiField) {
+    const formField = fieldMapping[apiField];
+    if (!formField || !enrichData.value?.[apiField]) return false;
+    const current = (form[formField] ?? '').toString().trim();
+    return current !== '' && current !== enrichData.value[apiField];
+}
+
+async function fetchUsage() {
+    try {
+        const res = await fetch(route('company-enrichment.usage'), { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' } });
+        if (res.ok) apiUsage.value = await res.json();
+    } catch {}
+}
+
+async function fetchEnrichment() {
+    if (!enrichIdentifier.value.trim()) return;
+    enrichLoading.value = true;
+    enrichError.value = null;
+    enrichData.value = null;
+    enrichSource.value = null;
+    enrichCachedAt.value = null;
+
+    try {
+        const res = await fetch(route('company-enrichment.it-enrich'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-XSRF-TOKEN': decodeURIComponent(document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || ''),
+            },
+            body: JSON.stringify({
+                identifier: enrichIdentifier.value.trim(),
+                includeAdvanced: true,
+                includePec: includePec.value,
+            }),
+        });
+        const json = await res.json();
+        if (json.usage) apiUsage.value = json.usage;
+        if (json.success) {
+            enrichData.value = json.data;
+            enrichSource.value = json.source;
+            enrichCachedAt.value = (json.endpoints_from_cache ?? []).length > 0
+                ? new Date().toISOString()
+                : null;
+        } else {
+            enrichError.value = json.error || 'Errore sconosciuto.';
+        }
+    } catch (e) {
+        enrichError.value = 'Errore di rete nella richiesta.';
+    } finally {
+        enrichLoading.value = false;
+    }
+}
+
+function applyEnrichment(overwriteConflicts = false) {
+    if (!enrichData.value) return;
+    for (const [apiField, formField] of Object.entries(fieldMapping)) {
+        const newVal = enrichData.value[apiField];
+        if (!newVal) continue;
+        const current = (form[formField] ?? '').toString().trim();
+        if (current === '' || overwriteConflicts) {
+            form[formField] = newVal;
+        }
+    }
+    if (enrichData.value.data_registrazione && !form.data_costituzione_associazione) {
+        form.data_costituzione_associazione = enrichData.value.data_registrazione;
+    }
+}
+
+function dismissEnrichment() {
+    enrichData.value = null;
+    enrichSource.value = null;
+    enrichCachedAt.value = null;
+    enrichError.value = null;
+}
+
+onMounted(fetchUsage);
 </script>
 
 <template>
@@ -165,6 +305,120 @@ const runtsSezioni = [
         </template>
 
         <div class="py-6 max-w-5xl mx-auto sm:px-6 lg:px-8 space-y-6">
+
+            <!-- ═══ Arricchimento dati da OpenAPI Company ═══ -->
+            <div class="bg-white dark:bg-gray-800 shadow rounded-lg p-5 space-y-4">
+                <div class="flex items-center gap-2 mb-1">
+                    <SignalIcon class="size-5 text-indigo-500" aria-hidden="true" />
+                    <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Recupera dati azienda</h3>
+                    <!-- Usage counter -->
+                    <div class="ml-auto flex items-center gap-3 text-xs">
+                        <span :class="usageStatusColor">
+                            Chiamate API oggi: {{ apiUsage.used }} / {{ apiUsage.limit }}
+                        </span>
+                        <div class="w-24 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
+                            <div
+                                class="h-full rounded-full transition-all"
+                                :class="apiUsage.status === 'blocked' ? 'bg-red-500' : apiUsage.status === 'warning' ? 'bg-amber-500' : 'bg-green-500'"
+                                :style="{ width: usageBarPercent + '%' }"
+                            />
+                        </div>
+                        <span class="text-gray-400 dark:text-gray-500">Residue: {{ apiUsage.remaining }}</span>
+                    </div>
+                </div>
+                <div class="flex gap-3 items-end flex-wrap">
+                    <div class="flex-1 min-w-[200px] max-w-sm">
+                        <InputLabel for="enrich_identifier" value="Partita IVA / Codice Fiscale / ID azienda" />
+                        <TextInput
+                            id="enrich_identifier"
+                            v-model="enrichIdentifier"
+                            type="text"
+                            class="mt-1 block w-full"
+                            placeholder="es. 01234567890"
+                            @keydown.enter.prevent="fetchEnrichment"
+                        />
+                    </div>
+                    <button
+                        type="button"
+                        :disabled="enrichLoading || !enrichIdentifier.trim() || apiUsage.status === 'blocked'"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                        @click="fetchEnrichment"
+                    >
+                        <MagnifyingGlassIcon v-if="!enrichLoading" class="size-4" aria-hidden="true" />
+                        <ArrowPathIcon v-else class="size-4 animate-spin" aria-hidden="true" />
+                        {{ enrichLoading ? 'Ricerca…' : 'Recupera e auto-compila' }}
+                    </button>
+                </div>
+                <label class="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                    <input type="checkbox" v-model="includePec" class="rounded border-gray-300 dark:border-gray-600" />
+                    Includi PEC ufficiale (consuma 1 chiamata API extra)
+                </label>
+                <p class="text-xs text-gray-500 dark:text-gray-400">
+                    Recupera: ragione sociale, P.IVA, CF, indirizzo completo, codice ATECO, REA, codice SDI, sito web e telefono.
+                    I dati in cache (TTL 30gg) non consumano crediti.
+                </p>
+
+                <!-- Warning/blocked messages -->
+                <div v-if="apiUsage.status === 'warning'" class="flex items-center gap-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-md px-3 py-2">
+                    <ExclamationTriangleIcon class="size-4 shrink-0" aria-hidden="true" />
+                    Attenzione: ti restano poche chiamate API per oggi.
+                </div>
+                <div v-if="apiUsage.status === 'blocked'" class="flex items-center gap-2 text-xs text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-md px-3 py-2">
+                    <ExclamationTriangleIcon class="size-4 shrink-0" aria-hidden="true" />
+                    Limite giornaliero raggiunto. Le chiamate si azzereranno domani.
+                </div>
+
+                <!-- Error -->
+                <div v-if="enrichError" class="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-md px-3 py-2">
+                    {{ enrichError }}
+                </div>
+
+                <!-- Anteprima dati recuperati -->
+                <div v-if="enrichData" class="border border-indigo-200 dark:border-indigo-700 rounded-lg overflow-hidden">
+                    <div class="bg-indigo-50 dark:bg-indigo-900/30 px-4 py-2 flex items-center justify-between">
+                        <span class="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                            Dati recuperati
+                            <span class="text-xs font-normal ml-2 text-indigo-500 dark:text-indigo-400">
+                                (fonte: {{ enrichSource === 'cache' ? 'cache' : 'API live' }}<span v-if="enrichCachedAt">, salvato il {{ new Date(enrichCachedAt).toLocaleDateString('it-IT') }}</span>)
+                            </span>
+                        </span>
+                        <button type="button" @click="dismissEnrichment" class="text-xs text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">Chiudi</button>
+                    </div>
+                    <div class="px-4 py-3 space-y-1.5">
+                        <div v-for="(label, field) in fieldLabels" :key="field" class="flex items-center text-sm gap-2">
+                            <span class="w-36 text-gray-500 dark:text-gray-400 text-xs">{{ label }}</span>
+                            <span class="text-gray-800 dark:text-gray-200" :class="{ 'font-medium': enrichData[field] }">
+                                {{ enrichData[field] || '—' }}
+                            </span>
+                            <span
+                                v-if="hasConflict(field)"
+                                class="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-1.5 py-0.5 rounded"
+                            >
+                                diverso da: {{ form[fieldMapping[field]] }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="px-4 py-3 bg-gray-50 dark:bg-gray-700/30 border-t border-indigo-200 dark:border-indigo-700 flex gap-2">
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white rounded-md text-xs font-medium hover:bg-indigo-700 transition"
+                            @click="applyEnrichment(false)"
+                        >
+                            <CheckIcon class="size-3.5" aria-hidden="true" />
+                            Usa dati (solo campi vuoti)
+                        </button>
+                        <button
+                            type="button"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 border border-amber-300 dark:border-amber-600 text-amber-700 dark:text-amber-300 rounded-md text-xs font-medium hover:bg-amber-50 dark:hover:bg-amber-900/20 transition"
+                            @click="applyEnrichment(true)"
+                        >
+                            <ArrowPathIcon class="size-3.5" aria-hidden="true" />
+                            Sovrascrivi tutti i campi
+                        </button>
+                    </div>
+                </div>
+            </div>
+
             <form @submit.prevent="form.put(route('anagrafica.update'))" class="bg-white dark:bg-gray-800 shadow rounded-lg overflow-hidden">
 
                 <!-- Tab bar -->

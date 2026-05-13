@@ -61,6 +61,178 @@ class CompanyEnrichmentService
     }
 
     /**
+     * Arricchimento "completo": combina IT-start + IT-advanced + IT-pec
+     * e restituisce un'unica struttura mappata sui campi anagrafica del tenant.
+     *
+     * Ogni endpoint usa la cache (TTL 30gg) se disponibile. Il counter API
+     * viene incrementato solo per le chiamate effettivamente effettuate.
+     *
+     * @param string $identifier  P.IVA, codice fiscale o ID azienda
+     * @param bool   $includeAdvanced  Recupera anche IT-advanced (ATECO, REA, dipendenti, fatturato)
+     * @param bool   $includePec  Recupera anche IT-pec (PEC ufficiale)
+     */
+    public function enrichItalianCompany(
+        string $identifier,
+        bool $includeAdvanced = true,
+        bool $includePec = false,
+    ): array {
+        $lookupKey = $this->normalizeLookupKey($identifier);
+        $endpointsCalled = [];
+        $endpointsFromCache = [];
+        $merged = [];
+
+        // ── IT-start (base) ─────────────────────────────────────────────
+        $startResult = $this->fetchOrCache(
+            $lookupKey,
+            'IT-start',
+            fn () => $this->client->getItalianCompanyStart($identifier),
+            fn (array $raw) => self::mapItStartToAnagrafica($raw),
+        );
+        if (! $startResult['success']) {
+            return $startResult;
+        }
+        $merged = array_merge($merged, array_filter($startResult['data']));
+        $startResult['fromCache'] ? $endpointsFromCache[] = 'IT-start' : $endpointsCalled[] = 'IT-start';
+
+        // ── IT-advanced (opzionale) ─────────────────────────────────────
+        if ($includeAdvanced) {
+            try {
+                $advResult = $this->fetchOrCache(
+                    $lookupKey,
+                    'IT-advanced',
+                    fn () => $this->client->getItalianCompanyAdvanced($identifier),
+                    fn (array $raw) => self::mapItAdvancedToAnagrafica($raw),
+                );
+                if ($advResult['success']) {
+                    $merged = array_merge($merged, array_filter($advResult['data']));
+                    $advResult['fromCache'] ? $endpointsFromCache[] = 'IT-advanced' : $endpointsCalled[] = 'IT-advanced';
+                }
+            } catch (OpenApiCompanyException $e) {
+                // IT-advanced opzionale: non blocchiamo la chiamata principale
+            }
+        }
+
+        // ── IT-pec (opzionale) ──────────────────────────────────────────
+        if ($includePec) {
+            try {
+                $pecResult = $this->fetchOrCache(
+                    $lookupKey,
+                    'IT-pec',
+                    fn () => $this->client->getItalianCompanyPec($identifier),
+                    fn (array $raw) => self::mapItPecToAnagrafica($raw),
+                );
+                if ($pecResult['success']) {
+                    $merged = array_merge($merged, array_filter($pecResult['data']));
+                    $pecResult['fromCache'] ? $endpointsFromCache[] = 'IT-pec' : $endpointsCalled[] = 'IT-pec';
+                }
+            } catch (OpenApiCompanyException $e) {
+                // IT-pec opzionale
+            }
+        }
+
+        return [
+            'success'              => true,
+            'source'               => empty($endpointsCalled) ? 'cache' : (empty($endpointsFromCache) ? 'api' : 'mixed'),
+            'endpoints_called'     => $endpointsCalled,
+            'endpoints_from_cache' => $endpointsFromCache,
+            'usage'                => $this->counter->getUsage(self::PROVIDER, 'IT-start'),
+            'data'                 => $merged,
+        ];
+    }
+
+    /**
+     * Helper: prova a leggere dalla cache, altrimenti chiama l'API e salva.
+     * Restituisce ['success', 'data', 'fromCache'].
+     */
+    private function fetchOrCache(string $lookupKey, string $endpoint, \Closure $apiCall, \Closure $mapper): array
+    {
+        $cached = $this->getCached($lookupKey, $endpoint);
+        if ($cached) {
+            return [
+                'success'   => true,
+                'data'      => $cached->normalized_json,
+                'fromCache' => true,
+            ];
+        }
+
+        if (! $this->counter->canMakeCall(self::PROVIDER, $endpoint)) {
+            return [
+                'success' => false,
+                'error'   => "Limite giornaliero raggiunto per {$endpoint}.",
+                'usage'   => $this->counter->getUsage(self::PROVIDER, $endpoint),
+            ];
+        }
+
+        $raw = $apiCall();
+        $this->counter->increment(self::PROVIDER, $endpoint);
+        $mapped = $mapper($raw);
+        $this->storeCache($lookupKey, $endpoint, $raw, $mapped);
+
+        return [
+            'success'   => true,
+            'data'      => $mapped,
+            'fromCache' => false,
+        ];
+    }
+
+    /**
+     * Mapping IT-advanced → campi anagrafica tenant.
+     * IT-advanced fornisce ATECO, REA, dipendenti, fatturato, forma giuridica.
+     */
+    public static function mapItAdvancedToAnagrafica(array $response): array
+    {
+        $company = $response['data'][0] ?? $response;
+
+        // Codice ATECO
+        $ateco = null;
+        if (isset($company['atecoClassification']['ateco']['code'])) {
+            $ateco = $company['atecoClassification']['ateco']['code'];
+        } elseif (isset($company['ateco']['code'])) {
+            $ateco = $company['ateco']['code'];
+        } elseif (isset($company['atecoCode'])) {
+            $ateco = $company['atecoCode'];
+        }
+
+        // REA: numero e città (provincia)
+        $reaNumber = null;
+        $reaCity   = null;
+        if (isset($company['reaCode'])) {
+            // formato "MI-1234567"
+            $reaCode = $company['reaCode'];
+            if (is_string($reaCode) && str_contains($reaCode, '-')) {
+                [$reaCity, $reaNumber] = explode('-', $reaCode, 2);
+            } else {
+                $reaNumber = $reaCode;
+            }
+        } elseif (isset($company['rea']['number'])) {
+            $reaNumber = $company['rea']['number'];
+            $reaCity   = $company['rea']['province'] ?? $company['rea']['city'] ?? null;
+        }
+
+        return [
+            'attivita_ateco' => $ateco,
+            'rea_numero'     => $reaNumber,
+            'rea_citta'      => $reaCity,
+            'forma_giuridica' => $company['legalForm']['code'] ?? $company['legalForm'] ?? null,
+            'dipendenti'      => $company['employees'] ?? $company['employeesNumber'] ?? null,
+            'fatturato'       => $company['turnover']['amount'] ?? $company['turnover'] ?? null,
+            'sito_web'        => $company['website'] ?? null,
+            'telefono'        => $company['phoneNumber'] ?? $company['phone'] ?? null,
+        ];
+    }
+
+    /**
+     * Mapping IT-pec → campo PEC.
+     */
+    public static function mapItPecToAnagrafica(array $response): array
+    {
+        $company = $response['data'][0] ?? $response;
+        return [
+            'pec' => $company['pec'] ?? $company['pecAddress'] ?? null,
+        ];
+    }
+
+    /**
      * Esegue una ricerca aziendale via endpoint IT-search.
      *
      * Per la ricerca NON si usa la cache (i criteri possono variare ad ogni chiamata).

@@ -65,9 +65,40 @@ class CompanyEnrichmentController extends Controller
     public function usage(CompanyEnrichmentService $service): JsonResponse
     {
         return response()->json([
-            'IT-start'  => $service->getUsage('IT-start'),
-            'IT-search' => $service->getUsage('IT-search'),
+            'IT-start'    => $service->getUsage('IT-start'),
+            'IT-advanced' => $service->getUsage('IT-advanced'),
+            'IT-pec'      => $service->getUsage('IT-pec'),
+            'IT-search'   => $service->getUsage('IT-search'),
         ]);
+    }
+
+    /**
+     * Arricchimento completo: P.IVA o CF → tutti i campi anagrafica.
+     * Combina IT-start (sempre) + IT-advanced (default true) + IT-pec (default false).
+     */
+    public function itEnrich(Request $request, CompanyEnrichmentService $service): JsonResponse
+    {
+        $request->validate([
+            'identifier'      => 'required|string|min:6|max:30',
+            'includeAdvanced' => 'nullable|boolean',
+            'includePec'      => 'nullable|boolean',
+        ]);
+
+        try {
+            $result = $service->enrichItalianCompany(
+                $request->input('identifier'),
+                $request->boolean('includeAdvanced', true),
+                $request->boolean('includePec', false),
+            );
+
+            return response()->json($result, $result['success'] ? 200 : 429);
+        } catch (OpenApiCompanyException $e) {
+            return response()->json([
+                'success' => false,
+                'error'   => $e->getMessage(),
+                'usage'   => $service->getUsage(),
+            ], $this->httpStatus($e->getCode()));
+        }
     }
 
     /**

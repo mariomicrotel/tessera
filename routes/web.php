@@ -315,6 +315,7 @@ Route::middleware([
     Route::delete('anagrafica/allegati/{tipo}', [AnagraficaController::class, 'deleteAllegato'])->name('anagrafica.allegato.delete');
     // ── Company Enrichment (OpenAPI) ────────────────────────────────────────
     Route::post('company-enrichment/it-start', [CompanyEnrichmentController::class, 'itStart'])->name('company-enrichment.it-start');
+    Route::post('company-enrichment/it-enrich', [CompanyEnrichmentController::class, 'itEnrich'])->name('company-enrichment.it-enrich');
     Route::post('company-enrichment/it-search', [CompanyEnrichmentController::class, 'itSearch'])->name('company-enrichment.it-search');
     Route::get('company-enrichment/usage', [CompanyEnrichmentController::class, 'usage'])->name('company-enrichment.usage');
     Route::get('company-enrichment/search', [CompanyEnrichmentController::class, 'searchPage'])->name('company-enrichment.search-page');
