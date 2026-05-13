@@ -268,6 +268,14 @@ const logout = () => {
                         <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
                         Area Consulente
                     </ResponsiveNavLink>
+                    <!-- Movimenti Amministrativi -->
+                    <ResponsiveNavLink
+                        v-if="mod('administrative_movements') && ($page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria') || $page.props.userRoles?.includes('contabile'))"
+                        :href="route('movimenti-amministrativi.index')"
+                        :active="route().current('movimenti-amministrativi.*')">
+                        <BanknotesIcon class="size-5 shrink-0" aria-hidden="true" />
+                        Movimenti Amm.vi
+                    </ResponsiveNavLink>
                     <ResponsiveNavLink v-if="$page.props.authMember" :href="route('members.show', $page.props.authMember.id)" :active="route().current('members.show')">
                         <UserCircleIcon class="size-5 shrink-0" aria-hidden="true" />
                         La mia tessera
@@ -711,6 +719,14 @@ const logout = () => {
                                 :active="route().current('consultant.*')">
                                 <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
                                 Area Consulente
+                            </NavLink>
+                            <!-- Movimenti Amministrativi -->
+                            <NavLink
+                                v-if="mod('administrative_movements') && ($page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria') || $page.props.userRoles?.includes('contabile'))"
+                                :href="route('movimenti-amministrativi.index')"
+                                :active="route().current('movimenti-amministrativi.*')">
+                                <BanknotesIcon class="size-5 shrink-0" aria-hidden="true" />
+                                Movimenti Amm.vi
                             </NavLink>
                             <NavLink v-if="$page.props.authMember" :href="route('members.show', $page.props.authMember.id)" :active="route().current('members.show')">
                                 <UserCircleIcon class="size-5 shrink-0" aria-hidden="true" />

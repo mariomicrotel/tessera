@@ -71,6 +71,7 @@ use App\Http\Controllers\ExcelExportController;
 use App\Http\Controllers\TesseraController;
 use App\Http\Controllers\ConsultantController;
 use App\Http\Controllers\AdminConsultantController;
+use App\Http\Controllers\AdministrativeMovementController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -771,6 +772,24 @@ Route::middleware([
         Route::delete('atto-costitutivo/{attoCostituivo}/attachments/{attachment}', [EtsAttoCostitutivoController::class, 'destroyAttachment'])->name('atto-costitutivo.attachments.destroy')->middleware('role:admin,segreteria');
         Route::resource('atto-costitutivo', EtsAttoCostitutivoController::class)->parameters(['atto-costitutivo' => 'attoCostituivo']);
     });
+
+    // ── Movimenti Amministrativi Semplificati (F5) ────────────────────────
+    Route::middleware('module:administrative_movements')
+        ->prefix('movimenti-amministrativi')
+        ->name('movimenti-amministrativi.')
+        ->group(function () {
+            // Movimenti CRUD
+            Route::get('/',                                        [AdministrativeMovementController::class, 'index'])->name('index');
+            Route::get('/create',                                  [AdministrativeMovementController::class, 'create'])->name('create');
+            Route::post('/',                                       [AdministrativeMovementController::class, 'store'])->name('store');
+            Route::get('/{movimentiAmministrativi}/edit',          [AdministrativeMovementController::class, 'edit'])->name('edit');
+            Route::put('/{movimentiAmministrativi}',               [AdministrativeMovementController::class, 'update'])->name('update');
+            Route::delete('/{movimentiAmministrativi}',            [AdministrativeMovementController::class, 'destroy'])->name('destroy');
+            // Categorie CRUD
+            Route::post('/categories',                             [AdministrativeMovementController::class, 'storeCategory'])->name('categories.store');
+            Route::put('/categories/{category}',                   [AdministrativeMovementController::class, 'updateCategory'])->name('categories.update');
+            Route::delete('/categories/{category}',                [AdministrativeMovementController::class, 'destroyCategory'])->name('categories.destroy');
+        });
 });
 
 /*
