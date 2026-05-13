@@ -99,25 +99,35 @@ const isScaduta = (d) => d && new Date(d) < new Date();
                             Nessun ente assegnato
                         </div>
                         <ul v-else class="divide-y divide-gray-50 dark:divide-gray-700">
-                            <li v-for="e in entities" :key="e.id">
-                                <Link :href="route('consultant.entities.show', e.slug)"
-                                    class="flex items-center justify-between px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition group">
-                                    <div class="flex items-center gap-3 min-w-0">
-                                        <div class="size-8 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
-                                            <span class="text-xs font-bold text-blue-600 dark:text-blue-400">
+                            <li v-for="e in entities" :key="e.id"
+                                class="px-5 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition">
+                                <div class="flex items-center justify-between gap-3">
+                                    <div class="flex items-center gap-3 min-w-0 flex-1">
+                                        <div class="size-9 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                                            <span class="text-sm font-bold text-blue-600 dark:text-blue-400">
                                                 {{ e.name.charAt(0).toUpperCase() }}
                                             </span>
                                         </div>
-                                        <div class="min-w-0">
+                                        <div class="min-w-0 flex-1">
                                             <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{{ e.name }}</p>
                                             <p class="text-xs text-gray-500 dark:text-gray-400 capitalize">{{ e.ruolo }}</p>
                                         </div>
+                                        <span v-if="e.richieste_aperte > 0"
+                                            class="flex-shrink-0 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full px-2 py-0.5 font-medium">
+                                            {{ e.richieste_aperte }}
+                                        </span>
                                     </div>
-                                    <span v-if="e.richieste_aperte > 0"
-                                        class="flex-shrink-0 text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 rounded-full px-2 py-0.5 font-medium">
-                                        {{ e.richieste_aperte }}
-                                    </span>
-                                </Link>
+                                </div>
+                                <div class="mt-2 flex items-center gap-2">
+                                    <a :href="`/app/${e.slug}/dashboard`"
+                                        class="flex-1 text-center text-xs font-medium px-2 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition">
+                                        Entra nell'ente →
+                                    </a>
+                                    <Link :href="route('consultant.entities.show', e.slug)"
+                                        class="text-xs px-2 py-1.5 rounded-md border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
+                                        Riepilogo
+                                    </Link>
+                                </div>
                             </li>
                         </ul>
                     </div>

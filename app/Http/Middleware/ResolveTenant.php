@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\ConsultantAssignment;
 use App\Models\Tenant;
 use Closure;
 use Illuminate\Http\Request;
@@ -45,12 +46,18 @@ class ResolveTenant
             abort(403, 'Il piano di questa organizzazione è scaduto. Contatta il supporto.');
         }
 
-        // Verifica che l'utente appartenga al tenant
+        // Verifica che l'utente appartenga al tenant (membership diretta o consulente assegnato)
         $user = $request->user();
         if ($user) {
             $membership = $user->tenants()->where('tenants.id', $tenant->id)->first();
 
-            if (! $membership && ! $user->is_super_admin) {
+            // Consulente (commercialista) assegnato attivamente al tenant: accesso pieno
+            $isConsultantAssigned = ! $membership && ConsultantAssignment::where('consultant_user_id', $user->id)
+                ->where('tenant_id', $tenant->id)
+                ->where('active', true)
+                ->exists();
+
+            if (! $membership && ! $user->is_super_admin && ! $isConsultantAssigned) {
                 abort(403, 'Non hai accesso a questa organizzazione.');
             }
 
@@ -60,6 +67,9 @@ class ResolveTenant
             } elseif ($user->is_super_admin) {
                 // Il superadmin opera con ruolo admin in tutti i tenant
                 $request->attributes->set('tenant_role', 'admin');
+            } elseif ($isConsultantAssigned) {
+                // Il consulente assegnato opera con ruolo contabile (gestione bilancio e adempimenti)
+                $request->attributes->set('tenant_role', 'contabile');
             }
         }
 

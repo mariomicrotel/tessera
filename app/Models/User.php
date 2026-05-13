@@ -85,8 +85,17 @@ class User extends Authenticatable
     }
 
     /**
+     * Cache locale (per-request) del check "consulente attivo sul tenant corrente".
+     */
+    protected ?array $_consultantCache = null;
+
+    /**
      * Verifica se l'utente ha uno dei ruoli indicati.
      * Il superadmin bypassa qualsiasi vincolo di ruolo.
+     *
+     * Se l'utente è un consulente (commercialista) attivo sul tenant corrente,
+     * acquisisce automaticamente i diritti di admin/contabile/segreteria per
+     * poter gestire tutti i dati necessari a bilancio e adempimenti dell'ente.
      */
     public function hasRole(string ...$roles): bool
     {
@@ -94,7 +103,45 @@ class User extends Authenticatable
             return true;
         }
 
-        return $this->roles()->whereIn('name', $roles)->exists();
+        // Check diretto sui ruoli assegnati
+        if ($this->roles()->whereIn('name', $roles)->exists()) {
+            return true;
+        }
+
+        // Consulente attivo sul tenant corrente → diritti di gestione completa
+        $rolesProConsultant = ['admin', 'contabile', 'segreteria'];
+        if (array_intersect($roles, $rolesProConsultant) && $this->isConsultantForCurrentTenant()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Verifica se l'utente è un consulente attivo sul tenant corrente.
+     * Usa cache locale per evitare query ripetute nella stessa request.
+     */
+    public function isConsultantForCurrentTenant(): bool
+    {
+        if (! app()->bound('current_tenant')) {
+            return false;
+        }
+
+        $tenantId = app('current_tenant')->id;
+        $cacheKey = $this->id . ':' . $tenantId;
+
+        if ($this->_consultantCache !== null && array_key_exists($cacheKey, $this->_consultantCache)) {
+            return $this->_consultantCache[$cacheKey];
+        }
+
+        $isConsultant = ConsultantAssignment::where('consultant_user_id', $this->id)
+            ->where('tenant_id', $tenantId)
+            ->where('active', true)
+            ->exists();
+
+        $this->_consultantCache[$cacheKey] = $isConsultant;
+
+        return $isConsultant;
     }
 
     /**
