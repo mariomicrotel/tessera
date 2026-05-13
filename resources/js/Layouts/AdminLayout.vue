@@ -39,6 +39,13 @@ const page = usePage();
                             >
                                 Tenant
                             </Link>
+                            <Link
+                                :href="route('admin.consultants.index')"
+                                class="px-3 py-2 rounded-md text-sm font-medium"
+                                :class="route().current('admin.consultants*') ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'"
+                            >
+                                Consulenti
+                            </Link>
                         </div>
                     </div>
 

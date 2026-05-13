@@ -70,6 +70,7 @@ use App\Http\Controllers\EtsAttoCostitutivoController;
 use App\Http\Controllers\ExcelExportController;
 use App\Http\Controllers\TesseraController;
 use App\Http\Controllers\ConsultantController;
+use App\Http\Controllers\AdminConsultantController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -165,6 +166,16 @@ Route::middleware([
     Route::post('/tenants/{tenant}/seed', [AdminController::class, 'seedTenant'])->name('tenants.seed');
     Route::post('/company-enrichment/it-start', [AdminController::class, 'companyEnrichment'])->name('company-enrichment.it-start');
     Route::get('/company-enrichment/usage', [AdminController::class, 'companyEnrichmentUsage'])->name('company-enrichment.usage');
+
+    // ── Gestione Consulenti ─────────────────────────────────────────────
+    Route::prefix('consultants')->name('consultants.')->group(function () {
+        Route::get('/',                                        [AdminConsultantController::class, 'index'])->name('index');
+        Route::post('/assign-role',                            [AdminConsultantController::class, 'assignRole'])->name('assign-role');
+        Route::delete('/revoke-role/{user}',                   [AdminConsultantController::class, 'revokeRole'])->name('revoke-role');
+        Route::post('/assignments',                            [AdminConsultantController::class, 'storeAssignment'])->name('assignments.store');
+        Route::post('/assignments/{assignment}/toggle',        [AdminConsultantController::class, 'toggleAssignment'])->name('assignments.toggle');
+        Route::delete('/assignments/{assignment}',             [AdminConsultantController::class, 'destroyAssignment'])->name('assignments.destroy');
+    });
 });
 
 /*
