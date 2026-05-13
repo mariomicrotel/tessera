@@ -69,6 +69,7 @@ use App\Http\Controllers\EtsStatutoController;
 use App\Http\Controllers\EtsAttoCostitutivoController;
 use App\Http\Controllers\ExcelExportController;
 use App\Http\Controllers\TesseraController;
+use App\Http\Controllers\ConsultantController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -759,4 +760,46 @@ Route::middleware([
         Route::delete('atto-costitutivo/{attoCostituivo}/attachments/{attachment}', [EtsAttoCostitutivoController::class, 'destroyAttachment'])->name('atto-costitutivo.attachments.destroy')->middleware('role:admin,segreteria');
         Route::resource('atto-costitutivo', EtsAttoCostitutivoController::class)->parameters(['atto-costitutivo' => 'attoCostituivo']);
     });
+});
+
+/*
+|--------------------------------------------------------------------------
+| Route Consulente (area cross-tenant)
+|--------------------------------------------------------------------------
+|
+| Tutte le route sotto /consultant/* NON richiedono {tenant} nell'URL.
+| Il consulente vede tutti gli enti a lui assegnati e sceglie con quale
+| interagire. Il controller risolve il tenant internamente via slug.
+|
+*/
+
+Route::middleware([
+    'auth:sanctum',
+    config('jetstream.auth_session'),
+    'verified',
+    'role:consultant',
+    'module:consultant_workspace',
+])->prefix('consultant')->name('consultant.')->group(function () {
+
+    // Dashboard cross-tenant
+    Route::get('/dashboard', [ConsultantController::class, 'dashboard'])->name('dashboard');
+
+    // Lista enti assegnati
+    Route::get('/entities', [ConsultantController::class, 'entities'])->name('entities.index');
+
+    // Riepilogo ente specifico
+    Route::get('/entities/{tenantSlug}', [ConsultantController::class, 'entityShow'])->name('entities.show');
+
+    // Richieste documenti/informazioni per un ente
+    Route::get('/entities/{tenantSlug}/requests', [ConsultantController::class, 'requestsIndex'])->name('requests.index');
+    Route::get('/entities/{tenantSlug}/requests/create', [ConsultantController::class, 'requestCreate'])->name('requests.create');
+    Route::post('/entities/{tenantSlug}/requests', [ConsultantController::class, 'requestStore'])->name('requests.store');
+    Route::get('/entities/{tenantSlug}/requests/{consultantRequest}', [ConsultantController::class, 'requestShow'])->name('requests.show');
+    Route::put('/entities/{tenantSlug}/requests/{consultantRequest}', [ConsultantController::class, 'requestUpdate'])->name('requests.update');
+
+    // Note per un ente
+    Route::get('/entities/{tenantSlug}/notes', [ConsultantController::class, 'notesIndex'])->name('notes.index');
+    Route::post('/entities/{tenantSlug}/notes', [ConsultantController::class, 'noteStore'])->name('notes.store');
+    Route::put('/entities/{tenantSlug}/notes/{consultantNote}', [ConsultantController::class, 'noteUpdate'])->name('notes.update');
+    Route::delete('/entities/{tenantSlug}/notes/{consultantNote}', [ConsultantController::class, 'noteDestroy'])->name('notes.destroy');
 });

@@ -260,6 +260,14 @@ const logout = () => {
                         <HomeIcon class="size-5 shrink-0" aria-hidden="true" />
                         Dashboard
                     </ResponsiveNavLink>
+                    <!-- Area Consulente -->
+                    <ResponsiveNavLink
+                        v-if="mod('consultant_workspace') && $page.props.userRoles?.includes('consultant')"
+                        :href="route('consultant.dashboard')"
+                        :active="route().current('consultant.*')">
+                        <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
+                        Area Consulente
+                    </ResponsiveNavLink>
                     <ResponsiveNavLink v-if="$page.props.authMember" :href="route('members.show', $page.props.authMember.id)" :active="route().current('members.show')">
                         <UserCircleIcon class="size-5 shrink-0" aria-hidden="true" />
                         La mia tessera
@@ -695,6 +703,14 @@ const logout = () => {
                             <NavLink :href="dashboardRoute" :active="route().current('dashboard')">
                                 <HomeIcon class="size-5 shrink-0" aria-hidden="true" />
                                 Dashboard
+                            </NavLink>
+                            <!-- Area Consulente -->
+                            <NavLink
+                                v-if="mod('consultant_workspace') && $page.props.userRoles?.includes('consultant')"
+                                :href="route('consultant.dashboard')"
+                                :active="route().current('consultant.*')">
+                                <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
+                                Area Consulente
                             </NavLink>
                             <NavLink v-if="$page.props.authMember" :href="route('members.show', $page.props.authMember.id)" :active="route().current('members.show')">
                                 <UserCircleIcon class="size-5 shrink-0" aria-hidden="true" />
