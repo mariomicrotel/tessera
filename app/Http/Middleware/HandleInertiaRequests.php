@@ -80,10 +80,22 @@ class HandleInertiaRequests extends Middleware
             ],
             // Token CSRF per form nativi (es. upload allegati)
             'csrf_token' => csrf_token(),
-            // Ruoli utente per menu e permessi frontend; superadmin = admin ovunque
-            'userRoles' => $user
-                ? ($user->is_super_admin ? ['admin'] : $user->roles->pluck('name')->toArray())
-                : [],
+            // Ruoli utente per menu e permessi frontend; superadmin = admin ovunque.
+            // Il consulente (commercialista) attivo sul tenant corrente acquisisce
+            // anche i ruoli admin/contabile/segreteria per gestire i dati dell'ente.
+            'userRoles' => function () use ($user) {
+                if (! $user) {
+                    return [];
+                }
+                if ($user->is_super_admin) {
+                    return ['admin'];
+                }
+                $roles = $user->roles->pluck('name')->toArray();
+                if (app()->bound('current_tenant') && $user->isConsultantForCurrentTenant()) {
+                    $roles = array_values(array_unique(array_merge($roles, ['admin', 'contabile', 'segreteria'])));
+                }
+                return $roles;
+            },
             // Tenant corrente (se risolto dal middleware)
             'currentTenant' => fn () => app()->bound('current_tenant') ? [
                 'id' => app('current_tenant')->id,
@@ -95,6 +107,10 @@ class HandleInertiaRequests extends Middleware
             'tenantRole' => fn () => $request->attributes->get('tenant_role'),
             // Super admin piattaforma
             'isSuperAdmin' => $user?->is_super_admin ?? false,
+            // True se l'utente sta operando come consulente (commercialista) sul tenant corrente
+            'isConsultantInTenant' => fn () => $user
+                && app()->bound('current_tenant')
+                && $user->isConsultantForCurrentTenant(),
             // Socio collegato (per area self-service: menu "Il mio profilo", Modifica su Show)
             'authMember' => $authMember,
             // URL logo associazione (presigned, in cache; per header/layout e pagina login)

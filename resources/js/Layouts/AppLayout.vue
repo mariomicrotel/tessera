@@ -162,6 +162,22 @@ const logout = () => {
 
         <Banner />
 
+        <!-- Banner consulente: modalità commercialista esterno -->
+        <div v-if="$page.props.isConsultantInTenant && $page.props.currentTenant"
+            class="bg-blue-600 dark:bg-blue-700 text-white px-4 py-2 text-sm flex items-center justify-between gap-3 flex-wrap">
+            <div class="flex items-center gap-2 min-w-0">
+                <svg xmlns="http://www.w3.org/2000/svg" class="size-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                </svg>
+                <span class="font-medium">Modalità consulente</span>
+                <span class="opacity-90 truncate">su <strong>{{ $page.props.currentTenant.name }}</strong></span>
+            </div>
+            <Link :href="route('consultant.dashboard')"
+                class="text-xs px-3 py-1 rounded-md bg-white/20 hover:bg-white/30 transition flex-shrink-0">
+                ← Torna alla mia area consulente
+            </Link>
+        </div>
+
         <!-- Toast flash -->
         <div v-if="flash?.message" class="fixed top-4 right-4 z-50 px-4 sm:px-6 lg:px-8 flex flex-col gap-2">
             <FlashToast :message="flash.message" :type="flash.type" :timeout="8000" @close="flash = null" />
