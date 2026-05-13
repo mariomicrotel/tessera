@@ -40,6 +40,11 @@ class SaasController extends Controller
             return Inertia::location(route('admin.tenants'));
         }
 
+        // I consulenti (non-admin) vanno alla dashboard cross-tenant
+        if ($user->hasRole('consultant') && ! $user->hasRole('admin', 'segreteria', 'contabile')) {
+            return Inertia::location(route('consultant.dashboard'));
+        }
+
         $tenants = $user->tenants()
             ->where('is_active', true)
             ->get()
