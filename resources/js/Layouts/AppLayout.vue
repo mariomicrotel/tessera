@@ -47,6 +47,22 @@ const showingNavigationDropdown = ref(false);
 // Ottieni il tenant dai props di Inertia
 const tenant = computed(() => page.props.currentTenant?.slug);
 
+// Tessera feature flags (condivisi via HandleInertiaRequests.share)
+const modules = computed(() => page.props.tessera_modules ?? {});
+const mod = (name) => Boolean(modules.value[name]);
+// Sezione "Contabilità" visibile se almeno uno dei sotto-moduli è ON
+const showContabilitaSection = computed(() =>
+    mod('double_entry_accounting') ||
+    mod('chart_of_accounts') ||
+    mod('accounting_reports') ||
+    mod('civil_balance_sheet') ||
+    mod('fiscal_year_closing') ||
+    mod('accruals_deferrals')
+);
+const showIvaSection = computed(() => mod('vat_registers') || mod('invoicing'));
+const showAdempimentiSection = computed(() => mod('tax_returns'));
+const showCespitiSection = computed(() => mod('assets_and_depreciation'));
+
 // Helper per route con tenant
 const dashboardRoute = computed(() =>
     tenant.value ? route('dashboard', { tenant: tenant.value }) : '#'
@@ -358,8 +374,8 @@ const logout = () => {
                             </div>
                         </div>
                     </template>
-                    <!-- Cespiti e Ammortamenti (mobile) -->
-                    <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria') || $page.props.userRoles?.includes('contabile')" class="pt-2">
+                    <!-- Cespiti e Ammortamenti (mobile) — feature flag: assets_and_depreciation -->
+                    <div v-if="showCespitiSection && ($page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria') || $page.props.userRoles?.includes('contabile'))" class="pt-2">
                         <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('cespiti')">
                             <TableCellsIcon class="size-5 shrink-0" aria-hidden="true" />
                             <span class="flex-1">Cespiti</span>
@@ -452,10 +468,11 @@ const logout = () => {
                             </ResponsiveNavLink>
                         </div>
                     </div>
-                    <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile')" class="pt-2">
+                    <!-- Contabilità (mobile) — feature flag: any of double_entry_accounting/chart_of_accounts/accounting_reports/civil_balance_sheet/fiscal_year_closing/accruals_deferrals -->
+                    <div v-if="showContabilitaSection && ($page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile'))" class="pt-2">
                             <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('contabilita')">
                                 <ChartBarIcon class="size-5 shrink-0" aria-hidden="true" />
-                                <span class="flex-1">Contabilità</span>
+                                <span class="flex-1">{{ $page.props.tessera_labels?.contabilita || 'Contabilità' }}</span>
                                 <ChevronDownIcon v-if="openSections.contabilita" class="size-4 shrink-0" aria-hidden="true" />
                                 <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
                             </button>
@@ -522,7 +539,8 @@ const logout = () => {
                                 </ResponsiveNavLink>
                             </div>
                     </div>
-                    <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile')" class="pt-2">
+                    <!-- IVA e fornitori (mobile) — feature flag: vat_registers || invoicing -->
+                    <div v-if="showIvaSection && ($page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile'))" class="pt-2">
                             <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('iva')">
                                 <DocumentTextIcon class="size-5 shrink-0" aria-hidden="true" />
                                 <span class="flex-1">IVA e fornitori</span>
@@ -589,8 +607,8 @@ const logout = () => {
                             </ResponsiveNavLink>
                         </div>
                     </div>
-                    <!-- Adempimenti Fiscali -->
-                    <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile')" class="pt-2">
+                    <!-- Adempimenti Fiscali (mobile) — feature flag: tax_returns -->
+                    <div v-if="showAdempimentiSection && ($page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile'))" class="pt-2">
                         <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('adempimenti')">
                             <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
                             <span class="flex-1">Adempimenti</span>
@@ -796,8 +814,8 @@ const logout = () => {
                                         </NavLink>
                                     </div>
                                 </div>
-                                <!-- Cespiti e Ammortamenti (desktop) -->
-                                <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria') || $page.props.userRoles?.includes('contabile')" class="mt-2">
+                                <!-- Cespiti e Ammortamenti (desktop) — feature flag: assets_and_depreciation -->
+                                <div v-if="showCespitiSection && ($page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria') || $page.props.userRoles?.includes('contabile'))" class="mt-2">
                                     <button type="button" class="block w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border-l-4 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50" @click="toggleSection('cespiti')">
                                         <TableCellsIcon class="size-5 shrink-0" aria-hidden="true" />
                                         <span class="flex-1 text-start">Cespiti</span>
@@ -890,11 +908,11 @@ const logout = () => {
                                         </NavLink>
                                     </div>
                                 </div>
-                                <!-- Contabilità -->
-                                <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile')" class="mt-2">
+                                <!-- Contabilità (desktop) — feature flag: any contabile flag -->
+                                <div v-if="showContabilitaSection && ($page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile'))" class="mt-2">
                                     <button type="button" class="block w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border-l-4 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50" @click="toggleSection('contabilita')">
                                         <ChartBarIcon class="size-5 shrink-0" aria-hidden="true" />
-                                        <span class="flex-1 text-start">Contabilità</span>
+                                        <span class="flex-1 text-start">{{ $page.props.tessera_labels?.contabilita || 'Contabilità' }}</span>
                                         <ChevronDownIcon v-if="openSections.contabilita" class="size-4 shrink-0" aria-hidden="true" />
                                         <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
                                     </button>
@@ -961,8 +979,8 @@ const logout = () => {
                                         </NavLink>
                                     </div>
                                 </div>
-                                <!-- IVA e fornitori -->
-                                <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile')" class="mt-2">
+                                <!-- IVA e fornitori (desktop) — feature flag: vat_registers || invoicing -->
+                                <div v-if="showIvaSection && ($page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile'))" class="mt-2">
                                     <button type="button" class="block w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border-l-4 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50" @click="toggleSection('iva')">
                                         <DocumentTextIcon class="size-5 shrink-0" aria-hidden="true" />
                                         <span class="flex-1 text-start">IVA e fornitori</span>
@@ -1010,8 +1028,8 @@ const logout = () => {
                                         </template>
                                     </div>
                                 </div>
-                                <!-- Adempimenti Fiscali -->
-                                <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile')" class="mt-2">
+                                <!-- Adempimenti Fiscali (desktop) — feature flag: tax_returns -->
+                                <div v-if="showAdempimentiSection && ($page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('contabile'))" class="mt-2">
                                     <button type="button" class="block w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border-l-4 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50" @click="toggleSection('adempimenti')">
                                         <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
                                         <span class="flex-1 text-start">Adempimenti</span>

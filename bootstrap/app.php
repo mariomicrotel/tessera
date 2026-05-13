@@ -35,6 +35,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'redirectToInstall' => \App\Http\Middleware\RedirectToInstallWhenNotInstalled::class,
             'tenant'            => \App\Http\Middleware\ResolveTenant::class,
             'cooperative'       => \App\Http\Middleware\RequireCooperativa::class,
+            'module'            => \App\Http\Middleware\EnsureModuleEnabled::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

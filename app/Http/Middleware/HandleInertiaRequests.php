@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Attachment;
 use App\Models\Settings;
 use App\Providers\AppServiceProvider;
+use App\Support\Tessera;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\URL;
@@ -128,6 +129,10 @@ class HandleInertiaRequests extends Middleware
             'regime_398_1991' => fn () => app()->bound('current_tenant')
                 ? (bool) Settings::get('regime_398_1991', false)
                 : false,
+            // Tessera: moduli abilitati (feature flags) — usato dal frontend per filtrare menu/voci
+            'tessera_modules' => fn () => Tessera::allModules(),
+            // Tessera: etichette rinominate (es. "Contabilità" → "Amministrazione semplificata")
+            'tessera_labels' => fn () => config('tessera.labels', []),
         ];
     }
 }

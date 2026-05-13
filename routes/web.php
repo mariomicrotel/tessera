@@ -26,6 +26,7 @@ use App\Http\Controllers\PropertyController;
 use App\Http\Controllers\PublicDownloadController;
 use App\Http\Controllers\PublicSiteController;
 use App\Http\Controllers\AnagraficaController;
+use App\Http\Controllers\CompanyEnrichmentController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SpesaController;
 use App\Http\Controllers\PrimaNotaController;
@@ -161,6 +162,8 @@ Route::middleware([
     Route::delete('/tenants/{tenant}', [AdminController::class, 'destroyTenant'])->name('tenants.destroy');
     Route::post('/tenants/{tenant}/toggle-active', [AdminController::class, 'toggleTenantActive'])->name('tenants.toggle-active');
     Route::post('/tenants/{tenant}/seed', [AdminController::class, 'seedTenant'])->name('tenants.seed');
+    Route::post('/company-enrichment/it-start', [AdminController::class, 'companyEnrichment'])->name('company-enrichment.it-start');
+    Route::get('/company-enrichment/usage', [AdminController::class, 'companyEnrichmentUsage'])->name('company-enrichment.usage');
 });
 
 /*
@@ -297,6 +300,9 @@ Route::middleware([
     Route::put('anagrafica', [AnagraficaController::class, 'update'])->name('anagrafica.update');
     Route::post('anagrafica/allegati/{tipo}', [AnagraficaController::class, 'uploadAllegato'])->name('anagrafica.allegato.upload');
     Route::delete('anagrafica/allegati/{tipo}', [AnagraficaController::class, 'deleteAllegato'])->name('anagrafica.allegato.delete');
+    // ── Company Enrichment (OpenAPI) ────────────────────────────────────────
+    Route::post('company-enrichment/it-start', [CompanyEnrichmentController::class, 'itStart'])->name('company-enrichment.it-start');
+    Route::get('company-enrichment/usage', [CompanyEnrichmentController::class, 'usage'])->name('company-enrichment.usage');
     Route::get('settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::post('settings/logo', [SettingsController::class, 'uploadLogo'])->name('settings.logo.upload');
@@ -304,14 +310,17 @@ Route::middleware([
     Route::post('settings/site-section-background/{sectionId}', [SettingsController::class, 'uploadSectionBackground'])->name('settings.site-section-background.upload');
     Route::delete('settings/site-section-background/{sectionId}', [SettingsController::class, 'deleteSectionBackground'])->name('settings.site-section-background.delete');
     Route::post('settings/test-email', [SettingsController::class, 'sendTestEmail'])->name('settings.test-email');
+    Route::put('settings/api-config', [SettingsController::class, 'updateApiConfig'])->name('settings.api-config.update');
+    Route::get('settings/api-credit', [SettingsController::class, 'checkApiCredit'])->name('settings.api-credit.check');
     Route::get('settings/letterhead-preview', [SettingsController::class, 'letterheadPreview'])->name('settings.letterhead-preview');
     Route::get('attachments/{attachment}', [AttachmentController::class, 'show'])->name('attachments.show');
 
     // File manager (sola lettura, stile cloud drive)
     Route::get('file', [MediaController::class, 'index'])->name('file.index')->middleware('role:admin,segreteria');
 
-    // Modulo IVA
-    Route::middleware('cooperative')->group(function () {
+    // Modulo IVA — registri, codici, liquidazioni
+    // ⚠️ Tessera SaaS: dietro feature flag module:vat_registers — default OFF.
+    Route::middleware(['cooperative', 'module:vat_registers'])->group(function () {
         Route::get('iva', [IvaController::class, 'dashboard'])->name('iva.dashboard');
         Route::get('iva/codici', [IvaController::class, 'codiciIndex'])->name('iva.codici.index');
         Route::get('iva/codici/create', [IvaController::class, 'codiciCreate'])->name('iva.codici.create')->middleware('role:admin,contabile');
@@ -392,91 +401,116 @@ Route::middleware([
     Route::put('expense-refunds/{expense_refund}', [ExpenseRefundController::class, 'update'])->name('expense-refunds.update');
     Route::get('expense-refunds/{expense_refund}/print', [ExpenseRefundController::class, 'print'])->name('expense-refunds.print');
 
-    // Contabilità
-    Route::resource('conti', ContoController::class)->except(['show']);
-    Route::get('prima-nota', [PrimaNotaController::class, 'index'])->name('prima-nota.index');
-    Route::get('prima-nota/create', [PrimaNotaController::class, 'create'])->name('prima-nota.create');
-    Route::post('prima-nota', [PrimaNotaController::class, 'store'])->name('prima-nota.store');
-    Route::get('prima-nota/giroconto', [PrimaNotaController::class, 'createGiroconto'])->name('prima-nota.giroconto.create');
-    Route::post('prima-nota/giroconto', [PrimaNotaController::class, 'storeGiroconto'])->name('prima-nota.giroconto.store');
-    Route::get('prima-nota/{prima_nota_entry}/edit', [PrimaNotaController::class, 'edit'])->name('prima-nota.edit');
-    Route::put('prima-nota/{prima_nota_entry}', [PrimaNotaController::class, 'update'])->name('prima-nota.update');
-    Route::delete('prima-nota/{prima_nota_entry}', [PrimaNotaController::class, 'destroy'])->name('prima-nota.destroy');
-    Route::get('reports/accounting', [AccountingReportController::class, 'index'])->name('reports.accounting');
-    Route::get('reports/accounting/export', [AccountingReportController::class, 'export'])->name('reports.accounting.export');
-    Route::get('reports/conto-economico', [AccountingReportController::class, 'contoEconomico'])->name('reports.conto-economico');
-    Route::get('reports/conto-economico/export', [AccountingReportController::class, 'exportContoEconomico'])->name('reports.conto-economico.export');
-    Route::get('iva/lipe-xml',    [IvaController::class, 'lipeXml'])->name('iva.lipe-xml')->middleware('role:admin,contabile');
-    Route::get('iva/acconto-iva', [IvaController::class, 'accontoIva'])->name('iva.acconto-iva')->middleware('role:admin,contabile');
-    // ── Fatture Attive (F-ATT) — accessibili a tutti i tipi organizzazione ──
-    Route::get('iva/fatture-attive', [FatturaAttivaController::class, 'index'])->name('iva.fatture-attive.index');
-    Route::get('iva/fatture-attive/create', [FatturaAttivaController::class, 'create'])->name('iva.fatture-attive.create')->middleware('role:admin,contabile');
-    Route::post('iva/fatture-attive', [FatturaAttivaController::class, 'store'])->name('iva.fatture-attive.store')->middleware('role:admin,contabile');
-    Route::get('iva/fatture-attive/{fatturaAttiva}', [FatturaAttivaController::class, 'show'])->name('iva.fatture-attive.show');
-    Route::get('iva/fatture-attive/{fatturaAttiva}/edit', [FatturaAttivaController::class, 'edit'])->name('iva.fatture-attive.edit')->middleware('role:admin,contabile');
-    Route::put('iva/fatture-attive/{fatturaAttiva}', [FatturaAttivaController::class, 'update'])->name('iva.fatture-attive.update')->middleware('role:admin,contabile');
-    Route::post('iva/fatture-attive/{fatturaAttiva}/paga', [FatturaAttivaController::class, 'paga'])->name('iva.fatture-attive.paga')->middleware('role:admin,contabile');
-    Route::post('iva/fatture-attive/{fatturaAttiva}/storna', [FatturaAttivaController::class, 'storna'])->name('iva.fatture-attive.storna')->middleware('role:admin,contabile');
-    Route::get('iva/fatture-attive/{fatturaAttiva}/nota-credito/create', [FatturaAttivaController::class, 'creaNotaCredito'])->name('iva.fatture-attive.crea-nota-credito')->middleware('role:admin,contabile');
-    Route::post('iva/fatture-attive/{fatturaAttiva}/nota-credito', [FatturaAttivaController::class, 'storeNotaCredito'])->name('iva.fatture-attive.store-nota-credito')->middleware('role:admin,contabile');
-    Route::delete('iva/fatture-attive/{fatturaAttiva}', [FatturaAttivaController::class, 'destroy'])->name('iva.fatture-attive.destroy')->middleware('role:admin,contabile');
-    Route::get('iva/fatture-attive/{fatturaAttiva}/pdf', [FatturaAttivaController::class, 'exportPdf'])->name('iva.fatture-attive.pdf');
-    Route::get('iva/fatture-attive/{fatturaAttiva}/xml', [FatturaAttivaController::class, 'downloadXml'])->name('iva.fatture-attive.xml');
-    Route::post('iva/fatture-attive/{fatturaAttiva}/sdi', [FatturaAttivaController::class, 'aggiornaStatoSdi'])->name('iva.fatture-attive.sdi')->middleware('role:admin,contabile');
-    Route::get('reports/libro-giornale',             [AccountingReportController::class, 'libroGiornale'])->name('reports.libro-giornale');
-    Route::get('reports/libro-giornale/export',      [AccountingReportController::class, 'exportLibroGiornale'])->name('reports.libro-giornale.export');
-    Route::get('reports/libro-giornale/pdf',         [AccountingReportController::class, 'exportLibroGiornalePdf'])->name('reports.libro-giornale.pdf');
-    Route::get('reports/registro-vendite',            [AccountingReportController::class, 'registroVendite'])->name('reports.registro-vendite');
-    Route::get('reports/registro-vendite/export',    [AccountingReportController::class, 'exportRegistroVendite'])->name('reports.registro-vendite.export');
-    Route::get('reports/registro-vendite/pdf',       [AccountingReportController::class, 'exportRegistroVenditePdf'])->name('reports.registro-vendite.pdf');
+    // Contabilità ufficiale (partita doppia, piano dei conti, prima nota, report)
+    // ⚠️ Tessera SaaS: dietro feature flag — default OFF.
+    // Riabilitabile via TESSERA_MODULE_DOUBLE_ENTRY_ACCOUNTING/CHART_OF_ACCOUNTS/ACCOUNTING_REPORTS.
+    Route::middleware('module:chart_of_accounts')->group(function () {
+        Route::resource('conti', ContoController::class)->except(['show']);
+    });
+    Route::middleware('module:double_entry_accounting')->group(function () {
+        Route::get('prima-nota', [PrimaNotaController::class, 'index'])->name('prima-nota.index');
+        Route::get('prima-nota/create', [PrimaNotaController::class, 'create'])->name('prima-nota.create');
+        Route::post('prima-nota', [PrimaNotaController::class, 'store'])->name('prima-nota.store');
+        Route::get('prima-nota/giroconto', [PrimaNotaController::class, 'createGiroconto'])->name('prima-nota.giroconto.create');
+        Route::post('prima-nota/giroconto', [PrimaNotaController::class, 'storeGiroconto'])->name('prima-nota.giroconto.store');
+        Route::get('prima-nota/{prima_nota_entry}/edit', [PrimaNotaController::class, 'edit'])->name('prima-nota.edit');
+        Route::put('prima-nota/{prima_nota_entry}', [PrimaNotaController::class, 'update'])->name('prima-nota.update');
+        Route::delete('prima-nota/{prima_nota_entry}', [PrimaNotaController::class, 'destroy'])->name('prima-nota.destroy');
+    });
+    Route::middleware('module:accounting_reports')->group(function () {
+        Route::get('reports/accounting', [AccountingReportController::class, 'index'])->name('reports.accounting');
+        Route::get('reports/accounting/export', [AccountingReportController::class, 'export'])->name('reports.accounting.export');
+        Route::get('reports/conto-economico', [AccountingReportController::class, 'contoEconomico'])->name('reports.conto-economico');
+        Route::get('reports/conto-economico/export', [AccountingReportController::class, 'exportContoEconomico'])->name('reports.conto-economico.export');
+    });
+    // LIPE XML + acconto IVA (dichiarativi IVA)
+    Route::middleware('module:tax_returns')->group(function () {
+        Route::get('iva/lipe-xml',    [IvaController::class, 'lipeXml'])->name('iva.lipe-xml')->middleware('role:admin,contabile');
+        Route::get('iva/acconto-iva', [IvaController::class, 'accontoIva'])->name('iva.acconto-iva')->middleware('role:admin,contabile');
+    });
+
+    // ── Fatturazione attiva (F-ATT) ─────────────────────────────────────────
+    // ⚠️ Tessera SaaS: dietro feature flag module:invoicing — default OFF.
+    Route::middleware('module:invoicing')->group(function () {
+        Route::get('iva/fatture-attive', [FatturaAttivaController::class, 'index'])->name('iva.fatture-attive.index');
+        Route::get('iva/fatture-attive/create', [FatturaAttivaController::class, 'create'])->name('iva.fatture-attive.create')->middleware('role:admin,contabile');
+        Route::post('iva/fatture-attive', [FatturaAttivaController::class, 'store'])->name('iva.fatture-attive.store')->middleware('role:admin,contabile');
+        Route::get('iva/fatture-attive/{fatturaAttiva}', [FatturaAttivaController::class, 'show'])->name('iva.fatture-attive.show');
+        Route::get('iva/fatture-attive/{fatturaAttiva}/edit', [FatturaAttivaController::class, 'edit'])->name('iva.fatture-attive.edit')->middleware('role:admin,contabile');
+        Route::put('iva/fatture-attive/{fatturaAttiva}', [FatturaAttivaController::class, 'update'])->name('iva.fatture-attive.update')->middleware('role:admin,contabile');
+        Route::post('iva/fatture-attive/{fatturaAttiva}/paga', [FatturaAttivaController::class, 'paga'])->name('iva.fatture-attive.paga')->middleware('role:admin,contabile');
+        Route::post('iva/fatture-attive/{fatturaAttiva}/storna', [FatturaAttivaController::class, 'storna'])->name('iva.fatture-attive.storna')->middleware('role:admin,contabile');
+        Route::get('iva/fatture-attive/{fatturaAttiva}/nota-credito/create', [FatturaAttivaController::class, 'creaNotaCredito'])->name('iva.fatture-attive.crea-nota-credito')->middleware('role:admin,contabile');
+        Route::post('iva/fatture-attive/{fatturaAttiva}/nota-credito', [FatturaAttivaController::class, 'storeNotaCredito'])->name('iva.fatture-attive.store-nota-credito')->middleware('role:admin,contabile');
+        Route::delete('iva/fatture-attive/{fatturaAttiva}', [FatturaAttivaController::class, 'destroy'])->name('iva.fatture-attive.destroy')->middleware('role:admin,contabile');
+        Route::get('iva/fatture-attive/{fatturaAttiva}/pdf', [FatturaAttivaController::class, 'exportPdf'])->name('iva.fatture-attive.pdf');
+        Route::get('iva/fatture-attive/{fatturaAttiva}/xml', [FatturaAttivaController::class, 'downloadXml'])->name('iva.fatture-attive.xml');
+        Route::post('iva/fatture-attive/{fatturaAttiva}/sdi', [FatturaAttivaController::class, 'aggiornaStatoSdi'])->name('iva.fatture-attive.sdi')->middleware('role:admin,contabile');
+    });
+    // Report contabili calcolati: libro giornale, registro vendite (computed da prima nota)
+    Route::middleware('module:accounting_reports')->group(function () {
+        Route::get('reports/libro-giornale',             [AccountingReportController::class, 'libroGiornale'])->name('reports.libro-giornale');
+        Route::get('reports/libro-giornale/export',      [AccountingReportController::class, 'exportLibroGiornale'])->name('reports.libro-giornale.export');
+        Route::get('reports/libro-giornale/pdf',         [AccountingReportController::class, 'exportLibroGiornalePdf'])->name('reports.libro-giornale.pdf');
+        Route::get('reports/registro-vendite',            [AccountingReportController::class, 'registroVendite'])->name('reports.registro-vendite');
+        Route::get('reports/registro-vendite/export',    [AccountingReportController::class, 'exportRegistroVendite'])->name('reports.registro-vendite.export');
+        Route::get('reports/registro-vendite/pdf',       [AccountingReportController::class, 'exportRegistroVenditePdf'])->name('reports.registro-vendite.pdf');
+    });
 
     // ── RI.BA / CBI ──────────────────────────────────────────────────────
-    Route::get('riba',                         [RibaController::class, 'index'])->name('riba.index');
-    Route::get('riba/create',                  [RibaController::class, 'create'])->name('riba.create');
-    Route::post('riba',                        [RibaController::class, 'store'])->name('riba.store');
-    Route::get('riba/{riba}',                  [RibaController::class, 'show'])->name('riba.show');
-    Route::post('riba/{riba}/inviata',         [RibaController::class, 'markInviata'])->name('riba.inviata');
-    Route::post('riba/{riba}/pagata',          [RibaController::class, 'markPagata'])->name('riba.pagata');
-    Route::post('riba/{riba}/insoluta',        [RibaController::class, 'markInsoluta'])->name('riba.insoluta');
-    Route::delete('riba/{riba}',               [RibaController::class, 'destroy'])->name('riba.destroy');
-    Route::get('riba/export/cbi',              [RibaController::class, 'exportCbi'])->name('riba.export-cbi');
+    Route::middleware('module:invoicing')->group(function () {
+        Route::get('riba',                         [RibaController::class, 'index'])->name('riba.index');
+        Route::get('riba/create',                  [RibaController::class, 'create'])->name('riba.create');
+        Route::post('riba',                        [RibaController::class, 'store'])->name('riba.store');
+        Route::get('riba/{riba}',                  [RibaController::class, 'show'])->name('riba.show');
+        Route::post('riba/{riba}/inviata',         [RibaController::class, 'markInviata'])->name('riba.inviata');
+        Route::post('riba/{riba}/pagata',          [RibaController::class, 'markPagata'])->name('riba.pagata');
+        Route::post('riba/{riba}/insoluta',        [RibaController::class, 'markInsoluta'])->name('riba.insoluta');
+        Route::delete('riba/{riba}',               [RibaController::class, 'destroy'])->name('riba.destroy');
+        Route::get('riba/export/cbi',              [RibaController::class, 'exportCbi'])->name('riba.export-cbi');
+    });
 
     // ── Riconciliazione bancaria ──────────────────────────────────────────
-    Route::get('riconciliazione',                          [RiconciliazioneController::class, 'index'])->name('riconciliazione.index');
-    Route::get('riconciliazione/upload',                   [RiconciliazioneController::class, 'create'])->name('riconciliazione.create');
-    Route::post('riconciliazione/upload/preview',          [RiconciliazioneController::class, 'previewUpload'])->name('riconciliazione.preview');
-    Route::post('riconciliazione',                         [RiconciliazioneController::class, 'store'])->name('riconciliazione.store');
-    Route::get('riconciliazione/{riconciliazione}',        [RiconciliazioneController::class, 'show'])->name('riconciliazione.show');
-    Route::delete('riconciliazione/{riconciliazione}',     [RiconciliazioneController::class, 'destroy'])->name('riconciliazione.destroy');
-    Route::post('riconciliazione/movimenti/{movimento}/match',   [RiconciliazioneController::class, 'match'])->name('riconciliazione.match');
-    Route::delete('riconciliazione/movimenti/{movimento}/match', [RiconciliazioneController::class, 'unmatch'])->name('riconciliazione.unmatch');
-    Route::get('riconciliazione/movimenti/{movimento}/suggerisci', [RiconciliazioneController::class, 'suggerisci'])->name('riconciliazione.suggerisci');
+    Route::middleware('module:double_entry_accounting')->group(function () {
+        Route::get('riconciliazione',                          [RiconciliazioneController::class, 'index'])->name('riconciliazione.index');
+        Route::get('riconciliazione/upload',                   [RiconciliazioneController::class, 'create'])->name('riconciliazione.create');
+        Route::post('riconciliazione/upload/preview',          [RiconciliazioneController::class, 'previewUpload'])->name('riconciliazione.preview');
+        Route::post('riconciliazione',                         [RiconciliazioneController::class, 'store'])->name('riconciliazione.store');
+        Route::get('riconciliazione/{riconciliazione}',        [RiconciliazioneController::class, 'show'])->name('riconciliazione.show');
+        Route::delete('riconciliazione/{riconciliazione}',     [RiconciliazioneController::class, 'destroy'])->name('riconciliazione.destroy');
+        Route::post('riconciliazione/movimenti/{movimento}/match',   [RiconciliazioneController::class, 'match'])->name('riconciliazione.match');
+        Route::delete('riconciliazione/movimenti/{movimento}/match', [RiconciliazioneController::class, 'unmatch'])->name('riconciliazione.unmatch');
+        Route::get('riconciliazione/movimenti/{movimento}/suggerisci', [RiconciliazioneController::class, 'suggerisci'])->name('riconciliazione.suggerisci');
+    });
 
     // ── Compensi a Terzi / Ritenute d'Acconto (G1) ───────────────────────
-    Route::get('compensi-terzi',                                      [CompensaTerziController::class, 'index'])->name('compensi-terzi.index')->middleware('role:admin,contabile');
-    Route::get('compensi-terzi/create',                               [CompensaTerziController::class, 'create'])->name('compensi-terzi.create')->middleware('role:admin,contabile');
-    Route::post('compensi-terzi',                                     [CompensaTerziController::class, 'store'])->name('compensi-terzi.store')->middleware('role:admin,contabile');
-    Route::get('compensi-terzi/riepilogo',                            [CompensaTerziController::class, 'riepilogo'])->name('compensi-terzi.riepilogo');
-    Route::get('compensi-terzi/versamenti',                           [CompensaTerziController::class, 'versamenti'])->name('compensi-terzi.versamenti');
-    Route::post('compensi-terzi/versa',                               [CompensaTerziController::class, 'versa'])->name('compensi-terzi.versa')->middleware('role:admin,contabile');
-    Route::get('compensi-terzi/genera-cu',                            [CompensaTerziController::class, 'generaCU'])->name('compensi-terzi.genera-cu')->middleware('role:admin,contabile');
-    Route::get('compensi-terzi/versamenti/{versamento}',              [CompensaTerziController::class, 'versamentoShow'])->name('compensi-terzi.versamento.show');
-    Route::get('compensi-terzi/{compensiTerzi}',                      [CompensaTerziController::class, 'show'])->name('compensi-terzi.show');
-    Route::get('compensi-terzi/{compensiTerzi}/edit',                 [CompensaTerziController::class, 'edit'])->name('compensi-terzi.edit')->middleware('role:admin,contabile');
-    Route::put('compensi-terzi/{compensiTerzi}',                      [CompensaTerziController::class, 'update'])->name('compensi-terzi.update')->middleware('role:admin,contabile');
-    Route::delete('compensi-terzi/{compensiTerzi}',                   [CompensaTerziController::class, 'destroy'])->name('compensi-terzi.destroy')->middleware('role:admin,contabile');
+    // ⚠️ Tessera SaaS: dietro feature flag module:tax_returns — default OFF.
+    Route::middleware('module:tax_returns')->group(function () {
+        Route::get('compensi-terzi',                                      [CompensaTerziController::class, 'index'])->name('compensi-terzi.index')->middleware('role:admin,contabile');
+        Route::get('compensi-terzi/create',                               [CompensaTerziController::class, 'create'])->name('compensi-terzi.create')->middleware('role:admin,contabile');
+        Route::post('compensi-terzi',                                     [CompensaTerziController::class, 'store'])->name('compensi-terzi.store')->middleware('role:admin,contabile');
+        Route::get('compensi-terzi/riepilogo',                            [CompensaTerziController::class, 'riepilogo'])->name('compensi-terzi.riepilogo');
+        Route::get('compensi-terzi/versamenti',                           [CompensaTerziController::class, 'versamenti'])->name('compensi-terzi.versamenti');
+        Route::post('compensi-terzi/versa',                               [CompensaTerziController::class, 'versa'])->name('compensi-terzi.versa')->middleware('role:admin,contabile');
+        Route::get('compensi-terzi/genera-cu',                            [CompensaTerziController::class, 'generaCU'])->name('compensi-terzi.genera-cu')->middleware('role:admin,contabile');
+        Route::get('compensi-terzi/versamenti/{versamento}',              [CompensaTerziController::class, 'versamentoShow'])->name('compensi-terzi.versamento.show');
+        Route::get('compensi-terzi/{compensiTerzi}',                      [CompensaTerziController::class, 'show'])->name('compensi-terzi.show');
+        Route::get('compensi-terzi/{compensiTerzi}/edit',                 [CompensaTerziController::class, 'edit'])->name('compensi-terzi.edit')->middleware('role:admin,contabile');
+        Route::put('compensi-terzi/{compensiTerzi}',                      [CompensaTerziController::class, 'update'])->name('compensi-terzi.update')->middleware('role:admin,contabile');
+        Route::delete('compensi-terzi/{compensiTerzi}',                   [CompensaTerziController::class, 'destroy'])->name('compensi-terzi.destroy')->middleware('role:admin,contabile');
 
-    // ── Modello F24 (G2) ─────────────────────────────────────────────────
-    Route::get('f24',                         [ModelloF24Controller::class, 'index'])->name('f24.index')->middleware('role:admin,contabile');
-    Route::get('f24/create',                  [ModelloF24Controller::class, 'create'])->name('f24.create')->middleware('role:admin,contabile');
-    Route::post('f24',                        [ModelloF24Controller::class, 'store'])->name('f24.store')->middleware('role:admin,contabile');
-    Route::get('f24/{f24}',                   [ModelloF24Controller::class, 'show'])->name('f24.show');
-    Route::get('f24/{f24}/edit',              [ModelloF24Controller::class, 'edit'])->name('f24.edit')->middleware('role:admin,contabile');
-    Route::put('f24/{f24}',                   [ModelloF24Controller::class, 'update'])->name('f24.update')->middleware('role:admin,contabile');
-    Route::post('f24/{f24}/versa',            [ModelloF24Controller::class, 'segnaVersato'])->name('f24.versa')->middleware('role:admin,contabile');
-    Route::delete('f24/{f24}',               [ModelloF24Controller::class, 'destroy'])->name('f24.destroy')->middleware('role:admin,contabile');
-    Route::get('f24/{f24}/pdf',              [ModelloF24Controller::class, 'exportPdf'])->name('f24.pdf');
-    Route::get('f24/{f24}/xml',              [ModelloF24Controller::class, 'exportXml'])->name('f24.xml');
+        // ── Modello F24 (G2) ─────────────────────────────────────────────────
+        Route::get('f24',                         [ModelloF24Controller::class, 'index'])->name('f24.index')->middleware('role:admin,contabile');
+        Route::get('f24/create',                  [ModelloF24Controller::class, 'create'])->name('f24.create')->middleware('role:admin,contabile');
+        Route::post('f24',                        [ModelloF24Controller::class, 'store'])->name('f24.store')->middleware('role:admin,contabile');
+        Route::get('f24/{f24}',                   [ModelloF24Controller::class, 'show'])->name('f24.show');
+        Route::get('f24/{f24}/edit',              [ModelloF24Controller::class, 'edit'])->name('f24.edit')->middleware('role:admin,contabile');
+        Route::put('f24/{f24}',                   [ModelloF24Controller::class, 'update'])->name('f24.update')->middleware('role:admin,contabile');
+        Route::post('f24/{f24}/versa',            [ModelloF24Controller::class, 'segnaVersato'])->name('f24.versa')->middleware('role:admin,contabile');
+        Route::delete('f24/{f24}',               [ModelloF24Controller::class, 'destroy'])->name('f24.destroy')->middleware('role:admin,contabile');
+        Route::get('f24/{f24}/pdf',              [ModelloF24Controller::class, 'exportPdf'])->name('f24.pdf');
+        Route::get('f24/{f24}/xml',              [ModelloF24Controller::class, 'exportXml'])->name('f24.xml');
+    });
 
     // ── Relazione di Missione ETS (G3) ───────────────────────────────────
     Route::get('bilancio/relazione-missione',                                     [RelazioneMissioneController::class, 'index'])->name('relazione-missione.index');
@@ -503,11 +537,15 @@ Route::middleware([
     Route::delete('bilancio/erogazioni-liberali/{erogazioneLiberale}',                        [ErogazioneLiberaleController::class, 'destroy'])->name('erogazioni-liberali.destroy')->middleware('role:admin,contabile');
 
     // ── Bilancio CEE / Rendiconto Gestionale ETS (G5) ────────────────────
-    Route::get('bilancio/cee',                    [BilancioController::class, 'index'])->name('bilancio.cee.index');
-    Route::get('bilancio/cee/pdf-sp',             [BilancioController::class, 'exportPdfSp'])->name('bilancio.cee.pdf-sp');
-    Route::get('bilancio/cee/pdf-ce',             [BilancioController::class, 'exportPdfCe'])->name('bilancio.cee.pdf-ce');
-    Route::get('bilancio/cee/pdf-rendiconto',     [BilancioController::class, 'exportPdfRendiconto'])->name('bilancio.cee.pdf-rendiconto');
-    Route::get('bilancio/cee/csv',                [BilancioController::class, 'exportCsv'])->name('bilancio.cee.csv');
+    // ⚠️ Tessera SaaS: dietro feature flag module:civil_balance_sheet — default OFF.
+    // Per il Fascicolo Bilancio/Rendiconto vedi /financial-dossier (documentale, non calcolato).
+    Route::middleware('module:civil_balance_sheet')->group(function () {
+        Route::get('bilancio/cee',                    [BilancioController::class, 'index'])->name('bilancio.cee.index');
+        Route::get('bilancio/cee/pdf-sp',             [BilancioController::class, 'exportPdfSp'])->name('bilancio.cee.pdf-sp');
+        Route::get('bilancio/cee/pdf-ce',             [BilancioController::class, 'exportPdfCe'])->name('bilancio.cee.pdf-ce');
+        Route::get('bilancio/cee/pdf-rendiconto',     [BilancioController::class, 'exportPdfRendiconto'])->name('bilancio.cee.pdf-rendiconto');
+        Route::get('bilancio/cee/csv',                [BilancioController::class, 'exportCsv'])->name('bilancio.cee.csv');
+    });
 
     Route::get('scadenzario-quote', [ScadenzarioController::class, 'index'])->name('scadenzario.index');
     Route::get('scadenzario-quote/export', [ScadenzarioController::class, 'exportMorosi'])->name('scadenzario.export');
@@ -515,21 +553,27 @@ Route::middleware([
     Route::post('scadenzario-quote/{member}/sollecito', [ScadenzarioController::class, 'sendSollecito'])->name('scadenzario.sollecito');
 
     // ── Esercizio Contabile ───────────────────────────────────────────────
-    Route::get('esercizi',                              [EsercizioContabileController::class, 'index'])->name('esercizi.index');
-    Route::post('esercizi',                             [EsercizioContabileController::class, 'store'])->name('esercizi.store');
-    Route::put('esercizi/{esercizio}',                  [EsercizioContabileController::class, 'update'])->name('esercizi.update');
-    Route::post('esercizi/{esercizio}/close',           [EsercizioContabileController::class, 'close'])->name('esercizi.close');
-    Route::post('esercizi/{esercizio}/reopen',          [EsercizioContabileController::class, 'reopen'])->name('esercizi.reopen');
-    Route::delete('esercizi/{esercizio}',               [EsercizioContabileController::class, 'destroy'])->name('esercizi.destroy');
+    // ⚠️ Tessera SaaS: dietro feature flag module:fiscal_year_closing — default OFF.
+    Route::middleware('module:fiscal_year_closing')->group(function () {
+        Route::get('esercizi',                              [EsercizioContabileController::class, 'index'])->name('esercizi.index');
+        Route::post('esercizi',                             [EsercizioContabileController::class, 'store'])->name('esercizi.store');
+        Route::put('esercizi/{esercizio}',                  [EsercizioContabileController::class, 'update'])->name('esercizi.update');
+        Route::post('esercizi/{esercizio}/close',           [EsercizioContabileController::class, 'close'])->name('esercizi.close');
+        Route::post('esercizi/{esercizio}/reopen',          [EsercizioContabileController::class, 'reopen'])->name('esercizi.reopen');
+        Route::delete('esercizi/{esercizio}',               [EsercizioContabileController::class, 'destroy'])->name('esercizi.destroy');
+    });
 
     // ── Ratei e Risconti ─────────────────────────────────────────────────
-    Route::get('ratei-risconti',                                   [RateiRiscontiController::class, 'index'])->name('ratei-risconti.index');
-    Route::post('ratei-risconti',                                  [RateiRiscontiController::class, 'store'])->name('ratei-risconti.store');
-    Route::put('ratei-risconti/{rateoRisconto}',                   [RateiRiscontiController::class, 'update'])->name('ratei-risconti.update');
-    Route::post('ratei-risconti/{rateoRisconto}/registra',         [RateiRiscontiController::class, 'registra'])->name('ratei-risconti.registra');
-    Route::post('ratei-risconti/{rateoRisconto}/storna',           [RateiRiscontiController::class, 'storna'])->name('ratei-risconti.storna');
-    Route::delete('ratei-risconti/{rateoRisconto}',                [RateiRiscontiController::class, 'destroy'])->name('ratei-risconti.destroy');
-    Route::post('ratei-risconti-batch',                            [RateiRiscontiController::class, 'registraBatch'])->name('ratei-risconti.batch');
+    // ⚠️ Tessera SaaS: dietro feature flag module:accruals_deferrals — default OFF.
+    Route::middleware('module:accruals_deferrals')->group(function () {
+        Route::get('ratei-risconti',                                   [RateiRiscontiController::class, 'index'])->name('ratei-risconti.index');
+        Route::post('ratei-risconti',                                  [RateiRiscontiController::class, 'store'])->name('ratei-risconti.store');
+        Route::put('ratei-risconti/{rateoRisconto}',                   [RateiRiscontiController::class, 'update'])->name('ratei-risconti.update');
+        Route::post('ratei-risconti/{rateoRisconto}/registra',         [RateiRiscontiController::class, 'registra'])->name('ratei-risconti.registra');
+        Route::post('ratei-risconti/{rateoRisconto}/storna',           [RateiRiscontiController::class, 'storna'])->name('ratei-risconti.storna');
+        Route::delete('ratei-risconti/{rateoRisconto}',                [RateiRiscontiController::class, 'destroy'])->name('ratei-risconti.destroy');
+        Route::post('ratei-risconti-batch',                            [RateiRiscontiController::class, 'registraBatch'])->name('ratei-risconti.batch');
+    });
 
     // ── Scadenzario Completo ───────────────────────────────────────────────
     Route::get('scadenze',                    [ScadenzaController::class, 'index'])->name('scadenze.index');
@@ -543,24 +587,38 @@ Route::middleware([
     Route::put('scadenze/{scadenza}',         [ScadenzaController::class, 'update'])->name('scadenze.update');
     Route::delete('scadenze/{scadenza}',      [ScadenzaController::class, 'destroy'])->name('scadenze.destroy');
     Route::post('scadenze/{scadenza}/pagata', [ScadenzaController::class, 'markPagata'])->name('scadenze.mark-pagata');
-    Route::get('reports/rendiconto-cassa', [RendicontoCassaController::class, 'index'])->name('reports.rendiconto-cassa');
-    Route::get('reports/rendiconto-cassa/export-pdf', [RendicontoCassaController::class, 'exportPdf'])->name('reports.rendiconto-cassa.export-pdf');
-    Route::post('reports/rendiconto-cassa/export-pdf', [RendicontoCassaController::class, 'exportPdfFromPayload'])->name('reports.rendiconto-cassa.export-pdf.post');
+    // Rendiconto cassa calcolato da prima nota: dietro accounting_reports (default OFF).
+    // Per il fascicolo documentale del rendiconto vedi /financial-dossier.
+    Route::middleware('module:accounting_reports')->group(function () {
+        Route::get('reports/rendiconto-cassa', [RendicontoCassaController::class, 'index'])->name('reports.rendiconto-cassa');
+        Route::get('reports/rendiconto-cassa/export-pdf', [RendicontoCassaController::class, 'exportPdf'])->name('reports.rendiconto-cassa.export-pdf');
+        Route::post('reports/rendiconto-cassa/export-pdf', [RendicontoCassaController::class, 'exportPdfFromPayload'])->name('reports.rendiconto-cassa.export-pdf.post');
+    });
 
     // ── Export Excel (H-XLS) ─────────────────────────────────────────────
+    // Export "soci" e "capitale-sociale" restano sempre attivi (governance core).
+    // Gli altri export sono legati ai feature flag dei rispettivi moduli.
     Route::prefix('export')->name('export.')->middleware('role:admin,contabile,segreteria')->group(function () {
         Route::get('soci',            [ExcelExportController::class, 'soci'])->name('soci');
-        Route::get('prima-nota',      [ExcelExportController::class, 'primaNota'])->name('prima-nota');
-        Route::get('registro-iva',    [ExcelExportController::class, 'registroIva'])->name('registro-iva');
-        Route::get('cespiti',         [ExcelExportController::class, 'cespiti'])->name('cespiti');
-        Route::get('compensi-terzi',  [ExcelExportController::class, 'compensaTerzi'])->name('compensi-terzi')->middleware('role:admin,contabile');
+        Route::middleware('module:double_entry_accounting')->group(function () {
+            Route::get('prima-nota',      [ExcelExportController::class, 'primaNota'])->name('prima-nota');
+        });
+        Route::middleware('module:vat_registers')->group(function () {
+            Route::get('registro-iva',    [ExcelExportController::class, 'registroIva'])->name('registro-iva');
+        });
+        Route::middleware('module:assets_and_depreciation')->group(function () {
+            Route::get('cespiti',         [ExcelExportController::class, 'cespiti'])->name('cespiti');
+        });
+        Route::middleware('module:tax_returns')->group(function () {
+            Route::get('compensi-terzi',  [ExcelExportController::class, 'compensaTerzi'])->name('compensi-terzi')->middleware('role:admin,contabile');
+        });
         Route::middleware(['cooperative'])->group(function () {
             Route::get('capitale-sociale', [ExcelExportController::class, 'capitaleSociale'])->name('capitale-sociale');
         });
     });
 
-    // Report cooperativa (solo cooperative)
-    Route::middleware(['cooperative'])->group(function () {
+    // Report cooperativa (solo cooperative) — bilancio civilistico computato
+    Route::middleware(['cooperative', 'module:civil_balance_sheet'])->group(function () {
         Route::get('reports/conto-economico-coop', [AccountingReportController::class, 'contoEconomicoCooperativa'])->name('reports.conto-economico-coop');
         Route::get('reports/conto-economico-coop/export', [AccountingReportController::class, 'exportContoEconomicoCooperativa'])->name('reports.conto-economico-coop.export');
         Route::get('reports/situazione-capitale', [AccountingReportController::class, 'situazioneCapitale'])->name('reports.situazione-capitale');
@@ -600,7 +658,8 @@ Route::middleware([
     Route::put('warehouses/{warehouse}/stocks/{stock}', [WarehouseController::class, 'updateStock'])->name('warehouses.stocks.update');
     Route::delete('warehouses/{warehouse}/stocks/{stock}', [WarehouseController::class, 'destroyStock'])->name('warehouses.stocks.destroy');
     // ── Cespiti e Ammortamenti (D4) ──────────────────────────────────────────
-    Route::prefix('cespiti')->name('cespiti.')->middleware('role:admin,contabile,segreteria')->group(function () {
+    // ⚠️ Tessera SaaS: dietro feature flag module:assets_and_depreciation — default OFF.
+    Route::prefix('cespiti')->name('cespiti.')->middleware(['role:admin,contabile,segreteria', 'module:assets_and_depreciation'])->group(function () {
         // Categorie fiscali
         Route::get('categorie', [AssetCategoryController::class, 'index'])->name('categorie.index');
         Route::post('categorie', [AssetCategoryController::class, 'store'])->name('categorie.store')->middleware('role:admin');
