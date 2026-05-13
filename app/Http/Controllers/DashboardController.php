@@ -33,6 +33,11 @@ class DashboardController extends Controller
             ]);
         }
 
+        // Consulente: reindirizza alla dashboard cross-tenant del consulente
+        if ($user->hasRole('consultant') && ! $user->hasRole('admin', 'segreteria', 'contabile')) {
+            return redirect()->route('consultant.dashboard');
+        }
+
         // Socio con profilo collegato e stato attivo: dashboard semplificata (solo area personale)
         if ($user->hasRole('socio') && $user->member && ! $user->hasRole('admin', 'segreteria', 'contabile')) {
             $member = $user->member;
