@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { CheckIcon, ArrowLeftIcon, BanknotesIcon, BuildingLibraryIcon, BuildingOfficeIcon, CurrencyEuroIcon, DocumentTextIcon, EnvelopeIcon, EyeIcon, PhotoIcon, TrashIcon, GlobeAltIcon, ShieldCheckIcon } from '@heroicons/vue/24/outline';
+import { CheckIcon, ArrowLeftIcon, BanknotesIcon, BuildingLibraryIcon, BuildingOfficeIcon, CurrencyEuroIcon, DocumentTextIcon, EnvelopeIcon, EyeIcon, PhotoIcon, TrashIcon, GlobeAltIcon, ShieldCheckIcon, CreditCardIcon, SignalIcon, ArrowPathIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputError from '@/Components/InputError.vue';
@@ -38,6 +38,11 @@ const props = defineProps({
     site_chi_siamo_text: String,
     site_footer_text: String,
     informativa_privacy_domanda_ammissione: String,
+    // Banking & Tessere
+    tessera_colore: String,
+    codice_sia: String,
+    cab_banca: String,
+    cc_banca: String,
     // Cooperative
     quota_valore_unitario_coop:       [Number, String],
     quota_minima_quote_coop:          [Number, String],
@@ -46,6 +51,9 @@ const props = defineProps({
     riserva_indivisibile_percentuale: [Number, String],
     tasso_interesse_prestito:         [Number, String],
     is_cooperativa:                   Boolean,
+    // OpenAPI Company
+    openapi_company_token_set:        Boolean,
+    openapi_company_daily_limit:      [Number, String],
 });
 
 const page = usePage();
@@ -81,8 +89,10 @@ const tabs = computed(() => [
     { id: 'causali', label: 'Causali', icon: DocumentTextIcon },
     { id: 'email', label: 'Email', icon: EnvelopeIcon },
     { id: 'sito', label: 'Sito pubblico', icon: GlobeAltIcon },
+    { id: 'banking', label: 'Banking & Tessere', icon: CreditCardIcon },
     { id: 'privacy', label: 'Privacy', icon: ShieldCheckIcon },
     ...(props.is_cooperativa ? [{ id: 'cooperativa', label: 'Cooperativa', icon: BuildingLibraryIcon }] : []),
+    { id: 'api', label: 'API', icon: SignalIcon },
 ]);
 
 const testEmailSending = ref(false);
@@ -132,6 +142,11 @@ const form = useForm({
     site_footer_text: props.site_footer_text ?? '',
     informativa_privacy_domanda_ammissione: props.informativa_privacy_domanda_ammissione ?? '',
     ...sectionColorFields.value,
+    // Banking & Tessere
+    tessera_colore: props.tessera_colore ?? '#1e40af',
+    codice_sia: props.codice_sia ?? '',
+    cab_banca: props.cab_banca ?? '',
+    cc_banca: props.cc_banca ?? '',
     // Cooperative
     quota_valore_unitario_coop:       props.quota_valore_unitario_coop       != null ? String(Number(props.quota_valore_unitario_coop).toFixed(2))       : '50.00',
     quota_minima_quote_coop:          props.quota_minima_quote_coop          != null ? String(parseInt(props.quota_minima_quote_coop))                    : '1',
@@ -185,6 +200,39 @@ function uploadSectionBg(event) {
 function removeSectionBg(sectionId) {
     if (!confirm('Rimuovere l\'immagine di sfondo di questa sezione?')) return;
     router.delete(route('settings.site-section-background.delete', { sectionId }), { preserveScroll: true });
+}
+
+// ─── OpenAPI Company API Config ─────────────────────────────────────────────
+const apiTokenField = ref(props.openapi_company_token_set ? '••••••••' : '');
+const apiLimitField = ref(String(props.openapi_company_daily_limit ?? 100));
+const apiSaving = ref(false);
+const apiChecking = ref(false);
+const apiCheckResult = ref(null);
+
+function saveApiConfig() {
+    apiSaving.value = true;
+    router.put(route('settings.api-config.update'), {
+        openapi_company_token: apiTokenField.value,
+        openapi_company_daily_limit: parseInt(apiLimitField.value) || 100,
+    }, {
+        preserveScroll: true,
+        onFinish: () => { apiSaving.value = false; },
+    });
+}
+
+async function checkApiCredit() {
+    apiChecking.value = true;
+    apiCheckResult.value = null;
+    try {
+        const res = await fetch(route('settings.api-credit.check'), {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        apiCheckResult.value = await res.json();
+    } catch (e) {
+        apiCheckResult.value = { status: 'error', message: 'Errore di rete.' };
+    } finally {
+        apiChecking.value = false;
+    }
 }
 
 // Testo letterale per la help (evita che Vue interpreti le graffe nel template)
@@ -683,6 +731,97 @@ const placeholderSottotitolo = 'Es: Benvenuti nel sito di \u007B\u007Bnome_assoc
                         </div>
                     </div>
 
+                    <!-- Tab: Banking & Tessere -->
+                    <div v-show="activeTab === 'banking'" class="space-y-6">
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            Impostazioni per RI.BA/CBI, riconciliazione bancaria e tessere associative.
+                        </p>
+
+                        <!-- Card: Tessere -->
+                        <div class="bg-gray-50 dark:bg-gray-700/40 rounded-lg p-5 space-y-4">
+                            <div class="flex items-center gap-2">
+                                <CreditCardIcon class="size-5 text-indigo-500 dark:text-indigo-400 shrink-0" aria-hidden="true" />
+                                <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">Tessere Associative</span>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                Colore della striscia intestazione nelle tessere PDF.
+                            </p>
+                            <div class="flex items-center gap-4">
+                                <div class="flex-1">
+                                    <InputLabel for="tessera_colore" value="Colore tessera (hex)" />
+                                    <TextInput
+                                        id="tessera_colore"
+                                        v-model="form.tessera_colore"
+                                        type="text"
+                                        class="mt-1 block w-full"
+                                        placeholder="#1e40af"
+                                        maxlength="7"
+                                    />
+                                    <InputError class="mt-1" :message="form.errors.tessera_colore" />
+                                </div>
+                                <div class="mt-5">
+                                    <div class="text-xs text-gray-600 dark:text-gray-400 mb-2">Anteprima:</div>
+                                    <div
+                                        class="w-12 h-8 rounded border border-gray-300 dark:border-gray-600"
+                                        :style="{ backgroundColor: form.tessera_colore || '#1e40af' }"
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Card: RI.BA e Riconciliazione -->
+                        <div class="bg-gray-50 dark:bg-gray-700/40 rounded-lg p-5 space-y-4">
+                            <div class="flex items-center gap-2">
+                                <BanknotesIcon class="size-5 text-emerald-500 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+                                <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">RI.BA / CBI / Riconciliazione</span>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                Dati per la generazione dei file CBI (RI.BA bancarie) e la riconciliazione estratti conto.
+                            </p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <InputLabel for="codice_sia" value="Codice SIA (5 char)" />
+                                    <TextInput
+                                        id="codice_sia"
+                                        v-model="form.codice_sia"
+                                        type="text"
+                                        class="mt-1 block w-full"
+                                        placeholder="00000"
+                                        maxlength="5"
+                                    />
+                                    <InputError class="mt-1" :message="form.errors.codice_sia" />
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Codice SIA del mittente per file CBI</p>
+                                </div>
+                                <div>
+                                    <InputLabel for="cab_banca" value="CAB Banca (5 digit)" />
+                                    <TextInput
+                                        id="cab_banca"
+                                        v-model="form.cab_banca"
+                                        type="text"
+                                        class="mt-1 block w-full"
+                                        placeholder="00000"
+                                        maxlength="5"
+                                    />
+                                    <InputError class="mt-1" :message="form.errors.cab_banca" />
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">CAB banca presentatrice</p>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <InputLabel for="cc_banca" value="Numero C/C (max 12 char)" />
+                                    <TextInput
+                                        id="cc_banca"
+                                        v-model="form.cc_banca"
+                                        type="text"
+                                        class="mt-1 block w-full"
+                                        placeholder="000000000000"
+                                        maxlength="12"
+                                    />
+                                    <InputError class="mt-1" :message="form.errors.cc_banca" />
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Numero conto corrente presentatrice per esportazione CBI</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Tab: Privacy -->
                     <div v-show="activeTab === 'privacy'" class="space-y-4">
                         <p class="text-xs text-gray-500 dark:text-gray-400">Informativa privacy mostrata nel form di richiesta ammissione soci. Se vuota, verrà mostrato un testo minimale.</p>
@@ -695,6 +834,119 @@ const placeholderSottotitolo = 'Es: Benvenuti nel sito di \u007B\u007Bnome_assoc
                                 min-height="280px"
                             />
                             <InputError class="mt-1" :message="form.errors.informativa_privacy_domanda_ammissione" />
+                        </div>
+                    </div>
+
+                    <!-- Tab: API -->
+                    <div v-show="activeTab === 'api'" class="space-y-6">
+                        <p class="text-sm text-gray-500 dark:text-gray-400">
+                            Configura il collegamento a OpenAPI Company per l'arricchimento automatico dell'anagrafica.
+                        </p>
+
+                        <!-- Card: Token & Limite -->
+                        <div class="bg-gray-50 dark:bg-gray-700/40 rounded-lg p-5 space-y-4">
+                            <div class="flex items-center gap-2">
+                                <SignalIcon class="size-5 text-indigo-500 dark:text-indigo-400 shrink-0" aria-hidden="true" />
+                                <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">OpenAPI Company</span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <InputLabel for="api_token" value="Token API (Bearer)" />
+                                    <TextInput
+                                        id="api_token"
+                                        v-model="apiTokenField"
+                                        type="password"
+                                        class="mt-1 block w-full font-mono"
+                                        placeholder="Incolla il token qui"
+                                        @focus="apiTokenField === '••••••••' && (apiTokenField = '')"
+                                    />
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Il token viene criptato e salvato nel database. Non viene mai esposto al frontend.</p>
+                                </div>
+                                <div>
+                                    <InputLabel for="api_limit" value="Limite chiamate giornaliere" />
+                                    <TextInput
+                                        id="api_limit"
+                                        v-model="apiLimitField"
+                                        type="number"
+                                        min="1"
+                                        max="10000"
+                                        class="mt-1 block w-full"
+                                    />
+                                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Default: 100 al giorno (piano base OpenAPI).</p>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <button
+                                    type="button"
+                                    :disabled="apiSaving"
+                                    class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition"
+                                    @click="saveApiConfig"
+                                >
+                                    <CheckIcon class="size-4" aria-hidden="true" />
+                                    {{ apiSaving ? 'Salvataggio…' : 'Salva configurazione API' }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Card: Verifica credito -->
+                        <div class="bg-gray-50 dark:bg-gray-700/40 rounded-lg p-5 space-y-4">
+                            <div class="flex items-center gap-2">
+                                <SignalIcon class="size-5 text-emerald-500 dark:text-emerald-400 shrink-0" aria-hidden="true" />
+                                <span class="text-sm font-semibold text-gray-800 dark:text-gray-200">Verifica connessione e credito</span>
+                            </div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">
+                                Controlla che il token sia valido e verifica le chiamate effettuate oggi.
+                            </p>
+                            <button
+                                type="button"
+                                :disabled="apiChecking"
+                                class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition"
+                                @click="checkApiCredit"
+                            >
+                                <ArrowPathIcon :class="['size-4', apiChecking && 'animate-spin']" aria-hidden="true" />
+                                {{ apiChecking ? 'Verifica in corso…' : 'Verifica credito API' }}
+                            </button>
+
+                            <!-- Risultato check -->
+                            <div v-if="apiCheckResult" class="rounded-lg border p-4 space-y-3" :class="{
+                                'border-green-200 dark:border-green-700 bg-green-50 dark:bg-green-900/20': apiCheckResult.status === 'ok',
+                                'border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20': apiCheckResult.status === 'warning',
+                                'border-red-200 dark:border-red-700 bg-red-50 dark:bg-red-900/20': apiCheckResult.status === 'error',
+                            }">
+                                <div class="flex items-center gap-2 text-sm font-medium" :class="{
+                                    'text-green-700 dark:text-green-300': apiCheckResult.status === 'ok',
+                                    'text-amber-700 dark:text-amber-300': apiCheckResult.status === 'warning',
+                                    'text-red-700 dark:text-red-300': apiCheckResult.status === 'error',
+                                }">
+                                    <CheckIcon v-if="apiCheckResult.status === 'ok'" class="size-5" aria-hidden="true" />
+                                    <ExclamationTriangleIcon v-else class="size-5" aria-hidden="true" />
+                                    {{ apiCheckResult.message }}
+                                </div>
+                                <div v-if="apiCheckResult.usage" class="grid grid-cols-3 gap-4 text-center">
+                                    <div class="bg-white dark:bg-gray-800 rounded-md p-3">
+                                        <div class="text-2xl font-bold text-gray-800 dark:text-gray-200">{{ apiCheckResult.usage.used }}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">Usate oggi</div>
+                                    </div>
+                                    <div class="bg-white dark:bg-gray-800 rounded-md p-3">
+                                        <div class="text-2xl font-bold" :class="{
+                                            'text-green-600 dark:text-green-400': apiCheckResult.usage.status === 'ok',
+                                            'text-amber-600 dark:text-amber-400': apiCheckResult.usage.status === 'warning',
+                                            'text-red-600 dark:text-red-400': apiCheckResult.usage.status === 'blocked',
+                                        }">{{ apiCheckResult.usage.remaining }}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">Residue</div>
+                                    </div>
+                                    <div class="bg-white dark:bg-gray-800 rounded-md p-3">
+                                        <div class="text-2xl font-bold text-gray-800 dark:text-gray-200">{{ apiCheckResult.usage.limit }}</div>
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">Limite giornaliero</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-3 text-xs text-blue-700 dark:text-blue-300">
+                            <strong>Nota:</strong> Il contatore si azzera ogni giorno a mezzanotte (fuso Europe/Rome).
+                            Il token è usato esclusivamente dal backend e non viene mai trasmesso al browser.
+                            Per recuperare i dati aziendali vai nella pagina <strong>Anagrafica</strong>.
                         </div>
                     </div>
 

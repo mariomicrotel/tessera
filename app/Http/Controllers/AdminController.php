@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\OpenApiCompanyException;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Onboarding\AmbitiInteresseGenerale;
 use App\Services\Onboarding\TipologiaAziendaCatalog;
+use App\Services\OpenApiCompanyClient;
+use App\Services\CompanyEnrichmentService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Str;
@@ -476,6 +480,42 @@ class AdminController extends Controller
     /**
      * Verifica che l'utente sia super admin.
      */
+    /**
+     * Enrichment API per il wizard (senza contesto tenant).
+     */
+    public function companyEnrichment(Request $request, OpenApiCompanyClient $client): JsonResponse
+    {
+        $this->authorizeSuperAdmin();
+
+        $request->validate([
+            'identifier' => 'required|string|min:6|max:30',
+        ]);
+
+        try {
+            $raw = $client->getItalianCompanyStart($request->input('identifier'));
+            $mapped = CompanyEnrichmentService::mapItStartToAnagrafica($raw);
+
+            return response()->json([
+                'success' => true,
+                'source' => 'api',
+                'data' => $mapped,
+            ]);
+        } catch (OpenApiCompanyException $e) {
+            $code = in_array($e->getCode(), [204, 400, 401, 402, 404, 406, 408, 417, 429]) ? $e->getCode() : 500;
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+            ], $code);
+        }
+    }
+
+    public function companyEnrichmentUsage(): JsonResponse
+    {
+        $this->authorizeSuperAdmin();
+
+        return response()->json(['status' => 'ok']);
+    }
+
     private function authorizeSuperAdmin(): void
     {
         if (! auth()->user()?->is_super_admin) {

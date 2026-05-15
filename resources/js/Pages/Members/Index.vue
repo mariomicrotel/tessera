@@ -1,5 +1,5 @@
 <script setup>
-import { PlusIcon, FunnelIcon, PencilSquareIcon, ArrowLeftIcon, ArrowRightIcon, EnvelopeIcon, CheckCircleIcon } from '@heroicons/vue/24/outline';
+import { PlusIcon, FunnelIcon, PencilSquareIcon, ArrowLeftIcon, ArrowRightIcon, EnvelopeIcon, CheckCircleIcon, IdentificationIcon } from '@heroicons/vue/24/outline';
 import { reactive, ref, computed } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -68,6 +68,14 @@ function clearSelection() {
 const search = () => {
     router.get(route('members.index'), form);
 };
+
+const stampaTessere = () => {
+    const base = route('members.tessere-pdf');
+    const params = selectedIds.value.length
+        ? '?' + selectedIds.value.map(id => `ids[]=${id}`).join('&')
+        : '';
+    window.open(base + params, '_blank');
+};
 </script>
 
 <template>
@@ -77,6 +85,10 @@ const search = () => {
             <div class="flex justify-between items-center">
                 <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Soci e volontari</h2>
                 <div class="flex items-center gap-2">
+                    <button @click="stampaTessere"
+                            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md font-semibold text-xs text-gray-700 dark:text-gray-300 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-700">
+                        <IdentificationIcon class="size-4 me-2" aria-hidden="true" />Tessere PDF
+                    </button>
                     <Link :href="route('members.create')">
                         <PrimaryButton><PlusIcon class="size-4 me-2" aria-hidden="true" />Nuovo socio</PrimaryButton>
                     </Link>
@@ -137,6 +149,11 @@ const search = () => {
                     <PrimaryButton type="button" :disabled="bulkSubmitting" @click="bulkApprove">
                         <CheckCircleIcon class="size-4 me-2" aria-hidden="true" />Approva selezionati
                     </PrimaryButton>
+                    <button type="button"
+                            @click="stampaTessere"
+                            class="inline-flex items-center gap-1 px-3 py-1.5 border border-indigo-300 dark:border-indigo-600 rounded text-sm text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-800">
+                        <IdentificationIcon class="size-4" aria-hidden="true" />Stampa tessere ({{ selectedIds.length }})
+                    </button>
                     <button type="button" class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline" @click="clearSelection">Annulla selezione</button>
                 </div>
 

@@ -33,6 +33,14 @@ const esporta = () => {
         to: to.value,
     });
 };
+
+const stampaPdf = () => {
+    window.location.href = route('reports.registro-vendite.pdf', {
+        tenant: tenant.value,
+        from: from.value,
+        to: to.value,
+    });
+};
 </script>
 
 <template>
@@ -56,6 +64,9 @@ const esporta = () => {
                     </button>
                     <button @click="esporta" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-1.5 rounded">
                         Export CSV
+                    </button>
+                    <button @click="stampaPdf" class="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded">
+                        Stampa PDF
                     </button>
                 </div>
             </div>

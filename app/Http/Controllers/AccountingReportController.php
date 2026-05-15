@@ -8,9 +8,12 @@ use App\Models\MovimentoContabile;
 use App\Models\PrestitoSocialeLibretto;
 use App\Models\PrimaNotaEntry;
 use App\Models\Ristorno;
+use App\Models\Settings;
 use App\Services\RendicontoCassaSchemaCooperativa;
 use App\Services\RendicontoCassaSchemaResolver;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -576,6 +579,46 @@ class AccountingReportController extends Controller
         ]);
     }
 
+    public function exportLibroGiornalePdf(Request $request): Response
+    {
+        [$from, $to] = $this->risolviPeriodo($request);
+
+        $movimenti = MovimentoContabile::definitivi()
+            ->perPeriodo($from, $to)
+            ->with(['righe.contoContabile:id,codice,descrizione', 'causale:id,codice,descrizione'])
+            ->orderBy('data_registrazione')
+            ->orderBy('numero')
+            ->get()
+            ->map(fn (MovimentoContabile $m) => [
+                'numero'             => $m->numero,
+                'data_registrazione' => $m->data_registrazione?->toDateString(),
+                'causale'            => $m->causale ? "{$m->causale->codice} — {$m->causale->descrizione}" : null,
+                'descrizione'        => $m->descrizione,
+                'totale_dare'        => round((float) $m->totaleDare(),  2),
+                'totale_avere'       => round((float) $m->totaleAvere(), 2),
+                'righe' => $m->righe->map(fn ($r) => [
+                    'conto'         => $r->contoContabile
+                        ? "{$r->contoContabile->codice} — {$r->contoContabile->descrizione}"
+                        : null,
+                    'descrizione'   => $r->descrizione,
+                    'importo_dare'  => round((float) $r->importo_dare,  2),
+                    'importo_avere' => round((float) $r->importo_avere, 2),
+                ]),
+            ]);
+
+        $pdf = Pdf::loadView('pdf.libro-giornale', [
+            'movimenti'        => $movimenti,
+            'totaleDare'       => round($movimenti->sum('totale_dare'),  2),
+            'totaleAvere'      => round($movimenti->sum('totale_avere'), 2),
+            'numeroMovimenti'  => $movimenti->count(),
+            'from'             => $from,
+            'to'               => $to,
+            'nomeOrganizzazione' => Settings::get('nome_associazione', config('app.name')),
+        ])->setPaper('A4', 'landscape');
+
+        return $pdf->download("libro_giornale_{$from}_{$to}.pdf");
+    }
+
     // ──────────────────────────────────────────────────────────────────────
     // Registro Vendite (IVA a debito cronologico)
     // ──────────────────────────────────────────────────────────────────────
@@ -691,6 +734,76 @@ class AccountingReportController extends Controller
             'Content-Type'        => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
+    }
+
+    public function exportRegistroVenditePdf(Request $request): Response
+    {
+        [$from, $to] = $this->risolviPeriodo($request);
+
+        $fatture = FatturaAttiva::nelPeriodo($from, $to)
+            ->whereIn('stato', [
+                FatturaAttiva::STATO_EMESSA,
+                FatturaAttiva::STATO_INVIATA_SDI,
+                FatturaAttiva::STATO_ACCETTATA,
+            ])
+            ->with(['righe.codiceIva:id,codice,descrizione,percentuale'])
+            ->orderBy('data_fattura')
+            ->orderBy('progressivo')
+            ->get()
+            ->map(fn (FatturaAttiva $f) => [
+                'numero_fattura'    => $f->numero_fattura,
+                'data_fattura'      => $f->data_fattura?->toDateString(),
+                'tipo_documento'    => $f->tipo_documento,
+                'imponibile_totale' => round((float) $f->imponibile_totale, 2),
+                'iva_totale'        => round((float) $f->iva_totale,        2),
+                'totale_documento'  => round((float) $f->totale_documento,  2),
+                'aliquote'          => $f->righe
+                    ->groupBy(fn ($r) => $r->codiceIva?->codice ?? 'N/D')
+                    ->map(fn ($gruppo, $codice) => [
+                        'codice'      => $codice,
+                        'descrizione' => optional($gruppo->first()->codiceIva)->descrizione,
+                        'percentuale' => (float) optional($gruppo->first()->codiceIva)->percentuale,
+                        'imponibile'  => round((float) $gruppo->sum('imponibile'), 2),
+                        'iva'         => round((float) $gruppo->sum('iva'),        2),
+                    ])
+                    ->values(),
+            ]);
+
+        $perAliquota = [];
+        foreach ($fatture as $f) {
+            foreach ($f['aliquote'] as $a) {
+                $key = $a['codice'];
+                if (! isset($perAliquota[$key])) {
+                    $perAliquota[$key] = [
+                        'codice'      => $a['codice'],
+                        'descrizione' => $a['descrizione'],
+                        'percentuale' => $a['percentuale'],
+                        'imponibile'  => 0.0,
+                        'iva'         => 0.0,
+                    ];
+                }
+                $perAliquota[$key]['imponibile'] += $a['imponibile'];
+                $perAliquota[$key]['iva']        += $a['iva'];
+            }
+        }
+        foreach ($perAliquota as &$row) {
+            $row['imponibile'] = round($row['imponibile'], 2);
+            $row['iva']        = round($row['iva'],        2);
+        }
+
+        $pdf = Pdf::loadView('pdf.registro-vendite', [
+            'fatture'           => $fatture,
+            'totaleImponibile'  => round($fatture->sum('imponibile_totale'), 2),
+            'totaleIva'         => round($fatture->sum('iva_totale'),        2),
+            'totaleDocumenti'   => round($fatture->sum('totale_documento'),  2),
+            'numeroFatture'     => $fatture->count(),
+            'perAliquota'       => array_values($perAliquota),
+            'from'              => $from,
+            'to'                => $to,
+            'nomeOrganizzazione' => Settings::get('nome_associazione', config('app.name')),
+        ])->setPaper('A4', 'portrait');
+
+        return $pdf->download("registro_vendite_{$from}_{$to}.pdf");
     }
 
     /**

@@ -3,6 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    extra_hosts:
+      - "company.openapi.com:34.120.218.76"
+      - "test.company.openapi.com:34.120.218.76"
     ports:
       - "8090:8000"
     volumes:
@@ -20,7 +26,6 @@ services:
     command: >
       sh -c "
         composer install --no-interaction --prefer-dist &&
-        php artisan key:generate --force &&
         php artisan migrate --force &&
         npm install &&
         npm run build &&

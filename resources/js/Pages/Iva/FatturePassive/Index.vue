@@ -5,10 +5,12 @@ import {
     ArrowLeftIcon,
     ArrowRightIcon,
     DocumentTextIcon,
+    ArrowUpTrayIcon,
 } from '@heroicons/vue/24/outline';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import SecondaryButton from '@/Components/SecondaryButton.vue';
 import { ref, watch } from 'vue';
 
 const props = defineProps({
@@ -65,11 +67,18 @@ const fmtDate = (d) => d ? new Date(d).toLocaleDateString('it-IT') : '—';
                     </h2>
                     <span class="ml-1 text-sm text-gray-500 dark:text-gray-400">({{ fatture.total }} totali)</span>
                 </div>
-                <Link :href="route('iva.fatture-passive.create')">
-                    <PrimaryButton>
-                        <PlusIcon class="size-4 me-2" aria-hidden="true" />Nuova fattura
-                    </PrimaryButton>
-                </Link>
+                <div class="flex gap-2">
+                    <Link :href="route('iva.fatture-passive.xml-import')">
+                        <SecondaryButton>
+                            <ArrowUpTrayIcon class="size-4 me-2" aria-hidden="true" />Importa XML
+                        </SecondaryButton>
+                    </Link>
+                    <Link :href="route('iva.fatture-passive.create')">
+                        <PrimaryButton>
+                            <PlusIcon class="size-4 me-2" aria-hidden="true" />Nuova fattura
+                        </PrimaryButton>
+                    </Link>
+                </div>
             </div>
         </template>
 

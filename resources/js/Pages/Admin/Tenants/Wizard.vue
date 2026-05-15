@@ -1,7 +1,7 @@
 <script setup>
 import AdminLayout from '@/Layouts/AdminLayout.vue';
 import { Link, router, useForm } from '@inertiajs/vue3';
-import { computed, ref, watch } from 'vue';
+import { computed, ref, watch, onMounted } from 'vue';
 
 const props = defineProps({
     tenant:           Object,
@@ -233,6 +233,83 @@ const patrimonioMinimo = computed(() => {
     if (isEtsForma.value) return 15000;
     return 0;
 });
+
+// ─── Arricchimento anagrafico (OpenAPI Company) ──────────────────────
+const enrichIdentifier = ref('');
+const enrichLoading = ref(false);
+const enrichError = ref('');
+const enrichData = ref(null);
+
+const enrichFieldMapping = {
+    partita_iva:     { label: 'Partita IVA',     formKey: 'partita_iva' },
+    codice_fiscale:  { label: 'Codice Fiscale',  formKey: 'codice_fiscale' },
+    indirizzo:       { label: 'Indirizzo',        formKey: 'indirizzo' },
+    comune:          { label: 'Città',            formKey: 'citta' },
+    provincia:       { label: 'Provincia',        formKey: 'provincia' },
+    cap:             { label: 'CAP',              formKey: 'cap' },
+    nazione:         { label: 'Nazione',          formKey: 'nazione' },
+    pec:             { label: 'PEC',              formKey: 'pec' },
+};
+
+function getCsrfToken() {
+    const match = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
+async function fetchEnrichment() {
+    const id = enrichIdentifier.value.trim();
+    if (!id || id.length < 6) {
+        enrichError.value = 'Inserisci almeno 6 caratteri (P.IVA o Codice Fiscale).';
+        return;
+    }
+    enrichLoading.value = true;
+    enrichError.value = '';
+    enrichData.value = null;
+
+    try {
+        const resp = await fetch(route('admin.company-enrichment.it-start'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-XSRF-TOKEN': getCsrfToken(),
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({ identifier: id }),
+        });
+        const json = await resp.json();
+        if (!resp.ok || !json.success) {
+            enrichError.value = json.error || `Errore ${resp.status}`;
+            return;
+        }
+        enrichData.value = json.data;
+    } catch (e) {
+        enrichError.value = 'Errore di connessione: ' + e.message;
+    } finally {
+        enrichLoading.value = false;
+    }
+}
+
+function applyEnrichment() {
+    if (!enrichData.value) return;
+    const d = enrichData.value;
+    for (const [apiKey, mapping] of Object.entries(enrichFieldMapping)) {
+        if (d[apiKey]) {
+            form[mapping.formKey] = d[apiKey];
+        }
+    }
+    if (d.ragione_sociale && !props.tenant.name) {
+        // ragione_sociale not editable in wizard form, but useful as info
+    }
+}
+
+function hasEnrichConflict(apiKey) {
+    if (!enrichData.value?.[apiKey]) return false;
+    const mapping = enrichFieldMapping[apiKey];
+    if (!mapping) return false;
+    const current = form[mapping.formKey];
+    return current && current !== enrichData.value[apiKey];
+}
 </script>
 
 <template>
@@ -420,6 +497,60 @@ const patrimonioMinimo = computed(() => {
                         Campi obbligatori per questa forma: {{ campiObbligatori.map(c => campoLabels[c] || c).join(', ') }}.
                     </span>
                 </p>
+
+                <!-- Arricchimento anagrafico da OpenAPI Company -->
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <h3 class="text-sm font-bold text-blue-800 uppercase tracking-wide mb-3">Compilazione automatica da P.IVA / Codice Fiscale</h3>
+                    <div class="flex gap-2">
+                        <input
+                            v-model="enrichIdentifier"
+                            type="text"
+                            placeholder="Inserisci P.IVA o Codice Fiscale"
+                            class="flex-1 rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm"
+                            @keyup.enter="fetchEnrichment"
+                        />
+                        <button
+                            type="button"
+                            @click="fetchEnrichment"
+                            :disabled="enrichLoading"
+                            class="inline-flex items-center gap-1 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            <svg v-if="enrichLoading" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                            <span>{{ enrichLoading ? 'Ricerca...' : 'Cerca' }}</span>
+                        </button>
+                    </div>
+
+                    <div v-if="enrichError" class="mt-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded p-2">
+                        {{ enrichError }}
+                    </div>
+
+                    <div v-if="enrichData" class="mt-4">
+                        <div class="bg-white border border-blue-100 rounded-lg p-3">
+                            <div class="flex items-center justify-between mb-3">
+                                <span class="text-sm font-semibold text-gray-800">Dati trovati</span>
+                                <span v-if="enrichData.ragione_sociale" class="text-xs text-gray-500">{{ enrichData.ragione_sociale }}</span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                <template v-for="(mapping, apiKey) in enrichFieldMapping" :key="apiKey">
+                                    <div v-if="enrichData[apiKey]" class="flex items-center gap-2">
+                                        <span class="text-gray-500 w-24 flex-shrink-0">{{ mapping.label }}:</span>
+                                        <span class="font-mono text-gray-800">{{ enrichData[apiKey] }}</span>
+                                        <span v-if="hasEnrichConflict(apiKey)" class="text-xs bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">diverso</span>
+                                    </div>
+                                </template>
+                            </div>
+                            <div class="mt-3 flex gap-2">
+                                <button
+                                    type="button"
+                                    @click="applyEnrichment"
+                                    class="px-3 py-1.5 bg-green-600 text-white text-sm font-medium rounded-md hover:bg-green-700"
+                                >
+                                    Applica dati
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>

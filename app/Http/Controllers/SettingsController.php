@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Attachment;
 use App\Models\Settings;
+use App\Services\ApiUsageCounterService;
 use App\Services\AttachmentService;
 use Carbon\Carbon;
 use App\Support\PdfLetterheadData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
 use Inertia\Inertia;
 
@@ -85,6 +87,10 @@ class SettingsController extends Controller
             'causale_default_quota' => Settings::get('causale_default_quota', 'Quota associativa'),
             'causale_default_rimborso' => Settings::get('causale_default_rimborso', 'Rimborso spese'),
             'informativa_privacy_domanda_ammissione' => Settings::get('informativa_privacy_domanda_ammissione', ''),
+            'tessera_colore' => Settings::get('tessera_colore', '#1e40af'),
+            'codice_sia' => Settings::get('codice_sia', ''),
+            'cab_banca' => Settings::get('cab_banca', ''),
+            'cc_banca' => Settings::get('cc_banca', ''),
             'logo' => $logo,
             'mailConfig' => [
                 'mailer' => config('mail.default'),
@@ -95,6 +101,9 @@ class SettingsController extends Controller
                 'from_address' => config('mail.from.address'),
                 'from_name' => config('mail.from.name'),
             ],
+            // OpenAPI Company
+            'openapi_company_token_set' => (bool) Settings::get('openapi_company_token', ''),
+            'openapi_company_daily_limit' => (int) Settings::get('openapi_company_daily_limit', config('openapi_company.daily_limit', 100)),
         ]);
     }
 
@@ -127,6 +136,10 @@ class SettingsController extends Controller
             'site_chi_siamo_text' => 'nullable|string|max:5000',
             'site_footer_text' => 'nullable|string|max:2000',
             'informativa_privacy_domanda_ammissione' => 'nullable|string|max:10000',
+            'tessera_colore' => 'nullable|string|max:20',
+            'codice_sia' => 'nullable|string|max:5',
+            'cab_banca' => 'nullable|string|max:5',
+            'cc_banca' => 'nullable|string|max:12',
         ];
         if ($tenant?->isCooperativa()) {
             $rules['quota_valore_unitario_coop']       = 'nullable|numeric|min:0.01';
@@ -166,6 +179,10 @@ class SettingsController extends Controller
         Settings::set('site_chi_siamo_text', $request->input('site_chi_siamo_text', ''));
         Settings::set('site_footer_text', $request->input('site_footer_text', ''));
         Settings::set('informativa_privacy_domanda_ammissione', $request->input('informativa_privacy_domanda_ammissione', ''));
+        Settings::set('tessera_colore', $request->input('tessera_colore', '#1e40af'));
+        Settings::set('codice_sia', $request->input('codice_sia', ''));
+        Settings::set('cab_banca', $request->input('cab_banca', ''));
+        Settings::set('cc_banca', $request->input('cc_banca', ''));
         if ($tenant?->isCooperativa()) {
             Settings::set('quota_valore_unitario_coop',       $request->input('quota_valore_unitario_coop', 50));
             Settings::set('quota_minima_quote_coop',          $request->input('quota_minima_quote_coop', 1));
@@ -291,6 +308,83 @@ class SettingsController extends Controller
             'letterheadData' => $letterheadData,
         ]);
         return $pdf->stream('anteprima-carta-intestata.pdf');
+    }
+
+    /**
+     * Salva configurazione OpenAPI Company (token + limite giornaliero).
+     */
+    public function updateApiConfig(Request $request)
+    {
+        $request->validate([
+            'openapi_company_token' => 'nullable|string|max:500',
+            'openapi_company_daily_limit' => 'required|integer|min:1|max:10000',
+        ]);
+
+        $token = $request->input('openapi_company_token', '');
+        if ($token !== '' && $token !== '••••••••') {
+            Settings::set('openapi_company_token', Crypt::encryptString($token));
+        }
+        if ($token === '') {
+            Settings::set('openapi_company_token', '');
+        }
+
+        Settings::set('openapi_company_daily_limit', $request->input('openapi_company_daily_limit', 100));
+
+        return redirect()->route('settings.index')
+            ->with('flash', ['type' => 'success', 'message' => 'Configurazione API aggiornata.']);
+    }
+
+    /**
+     * Verifica credito/connessione OpenAPI Company (chiamata AJAX).
+     */
+    public function checkApiCredit(ApiUsageCounterService $counter)
+    {
+        $encToken = Settings::get('openapi_company_token', '');
+        if (! $encToken) {
+            return response()->json(['status' => 'error', 'message' => 'Token non configurato.']);
+        }
+
+        try {
+            $token = Crypt::decryptString($encToken);
+        } catch (\Throwable $e) {
+            return response()->json(['status' => 'error', 'message' => 'Token non decrittabile — reinserirlo.']);
+        }
+
+        $usage = $counter->getUsage('openapi', 'IT-start');
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::withToken($token)
+                ->accept('application/json')
+                ->timeout(10)
+                ->get(config('openapi_company.base_url') . '/IT-start/00000000000');
+
+            $httpStatus = $response->status();
+            $tokenValid = in_array($httpStatus, [200, 204, 400, 404]);
+
+            if ($tokenValid) {
+                $status = 'ok';
+                $message = 'Connessione OK — token valido.';
+            } elseif (in_array($httpStatus, [401, 403])) {
+                $status = 'error';
+                $message = 'Connessione OK ma token non valido o non autorizzato (HTTP ' . $httpStatus . ').';
+            } else {
+                $status = 'warning';
+                $message = "Risposta HTTP {$httpStatus} — verificare il token.";
+            }
+
+            return response()->json([
+                'status' => $status,
+                'message' => $message,
+                'http_status' => $httpStatus,
+                'usage' => $usage,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Errore di connessione: ' . class_basename($e) . ' — ' . $e->getMessage(),
+                'usage' => $usage,
+            ]);
+        }
     }
 
     /**

@@ -24,7 +24,11 @@ class UserController extends Controller
 
     public function index(Request $request)
     {
-        $query = User::query()->with(['roles', 'member']);
+        $tenant = app('current_tenant');
+
+        $query = User::query()
+            ->with(['roles', 'member'])
+            ->whereHas('tenants', fn ($q) => $q->where('tenants.id', $tenant->id));
 
         if ($request->filled('search')) {
             $q = $request->search;
@@ -64,6 +68,7 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
+        $tenant = app('current_tenant');
         $validIds = Role::pluck('id')->toArray();
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
@@ -83,6 +88,8 @@ class UserController extends Controller
             'password' => $password,
         ]);
 
+        // Collega l'utente al tenant corrente
+        $user->tenants()->syncWithoutDetaching([$tenant->id]);
         $user->roles()->sync($request->input('role_ids', []));
 
         $message = 'Utente creato.';
@@ -101,6 +108,8 @@ class UserController extends Controller
 
     public function updateRoles(Request $request, User $user)
     {
+        $this->abortIfNotInTenant($user);
+
         $validIds = Role::pluck('id')->toArray();
         $request->validate([
             'role_ids' => 'nullable|array',
@@ -115,6 +124,8 @@ class UserController extends Controller
 
     public function linkMember(Request $request, User $user)
     {
+        $this->abortIfNotInTenant($user);
+
         $memberId = $request->input('member_id');
 
         if ($memberId === null || $memberId === '') {
@@ -183,6 +194,8 @@ class UserController extends Controller
      */
     public function sendPasswordResetLink(User $user)
     {
+        $this->abortIfNotInTenant($user);
+
         try {
             $status = Password::sendResetLink(['email' => $user->email]);
             if ($status === Password::RESET_LINK_SENT) {
@@ -201,11 +214,21 @@ class UserController extends Controller
         }
     }
 
+    private function abortIfNotInTenant(User $user): void
+    {
+        $tenant = app('current_tenant');
+        if (! $user->tenants()->where('tenants.id', $tenant->id)->exists()) {
+            abort(403, 'Accesso non consentito: utente non appartiene a questo tenant.');
+        }
+    }
+
     /**
      * Elimina l'utente. Il socio eventualmente collegato non viene eliminato (viene solo scollegato).
      */
     public function destroy(Request $request, User $user)
     {
+        $this->abortIfNotInTenant($user);
+
         if ($user->id === $request->user()->id) {
             return redirect()->route('users.index')
                 ->with('flash', ['type' => 'error', 'message' => 'Non puoi eliminare il tuo account da qui.']);

@@ -27,6 +27,9 @@ import {
     ArrowRightOnRectangleIcon,
     UsersIcon,
     TableCellsIcon,
+    MagnifyingGlassIcon,
+    ArrowUpTrayIcon,
+    CurrencyEuroIcon,
 } from '@heroicons/vue/24/outline';
 import ApplicationMark from '@/Components/ApplicationMark.vue';
 import Banner from '@/Components/Banner.vue';
@@ -81,6 +84,9 @@ const openSections = ref({
     iva: false,
     cooperativa: false,
     adempimenti: false,
+    banking: false,
+    ets: false,
+    anagrafica: false,
     team: false,
 });
 
@@ -92,9 +98,12 @@ function sectionForRoute(name) {
     if (name.startsWith('organi.') || name.startsWith('elezioni.')) return 'organiVotazioni';
     if (name.startsWith('events.') || name.startsWith('properties.') || name.startsWith('items.') || name.startsWith('locations.') || name.startsWith('warehouses.')) return 'patrimonio';
     if (name.startsWith('cespiti.')) return 'cespiti';
-    if (name.startsWith('conti.') || name.startsWith('prima-nota.') || name === 'reports.accounting' || name === 'reports.rendiconto-cassa' || name.startsWith('scadenze.') || name.startsWith('esercizi.') || name.startsWith('ratei-risconti.') || name.startsWith('centri-di-costo.') || name.startsWith('bilancio.') || name.startsWith('relazione-missione.') || name.startsWith('erogazioni-liberali.') || name === 'reports.libro-giornale' || name === 'reports.registro-vendite' || name === 'reports.conto-economico') return 'contabilita';
+    if (name.startsWith('conti.') || name.startsWith('prima-nota.') || name === 'reports.accounting' || name === 'reports.rendiconto-cassa' || name.startsWith('scadenze.') || name.startsWith('scadenzario.') || name.startsWith('esercizi.') || name.startsWith('ratei-risconti.') || name.startsWith('centri-di-costo.') || name.startsWith('bilancio.') || name.startsWith('relazione-missione.') || name.startsWith('erogazioni-liberali.') || name === 'reports.libro-giornale' || name === 'reports.registro-vendite' || name === 'reports.conto-economico') return 'contabilita';
     if (name.startsWith('iva.') || name.startsWith('suppliers.')) return 'iva';
     if (name.startsWith('compensi-terzi.') || name.startsWith('f24.')) return 'adempimenti';
+    if (name.startsWith('riba.') || name.startsWith('riconciliazione.')) return 'banking';
+    if (name.startsWith('ets.')) return 'ets';
+    if (name.startsWith('anagrafica.') || name.startsWith('company-enrichment.')) return 'anagrafica';
     if (name.startsWith('capitale-sociale.') || name.startsWith('prestito-sociale.') || name.startsWith('ristorni.') || name === 'reports.situazione-capitale' || name === 'reports.conto-economico-coop') return 'cooperativa';
     if (name.startsWith('teams.')) return 'team';
     if (name === 'profile.show' || name.startsWith('api-tokens.')) return 'utente';
@@ -588,6 +597,10 @@ const logout = () => {
                                     <TicketIcon class="size-4 shrink-0" aria-hidden="true" />
                                     Fatture Passive
                                 </ResponsiveNavLink>
+                                <ResponsiveNavLink :href="route('iva.fatture-passive.xml-import')" :active="route().current('iva.fatture-passive.xml-*')">
+                                    <ArrowUpTrayIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Importa XML FE
+                                </ResponsiveNavLink>
                                 <ResponsiveNavLink :href="route('suppliers.index')" :active="route().current('suppliers.*')">
                                     <UsersIcon class="size-4 shrink-0" aria-hidden="true" />
                                     Fornitori
@@ -685,10 +698,29 @@ const logout = () => {
                         <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
                         Audit Trail
                     </ResponsiveNavLink>
-                    <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('anagrafica.index')" :active="route().current('anagrafica.*')">
-                        <BuildingOffice2Icon class="size-5 shrink-0" aria-hidden="true" />
-                        Anagrafica
-                    </ResponsiveNavLink>
+                    <!-- Anagrafica ente & strumenti (mobile) -->
+                    <div v-if="$page.props.userRoles?.includes('admin')" class="pt-2">
+                        <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('anagrafica')">
+                            <BuildingOffice2Icon class="size-5 shrink-0" aria-hidden="true" />
+                            <span class="flex-1">Anagrafica</span>
+                            <ChevronDownIcon v-if="openSections.anagrafica" class="size-4 shrink-0" aria-hidden="true" />
+                            <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
+                        </button>
+                        <div v-show="openSections.anagrafica" class="space-y-0.5 ps-6">
+                            <ResponsiveNavLink :href="route('anagrafica.index')" :active="route().current('anagrafica.*')">
+                                <BuildingOffice2Icon class="size-4 shrink-0" aria-hidden="true" />
+                                Dati ente
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('company-enrichment.search-page')" :active="route().current('company-enrichment.search-page')">
+                                <MagnifyingGlassIcon class="size-4 shrink-0" aria-hidden="true" />
+                                Ricerca aziende
+                            </ResponsiveNavLink>
+                            <ResponsiveNavLink :href="route('company-enrichment.stats-page')" :active="route().current('company-enrichment.stats-page')">
+                                <CurrencyEuroIcon class="size-4 shrink-0" aria-hidden="true" />
+                                Costi API
+                            </ResponsiveNavLink>
+                        </div>
+                    </div>
                     <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('settings.index')" :active="route().current('settings.*')">
                         <Cog6ToothIcon class="size-5 shrink-0" aria-hidden="true" />
                         Impostazioni
@@ -1044,6 +1076,10 @@ const logout = () => {
                                             <TicketIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Fatture Passive
                                         </NavLink>
+                                        <NavLink :href="route('iva.fatture-passive.xml-import')" :active="route().current('iva.fatture-passive.xml-*')">
+                                            <ArrowUpTrayIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Importa XML FE
+                                        </NavLink>
                                         <NavLink :href="route('suppliers.index')" :active="route().current('suppliers.*')">
                                             <UsersIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Fornitori
@@ -1141,10 +1177,29 @@ const logout = () => {
                                     <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
                                     Audit Trail
                                 </NavLink>
-                                <NavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('anagrafica.index')" :active="route().current('anagrafica.*')">
-                                    <BuildingOffice2Icon class="size-5 shrink-0" aria-hidden="true" />
-                                    Anagrafica
-                                </NavLink>
+                                <!-- Anagrafica ente & strumenti ricerca -->
+                                <div v-if="$page.props.userRoles?.includes('admin')" class="mt-2">
+                                    <button type="button" class="block w-full flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md border-l-4 border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50" @click="toggleSection('anagrafica')">
+                                        <BuildingOffice2Icon class="size-5 shrink-0" aria-hidden="true" />
+                                        <span class="flex-1 text-start">Anagrafica</span>
+                                        <ChevronDownIcon v-if="openSections.anagrafica" class="size-4 shrink-0" aria-hidden="true" />
+                                        <ChevronRightIcon v-else class="size-4 shrink-0" aria-hidden="true" />
+                                    </button>
+                                    <div v-show="openSections.anagrafica" class="space-y-0.5 pl-4 ml-1 border-l border-gray-200 dark:border-gray-600">
+                                        <NavLink :href="route('anagrafica.index')" :active="route().current('anagrafica.*')">
+                                            <BuildingOffice2Icon class="size-4 shrink-0" aria-hidden="true" />
+                                            Dati ente
+                                        </NavLink>
+                                        <NavLink :href="route('company-enrichment.search-page')" :active="route().current('company-enrichment.search-page')">
+                                            <MagnifyingGlassIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Ricerca aziende
+                                        </NavLink>
+                                        <NavLink :href="route('company-enrichment.stats-page')" :active="route().current('company-enrichment.stats-page')">
+                                            <CurrencyEuroIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Costi API
+                                        </NavLink>
+                                    </div>
+                                </div>
                                 <NavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('settings.index')" :active="route().current('settings.*')">
                                     <Cog6ToothIcon class="size-5 shrink-0" aria-hidden="true" />
                                     Impostazioni
