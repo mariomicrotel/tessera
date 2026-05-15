@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Exceptions\OpenApiCompanyException;
+use App\Services\ApiUsageCounterService;
 use App\Services\CompanyEnrichmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -27,6 +28,24 @@ class CompanyEnrichmentController extends Controller
                 'IT-start'  => $service->getUsage('IT-start'),
             ],
         ]);
+    }
+
+    /**
+     * Pagina dashboard contatore consumo + costi.
+     */
+    public function statsPage(ApiUsageCounterService $counter): InertiaResponse
+    {
+        return Inertia::render('Anagrafica/CompanyUsageStats', [
+            'stats' => $counter->getStats('openapi'),
+        ]);
+    }
+
+    /**
+     * JSON: statistiche dettagliate (per refresh real-time via fetch).
+     */
+    public function stats(ApiUsageCounterService $counter): JsonResponse
+    {
+        return response()->json($counter->getStats('openapi'));
     }
 
     public function itStart(Request $request, CompanyEnrichmentService $service): JsonResponse

@@ -319,6 +319,8 @@ Route::middleware([
     Route::post('company-enrichment/it-search', [CompanyEnrichmentController::class, 'itSearch'])->name('company-enrichment.it-search');
     Route::get('company-enrichment/usage', [CompanyEnrichmentController::class, 'usage'])->name('company-enrichment.usage');
     Route::get('company-enrichment/search', [CompanyEnrichmentController::class, 'searchPage'])->name('company-enrichment.search-page');
+    Route::get('company-enrichment/stats', [CompanyEnrichmentController::class, 'statsPage'])->name('company-enrichment.stats-page');
+    Route::get('company-enrichment/stats.json', [CompanyEnrichmentController::class, 'stats'])->name('company-enrichment.stats');
     Route::get('settings', [SettingsController::class, 'index'])->name('settings.index');
     Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
     Route::post('settings/logo', [SettingsController::class, 'uploadLogo'])->name('settings.logo.upload');
