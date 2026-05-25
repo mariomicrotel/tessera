@@ -399,7 +399,7 @@ class ConsultantStatsService
         $nuoviMembri = DB::getSchemaBuilder()->hasTable('members')
             ? DB::table('members')
                 ->where('tenant_id', $tenantId)
-                ->whereBetween('admission_date', [$from->toDateString(), $to->toDateString()])
+                ->whereBetween('data_iscrizione', [$from->toDateString(), $to->toDateString()])
                 ->count()
             : 0;
 
