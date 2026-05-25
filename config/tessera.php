@@ -45,6 +45,10 @@ return [
         'financial_dossier'        => env('TESSERA_MODULE_FINANCIAL_DOSSIER', true),
         'donations_register'       => env('TESSERA_MODULE_DONATIONS_REGISTER', true),
 
+        // === BILANCIO ETS (output obbligatori per legge, ON di default) ===
+        // Bilancio CEE, Relazione di Missione, Erogazioni Liberali ETS
+        'ets_balance_reports'      => env('TESSERA_MODULE_ETS_BALANCE_REPORTS', true),
+
         // === DISATTIVATI: contabilità ufficiale (default OFF) ===
         'full_accounting'          => env('TESSERA_MODULE_FULL_ACCOUNTING', false),
         'double_entry_accounting'  => env('TESSERA_MODULE_DOUBLE_ENTRY_ACCOUNTING', false),
