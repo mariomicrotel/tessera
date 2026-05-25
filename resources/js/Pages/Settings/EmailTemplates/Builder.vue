@@ -6,7 +6,7 @@
       <div class="flex items-center justify-between">
         <div>
           <div class="flex items-center gap-2 text-sm text-gray-500 mb-1">
-            <Link :href="route('email-templates.index', tenant)" class="hover:text-gray-700">Email Templates</Link>
+            <Link :href="route('email-templates.index')" class="hover:text-gray-700">Email Templates</Link>
             <span>/</span>
             <span class="text-gray-900 font-medium">{{ typeLabel }}</span>
           </div>
@@ -136,8 +136,8 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { Link, useForm, usePage, router } from '@inertiajs/vue3'
+import { ref } from 'vue'
+import { Link, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import { CheckIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline'
 import axios from 'axios'
@@ -148,9 +148,6 @@ const props = defineProps({
   placeholders:    Array,
   preview_samples: Object,
 })
-
-const page   = usePage()
-const tenant = computed(() => page.props.tenant?.slug ?? page.props.auth?.tenant?.slug)
 
 const form = useForm({
   subject:   props.template?.subject   ?? '',
@@ -175,7 +172,7 @@ const schedulePreview = () => {
 const fetchPreview = async () => {
   try {
     const { data } = await axios.post(
-      route('email-templates.preview', [tenant.value, props.template.tipo]),
+      route('email-templates.preview', props.template.tipo),
       { subject: form.subject, body_html: form.body_html }
     )
     previewHtml.value    = data.body_html
@@ -236,7 +233,7 @@ const insertTag = (tag) => {
 
 // Salva
 const save = () => {
-  form.put(route('email-templates.update', [tenant.value, props.template.tipo]), {
+  form.put(route('email-templates.update', props.template.tipo), {
     onSuccess: () => showToast('Template salvato.', 'success'),
     onError:   () => showToast('Errore nel salvataggio.', 'error'),
   })
@@ -247,7 +244,7 @@ const sendTest = async () => {
   sending.value = true
   try {
     const { data } = await axios.post(
-      route('email-templates.send-test', [tenant.value, props.template.tipo]),
+      route('email-templates.send-test', props.template.tipo),
       { subject: form.subject, body_html: form.body_html }
     )
     showToast(`Email di test inviata a ${data.to}`, 'success')
