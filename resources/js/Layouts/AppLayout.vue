@@ -299,6 +299,14 @@ const logout = () => {
                         <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
                         Area Consulente
                     </ResponsiveNavLink>
+                    <!-- Adempimenti / compliance (solo consulenti) -->
+                    <ResponsiveNavLink
+                        v-if="mod('consultant_workspace') && $page.props.userRoles?.includes('consultant')"
+                        :href="route('consultant.adempimenti.dashboard')"
+                        :active="route().current('consultant.adempimenti.*')">
+                        <CalendarDaysIcon class="size-5 shrink-0" aria-hidden="true" />
+                        Adempimenti
+                    </ResponsiveNavLink>
                     <!-- Export dati (solo consulenti) -->
                     <ResponsiveNavLink
                         v-if="mod('consultant_workspace') && $page.props.userRoles?.includes('consultant')"
@@ -814,6 +822,14 @@ const logout = () => {
                                 :active="route().current('consultant.dashboard') || route().current('consultant.entities.*') || route().current('consultant.requests.*') || route().current('consultant.notes.*')">
                                 <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
                                 Area Consulente
+                            </NavLink>
+                            <!-- Adempimenti / compliance (solo consulenti) -->
+                            <NavLink
+                                v-if="mod('consultant_workspace') && $page.props.userRoles?.includes('consultant')"
+                                :href="route('consultant.adempimenti.dashboard')"
+                                :active="route().current('consultant.adempimenti.*')">
+                                <CalendarDaysIcon class="size-5 shrink-0" aria-hidden="true" />
+                                Adempimenti
                             </NavLink>
                             <!-- Export dati (solo consulenti) -->
                             <NavLink

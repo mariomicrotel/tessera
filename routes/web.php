@@ -69,6 +69,7 @@ use App\Http\Controllers\EtsStatutoController;
 use App\Http\Controllers\EtsAttoCostitutivoController;
 use App\Http\Controllers\ExcelExportController;
 use App\Http\Controllers\TesseraController;
+use App\Http\Controllers\ConsultantAdempimentoController;
 use App\Http\Controllers\ConsultantController;
 use App\Http\Controllers\ConsultantDeliveryController;
 use App\Http\Controllers\ConsultantExportController;
@@ -859,6 +860,14 @@ Route::middleware([
     Route::post('/entities/{tenantSlug}/notes', [ConsultantController::class, 'noteStore'])->name('notes.store');
     Route::put('/entities/{tenantSlug}/notes/{consultantNote}', [ConsultantController::class, 'noteUpdate'])->name('notes.update');
     Route::delete('/entities/{tenantSlug}/notes/{consultantNote}', [ConsultantController::class, 'noteDestroy'])->name('notes.destroy');
+
+    // Adempimenti fiscali (Fase 4b — checklist scadenze)
+    Route::get('/adempimenti',                                  [ConsultantAdempimentoController::class, 'dashboard'])->name('adempimenti.dashboard');
+    Route::prefix('entities/{tenantSlug}/adempimenti')->name('adempimenti.')->group(function () {
+        Route::get('/',                                          [ConsultantAdempimentoController::class, 'index'])->name('index');
+        Route::post('/generate',                                 [ConsultantAdempimentoController::class, 'generate'])->name('generate');
+        Route::put('/{itemId}',                                  [ConsultantAdempimentoController::class, 'update'])->name('update');
+    });
 
     // Consegne (Fase 4a — consulente → ente)
     Route::prefix('entities/{tenantSlug}/deliveries')->name('deliveries.')->group(function () {
