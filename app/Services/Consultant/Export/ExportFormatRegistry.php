@@ -4,7 +4,16 @@ namespace App\Services\Consultant\Export;
 
 use App\Services\Consultant\Export\Contracts\DataSource;
 use App\Services\Consultant\Export\Contracts\ExportFormat;
+use App\Services\Consultant\Export\DataSources\CespitiDataSource;
+use App\Services\Consultant\Export\DataSources\CompensiTerziDataSource;
 use App\Services\Consultant\Export\DataSources\FattureAttiveDataSource;
+use App\Services\Consultant\Export\DataSources\FatturePassiveDataSource;
+use App\Services\Consultant\Export\DataSources\FornitoriDataSource;
+use App\Services\Consultant\Export\DataSources\IncassiDataSource;
+use App\Services\Consultant\Export\DataSources\ModelliF24DataSource;
+use App\Services\Consultant\Export\DataSources\MovimentiBancariDataSource;
+use App\Services\Consultant\Export\DataSources\RimborsiSpeseDataSource;
+use App\Services\Consultant\Export\DataSources\SpeseDataSource;
 use App\Services\Consultant\Export\Formats\CsvGenericFormat;
 use InvalidArgumentException;
 
@@ -44,16 +53,15 @@ class ExportFormatRegistry
     {
         $sources = [
             new FattureAttiveDataSource(),
-            // aggiunti in Day 2:
-            // new FatturePassiveDataSource(),
-            // new IncassiDataSource(),
-            // new SpeseDataSource(),
-            // new MovimentiBancariDataSource(),
-            // new CompensiTerziDataSource(),
-            // new F24DataSource(),
-            // new ClientiDataSource(),
-            // new FornitoriDataSource(),
-            // new CespitiDataSource(),
+            new FatturePassiveDataSource(),
+            new IncassiDataSource(),
+            new SpeseDataSource(),
+            new MovimentiBancariDataSource(),
+            new CompensiTerziDataSource(),
+            new ModelliF24DataSource(),
+            new FornitoriDataSource(),
+            new CespitiDataSource(),
+            new RimborsiSpeseDataSource(),
         ];
 
         $map = [];
