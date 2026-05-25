@@ -30,6 +30,7 @@ import {
     MagnifyingGlassIcon,
     ArrowUpTrayIcon,
     CurrencyEuroIcon,
+    DocumentArrowDownIcon,
 } from '@heroicons/vue/24/outline';
 import ApplicationMark from '@/Components/ApplicationMark.vue';
 import Banner from '@/Components/Banner.vue';
@@ -293,9 +294,17 @@ const logout = () => {
                     <ResponsiveNavLink
                         v-if="mod('consultant_workspace') && $page.props.userRoles?.includes('consultant')"
                         :href="route('consultant.dashboard')"
-                        :active="route().current('consultant.*')">
+                        :active="route().current('consultant.dashboard') || route().current('consultant.entities.*') || route().current('consultant.requests.*') || route().current('consultant.notes.*')">
                         <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
                         Area Consulente
+                    </ResponsiveNavLink>
+                    <!-- Export dati (solo consulenti) -->
+                    <ResponsiveNavLink
+                        v-if="mod('consultant_workspace') && $page.props.userRoles?.includes('consultant')"
+                        :href="route('consultant.exports.index')"
+                        :active="route().current('consultant.exports.*')">
+                        <DocumentArrowDownIcon class="size-5 shrink-0" aria-hidden="true" />
+                        Export dati
                     </ResponsiveNavLink>
                     <div class="pt-4 pb-1 ps-3">
                         <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">ASSOCIAZIONE</p>
@@ -793,9 +802,17 @@ const logout = () => {
                             <NavLink
                                 v-if="mod('consultant_workspace') && $page.props.userRoles?.includes('consultant')"
                                 :href="route('consultant.dashboard')"
-                                :active="route().current('consultant.*')">
+                                :active="route().current('consultant.dashboard') || route().current('consultant.entities.*') || route().current('consultant.requests.*') || route().current('consultant.notes.*')">
                                 <ClipboardDocumentListIcon class="size-5 shrink-0" aria-hidden="true" />
                                 Area Consulente
+                            </NavLink>
+                            <!-- Export dati (solo consulenti) -->
+                            <NavLink
+                                v-if="mod('consultant_workspace') && $page.props.userRoles?.includes('consultant')"
+                                :href="route('consultant.exports.index')"
+                                :active="route().current('consultant.exports.*')">
+                                <DocumentArrowDownIcon class="size-5 shrink-0" aria-hidden="true" />
+                                Export dati
                             </NavLink>
                             <div class="pt-4 pb-1 px-3">
                                 <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">ASSOCIAZIONE</p>

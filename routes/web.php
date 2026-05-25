@@ -70,6 +70,7 @@ use App\Http\Controllers\EtsAttoCostitutivoController;
 use App\Http\Controllers\ExcelExportController;
 use App\Http\Controllers\TesseraController;
 use App\Http\Controllers\ConsultantController;
+use App\Http\Controllers\ConsultantExportController;
 use App\Http\Controllers\AdminConsultantController;
 use App\Http\Controllers\AdministrativeMovementController;
 use Illuminate\Support\Facades\Route;
@@ -837,4 +838,18 @@ Route::middleware([
     Route::post('/entities/{tenantSlug}/notes', [ConsultantController::class, 'noteStore'])->name('notes.store');
     Route::put('/entities/{tenantSlug}/notes/{consultantNote}', [ConsultantController::class, 'noteUpdate'])->name('notes.update');
     Route::delete('/entities/{tenantSlug}/notes/{consultantNote}', [ConsultantController::class, 'noteDestroy'])->name('notes.destroy');
+
+    // Export strutturati (Fase 3)
+    Route::prefix('exports')->name('exports.')->group(function () {
+        Route::get('/',                  [ConsultantExportController::class, 'index'])->name('index');
+        Route::get('/create',            [ConsultantExportController::class, 'create'])->name('create');
+        Route::post('/',                 [ConsultantExportController::class, 'store'])->name('store');
+        Route::get('/{bundleId}',        [ConsultantExportController::class, 'show'])->name('show');
+        Route::post('/{bundleId}/cancel',[ConsultantExportController::class, 'cancel'])->name('cancel');
+        Route::delete('/{bundleId}',     [ConsultantExportController::class, 'destroy'])->name('destroy');
+        // Route signed (firma temporanea 1h dal pulsante "Scarica")
+        Route::get('/{bundle}/download', [ConsultantExportController::class, 'download'])
+            ->middleware('signed')
+            ->name('download');
+    });
 });
