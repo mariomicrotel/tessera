@@ -53,8 +53,10 @@ const tenant = computed(() => page.props.currentTenant?.slug);
 // Tessera feature flags (condivisi via HandleInertiaRequests.share)
 const modules = computed(() => page.props.tessera_modules ?? {});
 const mod = (name) => Boolean(modules.value[name]);
-// Sezione "Bilancio ETS" — output obbligatori per legge (Bilancio CEE, Rel. Missione, Erogazioni)
-const showBilancioEtsSection = computed(() => mod('ets_balance_reports'));
+// Sezione "Bilancio ETS" — output obbligatori per legge (solo ETS, non coop)
+// Le cooperative usano il Bilancio CEE dalla sezione Cooperativa
+const isCoop = computed(() => Boolean(page.props.is_cooperativa));
+const showBilancioEtsSection = computed(() => mod('ets_balance_reports') && !isCoop.value);
 // Sezione "Contabilità" — visibile solo se almeno un flag contabile è ON (legacy / power user)
 const showContabilitaSection = computed(() =>
     mod('double_entry_accounting') ||
@@ -99,7 +101,7 @@ function sectionForRoute(name) {
     if (name.startsWith('documents.') || name.startsWith('verbali.') || name.startsWith('templates.') || name.startsWith('email-templates.') || name.startsWith('receipt-templates.')) return 'documenti';
     if (name.startsWith('organi.') || name.startsWith('elezioni.')) return 'organiVotazioni';
     if (name.startsWith('events.') || name.startsWith('properties.') || name.startsWith('items.') || name.startsWith('locations.') || name.startsWith('warehouses.') || name.startsWith('cespiti.')) return 'patrimonio';
-    if (name.startsWith('bilancio.') || name.startsWith('relazione-missione.') || name.startsWith('erogazioni-liberali.')) return 'bilancioEts';
+    if (name.startsWith('bilancio.') || name.startsWith('relazione-missione.') || name.startsWith('erogazioni-liberali.')) return page.props.is_cooperativa ? 'cooperativa' : 'bilancioEts';
     if (name.startsWith('conti.') || name.startsWith('prima-nota.') || name === 'reports.accounting' || name === 'reports.rendiconto-cassa' || name.startsWith('scadenze.') || name.startsWith('esercizi.') || name.startsWith('ratei-risconti.') || name.startsWith('centri-di-costo.') || name === 'reports.libro-giornale' || name === 'reports.registro-vendite' || name === 'reports.conto-economico') return 'contabilita';
     if (name.startsWith('iva.') || name.startsWith('suppliers.')) return 'iva';
     if (name.startsWith('compensi-terzi.') || name.startsWith('f24.')) return 'adempimenti';
@@ -532,9 +534,16 @@ const logout = () => {
                                 <BanknotesIcon class="size-4 shrink-0" aria-hidden="true" />
                                 Conto Economico Coop
                             </ResponsiveNavLink>
+                            <template v-if="mod('ets_balance_reports')">
+                                <div class="my-1 border-t border-purple-100 dark:border-purple-800"></div>
+                                <ResponsiveNavLink :href="route('bilancio.cee.index')" :active="route().current('bilancio.cee.*')">
+                                    <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Bilancio CEE
+                                </ResponsiveNavLink>
+                            </template>
                         </div>
                     </div>
-                    <div class="pt-4 pb-1 ps-3">
+                    <div v-if="!$page.props.is_cooperativa" class="pt-4 pb-1 ps-3">
                         <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">BILANCIO ETS</p>
                     </div>
                     <!-- Bilancio ETS (mobile) — output obbligatori per legge: Bilancio CEE, Rel. Missione, Erogazioni -->
@@ -550,11 +559,11 @@ const logout = () => {
                                 <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
                                 Bilancio CEE
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink v-if="!$page.props.is_cooperativa" :href="route('relazione-missione.index')" :active="route().current('relazione-missione.*')">
+                            <ResponsiveNavLink :href="route('relazione-missione.index')" :active="route().current('relazione-missione.*')">
                                 <ClipboardDocumentListIcon class="size-4 shrink-0" aria-hidden="true" />
                                 Relazione di Missione
                             </ResponsiveNavLink>
-                            <ResponsiveNavLink v-if="!$page.props.is_cooperativa" :href="route('erogazioni-liberali.index')" :active="route().current('erogazioni-liberali.*')">
+                            <ResponsiveNavLink :href="route('erogazioni-liberali.index')" :active="route().current('erogazioni-liberali.*')">
                                 <BanknotesIcon class="size-4 shrink-0" aria-hidden="true" />
                                 Erogazioni Liberali ETS
                             </ResponsiveNavLink>
@@ -1030,9 +1039,16 @@ const logout = () => {
                                             <BanknotesIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Conto Economico Coop
                                         </NavLink>
+                                        <template v-if="mod('ets_balance_reports')">
+                                            <div class="my-1 border-t border-purple-100 dark:border-purple-800"></div>
+                                            <NavLink :href="route('bilancio.cee.index')" :active="route().current('bilancio.cee.*')">
+                                                <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
+                                                Bilancio CEE
+                                            </NavLink>
+                                        </template>
                                     </div>
                                 </div>
-                                <div class="pt-4 pb-1 px-3">
+                                <div v-if="!$page.props.is_cooperativa" class="pt-4 pb-1 px-3">
                                     <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">BILANCIO ETS</p>
                                 </div>
                                 <!-- Bilancio ETS (desktop) — output obbligatori per legge -->
@@ -1048,11 +1064,11 @@ const logout = () => {
                                             <ChartBarIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Bilancio CEE
                                         </NavLink>
-                                        <NavLink v-if="!$page.props.is_cooperativa" :href="route('relazione-missione.index')" :active="route().current('relazione-missione.*')">
+                                        <NavLink :href="route('relazione-missione.index')" :active="route().current('relazione-missione.*')">
                                             <ClipboardDocumentListIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Relazione di Missione
                                         </NavLink>
-                                        <NavLink v-if="!$page.props.is_cooperativa" :href="route('erogazioni-liberali.index')" :active="route().current('erogazioni-liberali.*')">
+                                        <NavLink :href="route('erogazioni-liberali.index')" :active="route().current('erogazioni-liberali.*')">
                                             <BanknotesIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Erogazioni Liberali ETS
                                         </NavLink>
