@@ -210,6 +210,89 @@ class ConsultantAdempimentoController extends Controller
     }
 
     /**
+     * Vista calendario mensile cross-tenant delle scadenze.
+     *
+     * Mostra tutti gli adempimenti del consulente (su tutti gli enti
+     * assegnati) raggruppati per data nel mese richiesto. La griglia è
+     * costruita lato Vue: qui ritorniamo solo i dati piatti per (anno, mese).
+     */
+    public function calendar(Request $request)
+    {
+        $userId = Auth::id();
+        $anno   = (int) $request->input('anno', now()->year);
+        $mese   = (int) $request->input('mese', now()->month);
+
+        // Validazione range
+        $anno = max(2020, min(2050, $anno));
+        $mese = max(1, min(12, $mese));
+
+        $start = \Illuminate\Support\Carbon::create($anno, $mese, 1)->startOfMonth();
+        $end   = $start->copy()->endOfMonth();
+
+        // Tenant assegnati attivi
+        $tenantIds = ConsultantAssignment::query()
+            ->where('consultant_user_id', $userId)
+            ->where('active', true)
+            ->pluck('tenant_id');
+
+        // Item con scadenza nel mese
+        $items = AdempimentoItem::query()
+            ->whereIn('tenant_id', $tenantIds)
+            ->whereBetween('data_scadenza', [$start->toDateString(), $end->toDateString()])
+            ->with('template:id,codice,nome,priorita,categoria', 'tenant:id,name,slug')
+            ->orderBy('data_scadenza')
+            ->orderByRaw("FIELD(stato, 'da_fare','in_lavorazione','consegnato','completato','non_applicabile')")
+            ->get();
+
+        // Items in scadenza/scaduti FUORI dal mese (per banner riepilogo)
+        $scaduti = AdempimentoItem::query()
+            ->whereIn('tenant_id', $tenantIds)
+            ->whereIn('stato', [AdempimentoItem::STATO_DA_FARE, AdempimentoItem::STATO_IN_LAVORAZIONE])
+            ->where('data_scadenza', '<', now()->toDateString())
+            ->count();
+
+        // Raggruppa per data (key = 'YYYY-MM-DD')
+        $itemsByDate = [];
+        foreach ($items as $it) {
+            $key = $it->data_scadenza->toDateString();
+            $itemsByDate[$key][] = [
+                'id'              => $it->id,
+                'tenant'          => ['id' => $it->tenant?->id, 'name' => $it->tenant?->name, 'slug' => $it->tenant?->slug],
+                'template_codice' => $it->template?->codice,
+                'template_nome'   => $it->template?->nome,
+                'categoria'       => $it->template?->categoria,
+                'priorita'        => $it->template?->priorita,
+                'periodo'         => $it->periodo,
+                'stato'           => $it->stato,
+                'stato_label'     => $it->statoLabel(),
+                'stato_badge_color' => $it->statoBadgeColor(),
+                'is_scaduto'      => $it->isScaduto(),
+            ];
+        }
+
+        return Inertia::render('Consultant/Adempimenti/Calendar', [
+            'anno'           => $anno,
+            'mese'           => $mese,
+            'anni_disponibili' => range($anno - 1, $anno + 1),
+            // Per il navigatore prev/next del componente
+            'prev' => [
+                'anno' => $mese === 1 ? $anno - 1 : $anno,
+                'mese' => $mese === 1 ? 12 : $mese - 1,
+            ],
+            'next' => [
+                'anno' => $mese === 12 ? $anno + 1 : $anno,
+                'mese' => $mese === 12 ? 1 : $mese + 1,
+            ],
+            // Metadati mese per costruzione griglia lato client
+            'days_in_month' => $start->daysInMonth,
+            'first_day_dow' => (int) $start->dayOfWeekIso, // 1=Lun, 7=Dom (ISO)
+            'items_by_date' => $itemsByDate,
+            'totale_items'  => $items->count(),
+            'scaduti_totali' => $scaduti,
+        ]);
+    }
+
+    /**
      * Aggiorna singolo item.
      */
     public function update(Request $request, string $tenantSlug, int $itemId)

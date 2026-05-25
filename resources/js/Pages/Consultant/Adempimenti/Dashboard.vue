@@ -3,7 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import {
     CalendarDaysIcon, CheckCircleIcon, ExclamationTriangleIcon,
-    ArrowTopRightOnSquareIcon, BuildingOffice2Icon,
+    ArrowTopRightOnSquareIcon, BuildingOffice2Icon, CalendarIcon,
 } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -41,10 +41,16 @@ const PRIORITA_COLOR = {
                         Stato di tutti gli adempimenti fiscali per i tuoi enti — anno {{ anno }}.
                     </p>
                 </div>
-                <select :value="anno" @change="cambiaAnno($event.target.value)"
-                    class="text-sm rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
-                    <option v-for="a in anni_disponibili" :key="a" :value="a">Anno {{ a }}</option>
-                </select>
+                <div class="flex items-center gap-2">
+                    <Link :href="route('consultant.adempimenti.calendar')"
+                        class="text-xs px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-1.5">
+                        <CalendarIcon class="size-4" /> Calendario
+                    </Link>
+                    <select :value="anno" @change="cambiaAnno($event.target.value)"
+                        class="text-sm rounded-lg border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700">
+                        <option v-for="a in anni_disponibili" :key="a" :value="a">Anno {{ a }}</option>
+                    </select>
+                </div>
             </div>
         </template>
 

@@ -863,6 +863,7 @@ Route::middleware([
 
     // Adempimenti fiscali (Fase 4b — checklist scadenze)
     Route::get('/adempimenti',                                  [ConsultantAdempimentoController::class, 'dashboard'])->name('adempimenti.dashboard');
+    Route::get('/adempimenti/calendar',                         [ConsultantAdempimentoController::class, 'calendar'])->name('adempimenti.calendar');
     Route::prefix('entities/{tenantSlug}/adempimenti')->name('adempimenti.')->group(function () {
         Route::get('/',                                          [ConsultantAdempimentoController::class, 'index'])->name('index');
         Route::post('/generate',                                 [ConsultantAdempimentoController::class, 'generate'])->name('generate');

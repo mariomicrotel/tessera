@@ -1,69 +1,46 @@
-feat(F4b): checklist adempimenti fiscali ETS e cooperative
+feat(F4c): calendario mensile delle scadenze consulente
 
-Fase 4b: catalogo template adempimenti + generazione istanze per
-tenant/anno + dashboard di compliance cross-tenant.
-
-MODELLI
-- AdempimentoTemplate: catalogo statico (seedato). Campi chiave:
-  codice, applicabile_a (ets/cooperativa/entrambi), categoria,
-  periodicita (mensile/trimestrale/semestrale/annuale/biennale/una_tantum),
-  scadenza_kind (fixed_yearly/fixed_monthly/relative_to_period_end),
-  scadenza_giorno/mese/mesi_dopo_periodo/anno_offset, priorita,
-  documenti_richiesti (JSON), riferimento_normativo, attivo.
-  Method calcolaScadenza(anno, periodo) -> Carbon: deriva la data
-  dalle regole. Method periodiNellAnno() -> array di periodi.
-
-- AdempimentoItem: istanza per (tenant, template, anno, periodo)
-  con stato workflow (da_fare/in_lavorazione/consegnato/completato/
-  non_applicabile), assegnato_a_user_id, data_invio_telematico,
-  protocollo_invio. Unique key impedisce duplicati.
-
-SEEDER (20 template italiani Opus-curated)
-- IVA: LIPE trimestrale, versamento IVA mensile/trimestrale,
-  acconto IVA dicembre, dichiarazione IVA annuale
-- Ritenute: versamento ritenute mensili, CU consegna 16/3,
-  CU telematica 31/3, Modello 770 31/10
-- Dichiarativi: Modello Redditi/IRAP 30/9
-- ETS: Bilancio CEE 30/4, deposito RUNTS 30/6, Modello EAS,
-  iscrizione e rendiconto 5x1000
-- Cooperative: revisione biennale, bilancio, deposito CCIAA,
-  delibera ristorni
-Tutti i riferimenti normativi citati. Idempotente per codice.
-
-SERVICE
-AdempimentoGeneratorService::generaPerAnno($tenant, $anno):
-- filtra template attivi per organization_type
-- itera periodi (mensile=12, trimestrale=4, annuale=1)
-- skippa biennali in anni dispari
-- idempotente: unique key (tenant,template,anno,periodo)
-- transazionale: tutto o niente
+Fase 4c chiude la roadmap commercialista: vista calendario cross-tenant
+delle scadenze di adempimento.
 
 CONTROLLER
-ConsultantAdempimentoController (lato consulente):
-- dashboard: KPI cross-tenant + scadenze prossimi 14gg
-- index(tenantSlug): lista raggruppata per categoria
-- generate: dispatch del generator
-- update: cambio stato/note/protocollo invio
+ConsultantAdempimentoController::calendar(anno, mese):
+- Filtra item di tutti i tenant assegnati al consulente per il mese
+- Raggruppa per data (key YYYY-MM-DD) -> array di item con metadati
+- Banner di scadenze pregresse (count items scaduti su tutti i mesi)
+- Restituisce metadati griglia (days_in_month, first_day_dow ISO)
+  cosi il client costruisce la griglia senza dependenze esterne
 
 ROUTE
-- GET  /consultant/adempimenti -> dashboard
-- GET  /consultant/entities/{slug}/adempimenti -> index
-- POST /consultant/entities/{slug}/adempimenti/generate
-- PUT  /consultant/entities/{slug}/adempimenti/{itemId}
+GET /consultant/adempimenti/calendar?anno=YYYY&mese=MM
+   -> consultant.adempimenti.calendar
 
-UI VUE
-- Dashboard.vue: tabella compliance per ente con barra progress
-  colore-codificata, lista scadenze imminenti cross-tenant con
-  badge priorita e giorni alla scadenza
-- Index.vue: stats card, generazione one-click, lista raggruppata
-  per categoria con accordion-style edit inline (stato/data invio/
-  protocollo/note), evidenziazione scaduti in rosso
+UI VUE Calendar.vue
+- Griglia mensile 7 colonne (Lun-Dom ISO)
+- Navigatore prev/next mese con wrap-around anno
+- Selettore anno + bottone Oggi
+- Celle con max 3 item visibili + "+N" se piu, weekend/oggi
+  colorati distinti
+- Item visualizzati come pillole compatte con:
+  * dot priorita (critica rosso, alta arancio, normale blu, bassa grigio)
+  * codice template + periodo (T1, T2, ...)
+  * nome tenant troncato
+  * background colore-codificato per stato (verde=completato,
+    blu=in lavorazione, rosso=scaduto, grigio=da fare)
+  * click -> pagina dettaglio adempimenti dell'ente
+- Banner rosso se ci sono scadenze totali scadute
+- Legenda priorita + stati in fondo
 
-MENU: voce Adempimenti sotto Area Consulente per ruolo consultant.
+LINK
+Aggiunto bottone "Calendario" nell'header della Dashboard adempimenti.
 
 VERIFICA E2E
-Tenant Default (ETS) anno 2026: 42 items generati con scadenze
-italiane corrette (LIPE T1 31/5, IVA versamento 16/mese successivo,
-Bilancio ETS 30/4 anno+1, RUNTS 30/6, 5x1000 30/6, ...).
+Marco Silva, maggio 2026 su Tenant Default:
+- 4 scadenze: 3 il 16/5 (versamento IVA mensile/trim + ritenute),
+  1 il 31/5 (LIPE T1)
+- Raggruppamento per data corretto, ordinamento crescente
+- Griglia correttamente offsettata (1 maggio 2026 = giovedi)
+
+Fine Fase 4 - roadmap commercialista COMPLETATA al 100%.
 
 Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>
