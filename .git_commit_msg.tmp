@@ -1,0 +1,64 @@
+feat(F4a): scambio file bidirezionale consulente-ente
+
+Avvio Fase 4 - Scambio bidirezionale. Day 1 (4a): consegne dal
+consulente all'ente + risposte dell'ente alle richieste documenti.
+
+MODELLI
+- ConsultantDelivery (uuid, cross-tenant, soft delete)
+  Lifecycle: bozza -> consegnato -> letto -> (accettato | contestato)
+  Tipi: documento_fiscale, f24, bilancio, comunicazione, altro
+  Transition methods: consegna(), markAsRead(), accetta(), contesta()
+- ConsultantDeliveryDocument (1:N) con auto-delete file su record delete
+- Estensione consultant_request_documents: campo uploaded_as_response
+  per distinguere upload del consulente vs upload dell'ente (risposta)
+
+STORAGE
+- Nuovo disk consultant_exchange (storage/app/consultant-exchange)
+- Driver env-configurabile (S3-ready)
+- Path pattern: deliveries/{tenant_id}/{delivery_id}/{file}
+                requests/{tenant_id}/{request_id}/{file}
+
+CONTROLLER LATO CONSULENTE
+- ConsultantDeliveryController (route /consultant/entities/{slug}/deliveries/*)
+- index, create, store con upload multi-file
+- show con upload incrementale, consegna, destroy
+- downloadFile signed URL TTL 1h
+- Notifica admin/segreteria tenant alla consegna
+
+CONTROLLER LATO ENTE
+- TenantConsultantInboxController (route /app/{tenant}/consulente-inbox/*)
+- Middleware role:admin|segreteria|contabile
+- requestsIndex/Show: richieste pendenti del consulente
+- requestUploadResponse: upload risposta + transition stato + notifica consulente
+- deliveriesIndex/Show: consegne ricevute, auto-mark-as-read all'apertura
+- deliveryAccept / deliveryContest con feedback note
+- deliveryDownload signed URL TTL 1h
+
+NOTIFICHE (mail + database)
+- ConsultantRequestCreatedNotification (ente <- consulente)
+- ConsultantRequestResponseReceivedNotification (consulente <- ente)
+- ConsultantDeliveryCreatedNotification (ente <- consulente)
+- ConsultantDeliveryFeedbackNotification (consulente <- ente)
+
+PAGINE VUE
+Lato consulente:
+- Pages/Consultant/Deliveries/Index.vue
+- Pages/Consultant/Deliveries/Create.vue (form + multi-upload)
+- Pages/Consultant/Deliveries/Show.vue (lifecycle + upload incrementale)
+Lato ente:
+- Pages/Tenant/ConsultantInbox/RequestsIndex.vue
+- Pages/Tenant/ConsultantInbox/RequestsShow.vue (con form upload risposta)
+- Pages/Tenant/ConsultantInbox/DeliveriesIndex.vue (badge "nuovo")
+- Pages/Tenant/ConsultantInbox/DeliveriesShow.vue (accetta/contesta form)
+
+MENU
+- Voce "Inbox consulente" lato ente (admin/segreteria/contabile)
+- Voce "Consegne" header pagina Entity/Show lato consulente
+
+VERIFICA E2E
+Lifecycle bozza -> consegnato -> letto -> accettato testato su Tenant
+Default con file allegato. State machine consistent, counters OK.
+
+16 nuove route registrate (8 lato consulente + 8 lato ente).
+
+Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>

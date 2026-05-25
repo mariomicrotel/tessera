@@ -153,10 +153,15 @@ const saldoColor = computed(() =>
                         {{ entity.organization_type ?? 'Ente' }} · {{ entity.plan ?? '—' }}
                     </p>
                 </div>
-                <div class="flex gap-2">
+                <div class="flex gap-2 flex-wrap">
                     <Link :href="route('consultant.notes.index', entity.slug)">
                         <PrimaryButton class="text-sm">
                             <PencilSquareIcon class="size-4 me-1.5" />Note
+                        </PrimaryButton>
+                    </Link>
+                    <Link :href="route('consultant.deliveries.index', entity.slug)">
+                        <PrimaryButton class="text-sm">
+                            <ClipboardDocumentListIcon class="size-4 me-1.5" />Consegne
                         </PrimaryButton>
                     </Link>
                     <Link :href="route('consultant.requests.create', entity.slug)">

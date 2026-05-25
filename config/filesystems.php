@@ -74,6 +74,21 @@ return [
             'report' => false,
         ],
 
+        /*
+         * Disk per lo scambio file bidirezionale consulente <-> ente:
+         *  - Documenti caricati dall'ente in risposta a una ConsultantRequest
+         *  - Documenti caricati dal consulente in una ConsultantDelivery
+         *
+         * Privato (no URL pubblico) — accesso solo via signed URL temporaneo
+         * dal AttachmentController dedicato.
+         */
+        'consultant_exchange' => [
+            'driver' => env('CONSULTANT_EXCHANGE_DRIVER', 'local'),
+            'root'   => storage_path('app/consultant-exchange'),
+            'throw'  => false,
+            'report' => false,
+        ],
+
     ],
 
     /*

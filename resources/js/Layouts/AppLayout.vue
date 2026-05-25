@@ -31,6 +31,7 @@ import {
     ArrowUpTrayIcon,
     CurrencyEuroIcon,
     DocumentArrowDownIcon,
+    InboxArrowDownIcon,
 } from '@heroicons/vue/24/outline';
 import ApplicationMark from '@/Components/ApplicationMark.vue';
 import Banner from '@/Components/Banner.vue';
@@ -305,6 +306,14 @@ const logout = () => {
                         :active="route().current('consultant.exports.*')">
                         <DocumentArrowDownIcon class="size-5 shrink-0" aria-hidden="true" />
                         Export dati
+                    </ResponsiveNavLink>
+                    <!-- Inbox consulente (lato ente: admin/segreteria/contabile) -->
+                    <ResponsiveNavLink
+                        v-if="mod('consultant_workspace') && ($page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria') || $page.props.userRoles?.includes('contabile')) && !$page.props.userRoles?.includes('consultant')"
+                        :href="route('tenant.consultant-inbox.requests.index', $page.props.currentTenant?.slug)"
+                        :active="route().current('tenant.consultant-inbox.*')">
+                        <InboxArrowDownIcon class="size-5 shrink-0" aria-hidden="true" />
+                        Inbox consulente
                     </ResponsiveNavLink>
                     <div class="pt-4 pb-1 ps-3">
                         <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">ASSOCIAZIONE</p>
@@ -813,6 +822,14 @@ const logout = () => {
                                 :active="route().current('consultant.exports.*')">
                                 <DocumentArrowDownIcon class="size-5 shrink-0" aria-hidden="true" />
                                 Export dati
+                            </NavLink>
+                            <!-- Inbox consulente (lato ente) -->
+                            <NavLink
+                                v-if="mod('consultant_workspace') && ($page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria') || $page.props.userRoles?.includes('contabile')) && !$page.props.userRoles?.includes('consultant')"
+                                :href="route('tenant.consultant-inbox.requests.index', $page.props.currentTenant?.slug)"
+                                :active="route().current('tenant.consultant-inbox.*')">
+                                <InboxArrowDownIcon class="size-5 shrink-0" aria-hidden="true" />
+                                Inbox consulente
                             </NavLink>
                             <div class="pt-4 pb-1 px-3">
                                 <p class="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">ASSOCIAZIONE</p>

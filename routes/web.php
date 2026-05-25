@@ -70,7 +70,9 @@ use App\Http\Controllers\EtsAttoCostitutivoController;
 use App\Http\Controllers\ExcelExportController;
 use App\Http\Controllers\TesseraController;
 use App\Http\Controllers\ConsultantController;
+use App\Http\Controllers\ConsultantDeliveryController;
 use App\Http\Controllers\ConsultantExportController;
+use App\Http\Controllers\TenantConsultantInboxController;
 use App\Http\Controllers\AdminConsultantController;
 use App\Http\Controllers\AdministrativeMovementController;
 use Illuminate\Support\Facades\Route;
@@ -199,6 +201,25 @@ Route::middleware([
     'tenant',
 ])->prefix('app/{tenant}')->group(function () {
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
+
+    // ── Inbox consulente (Fase 4a — admin/segreteria del tenant) ──────
+    Route::middleware('role:admin|segreteria|contabile')
+        ->prefix('consulente-inbox')
+        ->name('tenant.consultant-inbox.')
+        ->group(function () {
+            Route::get('/richieste',                          [TenantConsultantInboxController::class, 'requestsIndex'])->name('requests.index');
+            Route::get('/richieste/{requestId}',              [TenantConsultantInboxController::class, 'requestShow'])->name('requests.show');
+            Route::post('/richieste/{requestId}/risposta',    [TenantConsultantInboxController::class, 'requestUploadResponse'])->name('requests.respond');
+
+            Route::get('/consegne',                           [TenantConsultantInboxController::class, 'deliveriesIndex'])->name('deliveries.index');
+            Route::get('/consegne/{deliveryId}',              [TenantConsultantInboxController::class, 'deliveriesShow'])->name('deliveries.show');
+            Route::post('/consegne/{deliveryId}/accetta',     [TenantConsultantInboxController::class, 'deliveryAccept'])->name('deliveries.accept');
+            Route::post('/consegne/{deliveryId}/contesta',    [TenantConsultantInboxController::class, 'deliveryContest'])->name('deliveries.contest');
+            Route::get('/consegne/{deliveryId}/files/{documentId}/download',
+                [TenantConsultantInboxController::class, 'deliveryDownload'])
+                ->middleware('signed')
+                ->name('deliveries.download');
+        });
 
     // Utenti (solo admin)
     Route::get('users', [UserController::class, 'index'])->name('users.index');
@@ -838,6 +859,21 @@ Route::middleware([
     Route::post('/entities/{tenantSlug}/notes', [ConsultantController::class, 'noteStore'])->name('notes.store');
     Route::put('/entities/{tenantSlug}/notes/{consultantNote}', [ConsultantController::class, 'noteUpdate'])->name('notes.update');
     Route::delete('/entities/{tenantSlug}/notes/{consultantNote}', [ConsultantController::class, 'noteDestroy'])->name('notes.destroy');
+
+    // Consegne (Fase 4a — consulente → ente)
+    Route::prefix('entities/{tenantSlug}/deliveries')->name('deliveries.')->group(function () {
+        Route::get('/',                                [ConsultantDeliveryController::class, 'index'])->name('index');
+        Route::get('/create',                          [ConsultantDeliveryController::class, 'create'])->name('create');
+        Route::post('/',                               [ConsultantDeliveryController::class, 'store'])->name('store');
+        Route::get('/{deliveryId}',                    [ConsultantDeliveryController::class, 'show'])->name('show');
+        Route::post('/{deliveryId}/files',             [ConsultantDeliveryController::class, 'uploadFile'])->name('files.upload');
+        Route::post('/{deliveryId}/consegna',          [ConsultantDeliveryController::class, 'consegna'])->name('consegna');
+        Route::delete('/{deliveryId}',                 [ConsultantDeliveryController::class, 'destroy'])->name('destroy');
+        Route::get('/{deliveryId}/files/{documentId}/download',
+            [ConsultantDeliveryController::class, 'downloadFile'])
+            ->middleware('signed')
+            ->name('file.download');
+    });
 
     // Export strutturati (Fase 3)
     Route::prefix('exports')->name('exports.')->group(function () {
