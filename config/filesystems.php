@@ -60,6 +60,20 @@ return [
             'report' => false,
         ],
 
+        /*
+         * Disk dedicato per i bundle di export del consulente.
+         *
+         * Locale di default (storage/app/consultant-exports/). Per passare
+         * a S3/R2/Spaces in futuro basta cambiare 'driver' e relative chiavi:
+         * niente modifiche al codice applicativo grazie a Storage::disk().
+         */
+        'consultant_exports' => [
+            'driver' => env('CONSULTANT_EXPORTS_DRIVER', 'local'),
+            'root'   => storage_path('app/consultant-exports'),
+            'throw'  => false,
+            'report' => false,
+        ],
+
     ],
 
     /*
