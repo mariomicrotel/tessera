@@ -253,12 +253,127 @@ Tutte le route `prima-nota.*`, `conti.*`, `reports.libro-giornale`, ecc. **riman
 
 ---
 
-## 9. Cosa partire SUBITO
+## 9. Modelli Claude consigliati per fase
+
+Guida per scegliere il modello giusto in base a complessità/costo/velocità.
+
+### 9.1 Mappa rapida
+
+| Modello | Quando usarlo |
+|---------|---------------|
+| **Opus 4.7** | Decisioni architetturali, scelte di design irreversibili, reasoning su dominio fiscale/normativo, refactor multi-file critici, code review di security |
+| **Sonnet 4.6** | 90% del coding quotidiano: implementazione feature ben specificate, CRUD, test, refactor mirati, debugging |
+| **Haiku 4.5** | Edit ripetitivi e meccanici, rinomine, aggiornamento docs, formattazione, batch su molti file con specifica chiara |
+
+### 9.2 Mappa per fase
+
+#### Fase 1 — Cleanup menu
+| Task | Modello | Motivo |
+|------|---------|--------|
+| Disattivare feature flags + spostare voci menu | **Haiku** | Lavoro meccanico ben specificato (questo documento è la spec) |
+| Creazione sezione "Bilancio ETS" | **Sonnet** | Richiede coerenza con pattern AppLayout esistente |
+
+→ **Modello consigliato per l'intera fase: Sonnet** (basso costo, evita di switchare)
+
+---
+
+#### Fase 2 — Cruscotto dati commercialista
+| Task | Modello | Motivo |
+|------|---------|--------|
+| Design schema KPI + Service aggregator | **Opus** | Decisione architetturale (caching, query plan, scalabilità) |
+| Implementazione `ConsultantStatsService` | **Sonnet** | Coding standard una volta definito lo schema |
+| Vue3 dashboard + chart.js | **Sonnet** | UI con pattern già presenti in `Anagrafica/CompanyUsageStats` |
+| Test Pest del service | **Sonnet** | Test ben strutturati |
+
+→ **Mix consigliato**: Opus per il kickoff (1-2 ore), poi Sonnet per il grosso
+
+---
+
+#### Fase 3 — Export strutturati ⚠️ FASE CRITICA
+| Task | Modello | Motivo |
+|------|---------|--------|
+| Design `ExportFormatStrategy` (interfaccia + factory) | **Opus** | Astrazione che durerà anni — sbagliarla costa caro |
+| Mapping formato **TeamSystem CSV** | **Opus** | Conoscenza specifica del formato, edge cases fiscali |
+| Mapping formato **Zucchetti / Profis** | **Opus** | Idem — domain reasoning |
+| Mapping **XML Agenzia Entrate** (LIPE, registri IVA) | **Opus** | Schema XSD ufficiali, validazione obbligatoria |
+| Implementazione `GenerateExportBundleJob` (queue, zip, storage) | **Sonnet** | Pattern Laravel standard |
+| CRUD `ConsultantExportBundle` + migrazione | **Sonnet** | Standard |
+| Pagina Vue3 di richiesta export | **Sonnet** | UI form + polling status |
+| Audit log + signed URL temporanei | **Sonnet** | Pattern Laravel standard |
+| Test di formato (fixture XML/CSV) | **Sonnet** | Comparazione output |
+
+→ **Mix consigliato**: Opus per ogni nuovo formato + interfaccia. Sonnet per scaffolding/jobs/UI. Verifica finale dei formati con Opus.
+
+> ⚠️ Per ogni formato esterno (TeamSystem, Zucchetti, Profis) procurarsi **un file di esempio reale validato** prima di iniziare. Senza, anche Opus inventerà i campi.
+
+---
+
+#### Fase 4 — Scambio bidirezionale, checklist, calendario
+
+| Task | Modello | Motivo |
+|------|---------|--------|
+| Estensione `ConsultantRequest` con allegati | **Sonnet** | Estensione modello esistente |
+| Nuovo `ConsultantDelivery` (CRUD + UI) | **Sonnet** | Pattern analogo a Request |
+| Notifiche email/in-app | **Sonnet** | Laravel notifications standard |
+| Design **template adempimenti** (IVA trimestrale, CU, 770, EAS, Bilancio…) | **Opus** | Richiede conoscenza precisa scadenze normative ETS/coop e tipologie regime |
+| Implementazione `AdempimentoChecklistItem` + seeder template | **Sonnet** | Una volta che Opus ha definito gli item |
+| Calendario consegne (Vue3 component) | **Sonnet** | Standard UI |
+| Logica scadenze derivate da tipologia ente | **Opus** | Domain knowledge — sbagliare scadenze ha impatto reale |
+| Notifiche T-7/T-1/scaduto | **Sonnet** | Standard |
+
+→ **Mix consigliato**: Opus per i due punti di dominio (template + derivazione scadenze). Sonnet per tutto il resto.
+
+---
+
+### 9.3 Task trasversali
+
+| Task | Modello |
+|------|---------|
+| Code review pre-merge security-critical (export, auth, file upload) | **Opus** (subagent `code-reviewer`) |
+| Code review feature standard | **Sonnet** |
+| Esplorazione codebase / ricerca pattern esistenti | **Haiku** o **Sonnet** (subagent `Explore`) |
+| Aggiornamento README/CHANGELOG/docs | **Haiku** |
+| Rinomine globali, batch refactor meccanici | **Haiku** |
+| Debugging bug non banali | **Sonnet** (escalation a **Opus** se rimane bloccato >30 min) |
+| Scrittura test Pest | **Sonnet** |
+| Migrazioni Laravel | **Sonnet** |
+
+### 9.4 Regola pratica
+
+```
+Costo stimato di sbagliare il task >> costo del modello migliore?
+  → Usa Opus
+
+Task ben definito, output verificabile, basso rischio architetturale?
+  → Sonnet va bene (default)
+
+Task meccanico, ripetitivo, output ovvio?
+  → Haiku (risparmia 3-5x)
+```
+
+### 9.5 Stima costi roadmap (ordine di grandezza)
+
+Assumendo Sonnet 4.6 come baseline (~$3/M input · $15/M output):
+
+| Fase | Modello prevalente | Costo stimato |
+|------|--------------------|---------------|
+| F1 | Sonnet | trascurabile (<$1) |
+| F2 | 20% Opus + 80% Sonnet | $10-20 |
+| F3 | 40% Opus + 60% Sonnet | $40-80 (dipende da n° formati) |
+| F4 | 30% Opus + 70% Sonnet | $30-60 |
+| **Totale roadmap** | — | **~$80-160** |
+
+Con prompt caching attivo (Sonnet) i costi di iterazione sui file grandi si dimezzano.
+
+---
+
+## 10. Cosa partire SUBITO
 
 Dopo conferma di questo documento:
-1. ✅ Fase 1 (cleanup menu) — eseguibile in 30 min
+1. ✅ Fase 1 (cleanup menu) — eseguibile in 30 min con **Sonnet**
 2. Definire risposte alle 5 decisioni aperte (sezione 7)
-3. Iniziare Fase 2
+3. Procurarsi file di esempio dei formati export target (sez. 9.2 F3)
+4. Iniziare Fase 2 con kickoff su **Opus** (1-2h architettura) → poi switch a **Sonnet**
 
 ---
 
