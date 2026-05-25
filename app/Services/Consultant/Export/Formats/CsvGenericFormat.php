@@ -62,6 +62,11 @@ class CsvGenericFormat implements ExportFormat
         return null; // null = wildcard → supporta tutti i DataSource
     }
 
+    public function requiresDataSources(): bool
+    {
+        return true; // CSV è guidato dalla selezione utente
+    }
+
     public function generate(
         ConsultantExportBundle $bundle,
         array $dataSources,

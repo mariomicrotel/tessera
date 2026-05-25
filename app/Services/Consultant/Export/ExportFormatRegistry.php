@@ -14,7 +14,9 @@ use App\Services\Consultant\Export\DataSources\ModelliF24DataSource;
 use App\Services\Consultant\Export\DataSources\MovimentiBancariDataSource;
 use App\Services\Consultant\Export\DataSources\RimborsiSpeseDataSource;
 use App\Services\Consultant\Export\DataSources\SpeseDataSource;
+use App\Services\Consultant\Export\Formats\AgenziaEntrateXmlFormat;
 use App\Services\Consultant\Export\Formats\CsvGenericFormat;
+use App\Services\LipeXmlService;
 use InvalidArgumentException;
 
 /**
@@ -36,7 +38,7 @@ class ExportFormatRegistry
     {
         $formats = [
             new CsvGenericFormat(),
-            // new AgenziaEntrateXmlFormat(),  // aggiunto in Day 3
+            new AgenziaEntrateXmlFormat(app(LipeXmlService::class)),
         ];
 
         $map = [];
@@ -138,6 +140,7 @@ class ExportFormatRegistry
                 'label'                  => $f->label(),
                 'description'            => $f->description(),
                 'supported_data_sources' => $f->supportedDataSources(),
+                'requires_data_sources'  => $f->requiresDataSources(),
                 'extension'              => $f->extension(),
             ];
         }

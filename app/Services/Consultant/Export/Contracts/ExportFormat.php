@@ -49,10 +49,24 @@ interface ExportFormat
      * Restituisce l'elenco dei DataSource che QUESTO formato supporta.
      * Esempio: il formato Agenzia Entrate XML accetta solo fatture_attive e fatture_passive.
      * Restituisce null per indicare "tutti i DataSource disponibili".
+     * Restituire [] (array vuoto) se requiresDataSources() = false (formato self-contained).
      *
      * @return array<string>|null  array di DataSource::key() supportati, o null = wildcard
      */
     public function supportedDataSources(): ?array;
+
+    /**
+     * Indica se il formato consuma DataSource selezionati dall'utente o
+     * se è "self-contained": attinge i dati direttamente da modelli/servizi
+     * propri (es. AgenziaEntrateXmlFormat genera LIPE da LiquidazioneIva,
+     * indipendentemente dalle DataSource selezionate).
+     *
+     * Quando false:
+     *  - La UI nasconde lo step "Tabelle" se è l'unico formato selezionato
+     *  - Il controller accetta data_types vuoto
+     *  - generate() ignora il parametro $dataSources
+     */
+    public function requiresDataSources(): bool;
 
     /**
      * Genera il file di output nella working directory specificata.

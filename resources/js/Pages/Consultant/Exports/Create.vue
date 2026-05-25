@@ -33,14 +33,22 @@ const form = useForm({
 
 const selectedFormats = computed(() => props.formats.filter(f => form.formats.includes(f.key)));
 
-// DataSource selezionabili = unione dei supportati dai formati selezionati
-// (se almeno un formato ha supportedDataSources=null, allora tutti sono supportati)
+// True se almeno un formato selezionato richiede DataSource utente
+const needsDataSources = computed(() =>
+    selectedFormats.value.some(f => f.requires_data_sources === true)
+);
+
+// DataSource selezionabili = unione dei supportati dai formati che ne richiedono
+//  - supported_data_sources = null  → wildcard (tutti i DataSource)
+//  - supported_data_sources = []    → formato self-contained (non contribuisce)
+//  - supported_data_sources = [...] → solo quei DataSource
 const allowedDataSources = computed(() => {
-    if (selectedFormats.value.length === 0) return [];
-    const hasWildcard = selectedFormats.value.some(f => f.supported_data_sources === null);
+    const reqs = selectedFormats.value.filter(f => f.requires_data_sources === true);
+    if (reqs.length === 0) return [];
+    const hasWildcard = reqs.some(f => f.supported_data_sources === null);
     if (hasWildcard) return props.data_sources.map(s => s.key);
     const set = new Set();
-    selectedFormats.value.forEach(f => (f.supported_data_sources ?? []).forEach(k => set.add(k)));
+    reqs.forEach(f => (f.supported_data_sources ?? []).forEach(k => set.add(k)));
     return [...set];
 });
 
@@ -72,7 +80,8 @@ const submit = () => {
 
 const canSubmit = computed(() =>
     form.tenant_id && form.period_from && form.period_to
-    && form.formats.length > 0 && form.data_types.length > 0
+    && form.formats.length > 0
+    && (! needsDataSources.value || form.data_types.length > 0)
 );
 </script>
 
@@ -154,8 +163,18 @@ const canSubmit = computed(() =>
                     <p v-if="form.errors.formats" class="text-xs text-red-500 mt-1">{{ form.errors.formats }}</p>
                 </div>
 
-                <!-- Step 4: Tabelle -->
-                <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
+                <!-- Info box per formati self-contained -->
+                <div v-if="selectedFormats.length > 0 && !needsDataSources"
+                    class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                    <p class="text-sm text-blue-800 dark:text-blue-200">
+                        I formati selezionati attingono i dati direttamente dai modelli IVA del periodo
+                        (es. liquidazioni IVA chiuse). Non occorre selezionare tabelle.
+                    </p>
+                </div>
+
+                <!-- Step 4: Tabelle (solo se servono) -->
+                <div v-if="needsDataSources"
+                    class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5">
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">4. Tabelle da includere</h3>
                         <div class="flex items-center gap-2 text-xs">

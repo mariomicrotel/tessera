@@ -99,7 +99,10 @@ class ExportBundleGenerator
             $format     = $this->registry->format($formatKey);
             $sources    = $this->registry->resolveDataSourcesFor($format, (array) $bundle->data_types);
 
-            if (empty($sources)) {
+            // I formati self-contained (es. XML AdE) NON richiedono DataSource:
+            // generano i propri file attingendo da modelli/servizi specifici.
+            // Per quelli, è normale che $sources sia [] — non skippare!
+            if (empty($sources) && $format->requiresDataSources()) {
                 Log::warning("Format {$formatKey} ha 0 DataSource supportati per bundle {$bundle->id}");
                 continue;
             }

@@ -132,9 +132,25 @@ class ConsultantExportController extends Controller
             'period_to'      => ['required', 'date', 'after_or_equal:period_from'],
             'formats'        => ['required', 'array', 'min:1'],
             'formats.*'      => ['string'],
-            'data_types'     => ['required', 'array', 'min:1'],
+            'data_types'     => ['array'],  // condizionalmente required: vedi sotto
             'data_types.*'   => ['string'],
         ]);
+
+        // Se almeno un formato selezionato richiede DataSource, data_types deve avere almeno 1 elemento
+        $allFormats        = $this->registry->formats();
+        $selectedFormatObj = array_filter(array_map(fn ($k) => $allFormats[$k] ?? null, $data['formats']));
+        $anyRequires       = false;
+        foreach ($selectedFormatObj as $f) {
+            if ($f->requiresDataSources()) {
+                $anyRequires = true;
+                break;
+            }
+        }
+        if ($anyRequires && empty($data['data_types'] ?? [])) {
+            return back()->withErrors([
+                'data_types' => 'Seleziona almeno una tabella per i formati che la richiedono.',
+            ])->withInput();
+        }
 
         // Verifica assignment attivo
         $hasAssignment = ConsultantAssignment::query()
@@ -151,10 +167,13 @@ class ConsultantExportController extends Controller
         $validFormats    = array_keys($this->registry->formats());
         $validDataTypes  = array_keys($this->registry->dataSources());
         $formats         = array_values(array_intersect($data['formats'], $validFormats));
-        $dataTypes       = array_values(array_intersect($data['data_types'], $validDataTypes));
+        $dataTypes       = array_values(array_intersect($data['data_types'] ?? [], $validDataTypes));
 
-        if (empty($formats) || empty($dataTypes)) {
-            return back()->withErrors(['data_types' => 'Selezione non valida.']);
+        if (empty($formats)) {
+            return back()->withErrors(['formats' => 'Selezione formati non valida.'])->withInput();
+        }
+        if ($anyRequires && empty($dataTypes)) {
+            return back()->withErrors(['data_types' => 'Tabelle selezionate non valide.'])->withInput();
         }
 
         $bundle = ConsultantExportBundle::create([
