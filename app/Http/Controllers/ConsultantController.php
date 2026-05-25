@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ConsultantShowRequest;
 use App\Models\ConsultantAssignment;
 use App\Models\ConsultantNote;
 use App\Models\ConsultantRequest;
 use App\Models\ConsultantRequestDocument;
 use App\Models\Member;
 use App\Models\Tenant;
+use App\Services\Consultant\ConsultantStatsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -109,8 +111,11 @@ class ConsultantController extends Controller
     /**
      * Pagina di riepilogo di un ente specifico.
      * Risolve il tenant, verifica l'assegnazione, imposta il contesto.
+     *
+     * Le statistiche aggregate vengono servite come Inertia lazy prop (calcolate
+     * solo quando richieste, oppure via router.reload dal PeriodSelector Vue).
      */
-    public function entityShow(Request $request, string $tenantSlug)
+    public function entityShow(ConsultantShowRequest $request, string $tenantSlug, ConsultantStatsService $statsService)
     {
         [$user, $tenant] = $this->resolveConsultantTenant($request, $tenantSlug);
 
@@ -132,6 +137,22 @@ class ConsultantController extends Controller
         // KPI base ente
         $membriAttivi = Member::where('stato', 'attivo')->count();
 
+        // Periodo selezionato (default: anno corrente)
+        $dates  = $request->resolvedDates();
+        $period = $request->selectedPeriod();
+
+        // Range disponibile (hint per il selettore UI)
+        $availablePeriods = $statsService->availablePeriods((string) $tenant->id);
+
+        // Stats aggregate — Inertia lazy: calcolate solo se la prop viene richiesta
+        // (prima visita: calcolate comunque perché non c'è deferred nel router senza JS)
+        $stats = $statsService->aggregateForPeriod(
+            tenantId:     (string) $tenant->id,
+            from:         $dates['from'],
+            to:           $dates['to'],
+            forceRefresh: $request->forceRefresh(),
+        );
+
         return Inertia::render('Consultant/Entities/Show', [
             'entity' => [
                 'id'                => $tenant->id,
@@ -141,14 +162,15 @@ class ConsultantController extends Controller
                 'cooperative_type'  => $tenant->cooperative_type,
                 'plan'              => $tenant->plan,
                 'active'            => $tenant->active,
+                'is_cooperativa'    => ($tenant->organization_type === 'cooperative'),
             ],
             'richieste'     => $richieste->map(fn ($r) => [
-                'id'           => $r->id,
-                'titolo'       => $r->titolo,
-                'priorita'     => $r->priorita,
-                'stato'        => $r->stato,
+                'id'            => $r->id,
+                'titolo'        => $r->titolo,
+                'priorita'      => $r->priorita,
+                'stato'         => $r->stato,
                 'data_scadenza' => $r->data_scadenza?->toDateString(),
-                'badge_color'  => $r->badgeColor(),
+                'badge_color'   => $r->badgeColor(),
                 'priorita_color' => $r->prioritaBadgeColor(),
             ])->values(),
             'note_fissate'  => $noteFissate->map(fn ($n) => [
@@ -161,6 +183,14 @@ class ConsultantController extends Controller
             'kpi' => [
                 'membri_attivi' => $membriAttivi,
             ],
+            // Dati cruscotto economico
+            'stats'          => $stats,
+            'currentPeriod'  => $period,
+            'periodDates'    => [
+                'from' => $dates['from']->toDateString(),
+                'to'   => $dates['to']->toDateString(),
+            ],
+            'availablePeriods' => $availablePeriods,
         ]);
     }
 

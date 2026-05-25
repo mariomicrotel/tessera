@@ -2,9 +2,20 @@
 
 namespace App\Providers;
 
+use App\Models\FatturaAttiva;
+use App\Models\FatturaPassiva;
+use App\Models\Incasso;
+use App\Models\MovimentoBancario;
 use App\Models\Settings;
+use App\Models\Spesa;
 use App\Models\Tenant;
+use App\Observers\FatturaAttivaObserver;
+use App\Observers\FatturaPassivaObserver;
+use App\Observers\IncassoObserver;
+use App\Observers\MovimentoBancarioObserver;
+use App\Observers\SpesaObserver;
 use App\Observers\TenantObserver;
+use App\Services\Consultant\ConsultantStatsService;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\ServiceProvider;
 
@@ -25,6 +36,9 @@ class AppServiceProvider extends ServiceProvider
         if (empty(Config::get('app.key'))) {
             Config::set('app.key', self::INSTALL_PLACEHOLDER_KEY);
         }
+
+        // Singleton stateless: nessuna dipendenza dal tenant corrente
+        $this->app->singleton(ConsultantStatsService::class);
     }
 
     /**
@@ -46,6 +60,13 @@ class AppServiceProvider extends ServiceProvider
 
         // Observer: precarica codici IVA di sistema alla creazione di un tenant cooperativa
         Tenant::observe(TenantObserver::class);
+
+        // Observer: invalida cache cruscotto consulente su ogni modifica ai dati economici
+        FatturaAttiva::observe(FatturaAttivaObserver::class);
+        FatturaPassiva::observe(FatturaPassivaObserver::class);
+        Incasso::observe(IncassoObserver::class);
+        Spesa::observe(SpesaObserver::class);
+        MovimentoBancario::observe(MovimentoBancarioObserver::class);
     }
 
     /**
