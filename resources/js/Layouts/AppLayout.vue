@@ -109,7 +109,7 @@ function sectionForRoute(name) {
     if (!name) return null;
     if (name.startsWith('members.') || name.startsWith('libro-soci.') || name.startsWith('member-types.') || name.startsWith('tessere.') || name.startsWith('scadenzario.')) return 'soci';
     if (name.startsWith('incassi.') || name.startsWith('incassi-generici.') || name.startsWith('quote-sociali.') || name.startsWith('donazioni.') || name.startsWith('receipts.') || name.startsWith('spese.') || name.startsWith('expense-refunds.')) return 'cassa';
-    if (name.startsWith('documents.') || name.startsWith('verbali.') || name.startsWith('templates.') || name.startsWith('email-templates.') || name.startsWith('receipt-templates.') || name.startsWith('protocolli.')) return 'documenti';
+    if (name.startsWith('documents.') || name.startsWith('verbali.') || name.startsWith('templates.') || name.startsWith('email-templates.') || name.startsWith('receipt-templates.')) return 'documenti';
     if (name.startsWith('organi.') || name.startsWith('elezioni.')) return 'organiVotazioni';
     if (name.startsWith('events.') || name.startsWith('properties.') || name.startsWith('items.') || name.startsWith('locations.') || name.startsWith('warehouses.') || name.startsWith('cespiti.')) return 'patrimonio';
     if (name.startsWith('bilancio.') || name.startsWith('relazione-missione.') || name.startsWith('erogazioni-liberali.')) return page.props.is_cooperativa ? 'cooperativa' : 'bilancioEts';
@@ -421,16 +421,15 @@ const logout = () => {
                                     <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
                                     Template ricevute
                                 </ResponsiveNavLink>
-                                <div class="my-1 border-t border-gray-100 dark:border-gray-700" />
-                                <ResponsiveNavLink :href="route('protocolli.index')" :active="route().current('protocolli.*')">
-                                    <InboxArrowDownIcon class="size-4 shrink-0" aria-hidden="true" />
-                                    Protocollo
-                                </ResponsiveNavLink>
                             </div>
                         </div>
                         <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" :href="route('file.index')" :active="route().current('file.*')" class="pt-2">
                             <FolderIcon class="size-5 shrink-0" aria-hidden="true" />
                             File
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" :href="route('protocolli.index')" :active="route().current('protocolli.*')" class="pt-1">
+                            <InboxArrowDownIcon class="size-5 shrink-0" aria-hidden="true" />
+                            Protocollo
                         </ResponsiveNavLink>
                         <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" class="pt-2">
                             <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('organiVotazioni')">
@@ -962,17 +961,17 @@ const logout = () => {
                                             <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Template ricevute
                                         </NavLink>
-                                        <div class="my-1 border-t border-gray-100 dark:border-gray-700" />
-                                        <NavLink :href="route('protocolli.index')" :active="route().current('protocolli.*')">
-                                            <InboxArrowDownIcon class="size-4 shrink-0" aria-hidden="true" />
-                                            Protocollo
-                                        </NavLink>
                                     </div>
                                 </div>
                                 <!-- File (voce a sé stante) -->
                                 <NavLink :href="route('file.index')" :active="route().current('file.*')" class="mt-2">
                                     <FolderIcon class="size-5 shrink-0" aria-hidden="true" />
                                     File
+                                </NavLink>
+                                <!-- Protocollo (voce a sé stante, visibile ad admin e segreteria) -->
+                                <NavLink v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" :href="route('protocolli.index')" :active="route().current('protocolli.*')" class="mt-1">
+                                    <InboxArrowDownIcon class="size-5 shrink-0" aria-hidden="true" />
+                                    Protocollo
                                 </NavLink>
                                 <!-- Organi e votazioni -->
                                 <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" class="mt-2">
