@@ -377,7 +377,7 @@ defineProps({
                     <div>
                         <h4 class="font-semibold mb-4">Contatti Infotel</h4>
                         <ul class="space-y-2 text-gray-400 text-sm">
-                            <li><a href="mailto:info@infotel.it" class="hover:text-white">info@infotel.it</a></li>
+                            <li><a href="mailto:info@infotelsistemi.com" class="hover:text-white">info@infotelsistemi.com</a></li>
                             <li>Lun–Ven 9:00–18:00</li>
                             <li><a href="#" class="hover:text-white">Richiedi una demo</a></li>
                         </ul>
