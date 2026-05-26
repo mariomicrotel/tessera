@@ -9,7 +9,7 @@ return new class extends Migration {
     {
         Schema::create('protocolli', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('tenant_id')->index();
+            $table->uuid('tenant_id')->index();
             $table->unsignedSmallInteger('anno');
             $table->unsignedMediumInteger('numero');
             $table->string('tipo', 20);                // entrata | uscita

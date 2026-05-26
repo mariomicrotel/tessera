@@ -13,6 +13,8 @@ class Protocollo extends Model
 {
     use BelongsToTenant, SoftDeletes;
 
+    protected $table = 'protocolli';
+
     // -------------------------------------------------------------------------
     // Costanti
     // -------------------------------------------------------------------------
