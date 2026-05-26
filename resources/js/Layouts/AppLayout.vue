@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue';
+import { ref, onMounted, watch, computed, nextTick } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     HomeIcon,
@@ -96,6 +96,15 @@ const openSections = ref({
     team: false,
 });
 
+// Ref al nav scrollabile del sidebar desktop
+const sidebarNav = ref(null);
+
+// Stato scroll per shadow indicators
+const sidebarScrolled = ref(false);
+function onSidebarScroll() {
+    sidebarScrolled.value = (sidebarNav.value?.scrollTop ?? 0) > 8;
+}
+
 function sectionForRoute(name) {
     if (!name) return null;
     if (name.startsWith('members.') || name.startsWith('libro-soci.') || name.startsWith('member-types.') || name.startsWith('tessere.') || name.startsWith('scadenzario.')) return 'soci';
@@ -116,9 +125,24 @@ function sectionForRoute(name) {
     return null;
 }
 
-function ensureSectionOpen() {
+async function ensureSectionOpen() {
     const key = sectionForRoute(route().current());
-    if (key) openSections.value[key] = true;
+    if (key) {
+        openSections.value[key] = true;
+        await nextTick();
+        // Scorri il sidebar nav per mostrare il link attivo (border-indigo-400 = NavLink active)
+        const nav = sidebarNav.value;
+        if (!nav) return;
+        const activeEl = nav.querySelector('.border-indigo-400');
+        if (!activeEl) return;
+        const navH   = nav.clientHeight;
+        const elTop  = activeEl.offsetTop - nav.offsetTop;
+        const elH    = activeEl.offsetHeight;
+        // Porta il link attivo al 30% dall'alto del nav (più contesto sopra)
+        const target = elTop - navH * 0.30;
+        nav.scrollTo({ top: Math.max(0, target), behavior: 'smooth' });
+        sidebarScrolled.value = (nav.scrollTop ?? 0) > 8;
+    }
 }
 
 onMounted(ensureSectionOpen);
@@ -814,7 +838,17 @@ const logout = () => {
                             </span>
                         </div>
                     </div>
-                    <nav class="flex-1 overflow-y-auto py-4 px-3">
+                    <!-- Shadow superiore (visibile quando si è scrollati) -->
+                    <div
+                        class="shrink-0 pointer-events-none h-0 relative z-10 overflow-visible"
+                        aria-hidden="true"
+                    >
+                        <div
+                            v-show="sidebarScrolled"
+                            class="absolute inset-x-0 top-0 h-6 bg-gradient-to-b from-white dark:from-gray-800 to-transparent"
+                        />
+                    </div>
+                    <nav ref="sidebarNav" class="flex-1 overflow-y-auto py-4 px-3" @scroll="onSidebarScroll">
                         <div class="mt-1 space-y-1">
                             <NavLink :href="dashboardRoute" :active="route().current('dashboard')">
                                 <HomeIcon class="size-5 shrink-0" aria-hidden="true" />
@@ -1352,7 +1386,11 @@ const logout = () => {
                             </div>
                         </div>
                     </nav>
-                    
+                    <!-- Shadow inferiore (sempre visibile — indica contenuto sotto) -->
+                    <div class="shrink-0 pointer-events-none h-0 relative z-10 overflow-visible" aria-hidden="true">
+                        <div class="absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-white dark:from-gray-800 to-transparent -translate-y-full" />
+                    </div>
+
                     <!-- Azioni utente e theme toggle sul fondo -->
                     <div class="shrink-0 py-2 px-3 border-t border-gray-100 dark:border-gray-700">
                         <div class="flex items-center gap-2">
