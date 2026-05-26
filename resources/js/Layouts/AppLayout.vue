@@ -100,7 +100,7 @@ function sectionForRoute(name) {
     if (!name) return null;
     if (name.startsWith('members.') || name.startsWith('libro-soci.') || name.startsWith('member-types.') || name.startsWith('tessere.') || name.startsWith('scadenzario.')) return 'soci';
     if (name.startsWith('incassi.') || name.startsWith('incassi-generici.') || name.startsWith('quote-sociali.') || name.startsWith('donazioni.') || name.startsWith('receipts.') || name.startsWith('spese.') || name.startsWith('expense-refunds.')) return 'cassa';
-    if (name.startsWith('documents.') || name.startsWith('verbali.') || name.startsWith('templates.') || name.startsWith('email-templates.') || name.startsWith('receipt-templates.')) return 'documenti';
+    if (name.startsWith('documents.') || name.startsWith('verbali.') || name.startsWith('templates.') || name.startsWith('email-templates.') || name.startsWith('receipt-templates.') || name.startsWith('protocolli.')) return 'documenti';
     if (name.startsWith('organi.') || name.startsWith('elezioni.')) return 'organiVotazioni';
     if (name.startsWith('events.') || name.startsWith('properties.') || name.startsWith('items.') || name.startsWith('locations.') || name.startsWith('warehouses.') || name.startsWith('cespiti.')) return 'patrimonio';
     if (name.startsWith('bilancio.') || name.startsWith('relazione-missione.') || name.startsWith('erogazioni-liberali.')) return page.props.is_cooperativa ? 'cooperativa' : 'bilancioEts';
@@ -396,6 +396,11 @@ const logout = () => {
                                 <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('receipt-templates.index')" :active="route().current('receipt-templates.*')">
                                     <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
                                     Template ricevute
+                                </ResponsiveNavLink>
+                                <div class="my-1 border-t border-gray-100 dark:border-gray-700" />
+                                <ResponsiveNavLink :href="route('protocolli.index')" :active="route().current('protocolli.*')">
+                                    <InboxArrowDownIcon class="size-4 shrink-0" aria-hidden="true" />
+                                    Protocollo
                                 </ResponsiveNavLink>
                             </div>
                         </div>
@@ -922,6 +927,11 @@ const logout = () => {
                                         <NavLink v-if="$page.props.userRoles?.includes('admin')" :href="route('receipt-templates.index')" :active="route().current('receipt-templates.*')">
                                             <DocumentTextIcon class="size-4 shrink-0" aria-hidden="true" />
                                             Template ricevute
+                                        </NavLink>
+                                        <div class="my-1 border-t border-gray-100 dark:border-gray-700" />
+                                        <NavLink :href="route('protocolli.index')" :active="route().current('protocolli.*')">
+                                            <InboxArrowDownIcon class="size-4 shrink-0" aria-hidden="true" />
+                                            Protocollo
                                         </NavLink>
                                     </div>
                                 </div>

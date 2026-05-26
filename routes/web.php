@@ -30,6 +30,7 @@ use App\Http\Controllers\CompanyEnrichmentController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SpesaController;
 use App\Http\Controllers\PrimaNotaController;
+use App\Http\Controllers\ProtocolloController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\ReceiptTemplateController;
 use App\Http\Controllers\SaasController;
@@ -744,6 +745,16 @@ Route::middleware([
     Route::get('receipt-templates', [ReceiptTemplateController::class, 'index'])->name('receipt-templates.index');
     Route::get('receipt-templates/{tipo}/edit', [ReceiptTemplateController::class, 'edit'])->name('receipt-templates.edit');
     Route::put('receipt-templates/{tipo}', [ReceiptTemplateController::class, 'update'])->name('receipt-templates.update');
+    // Protocollo comunicazioni
+    Route::get('protocolli', [ProtocolloController::class, 'index'])->name('protocolli.index');
+    Route::get('protocolli/create', [ProtocolloController::class, 'create'])->name('protocolli.create');
+    Route::post('protocolli', [ProtocolloController::class, 'store'])->name('protocolli.store');
+    Route::get('protocolli/{protocollo}', [ProtocolloController::class, 'show'])->name('protocolli.show');
+    Route::get('protocolli/{protocollo}/edit', [ProtocolloController::class, 'edit'])->name('protocolli.edit');
+    Route::put('protocolli/{protocollo}', [ProtocolloController::class, 'update'])->name('protocolli.update');
+    Route::delete('protocolli/{protocollo}', [ProtocolloController::class, 'destroy'])->name('protocolli.destroy');
+    Route::post('protocolli/{protocollo}/attachments', [ProtocolloController::class, 'storeAttachment'])->name('protocolli.attachments.store');
+    Route::delete('protocolli/{protocollo}/attachments/{attachment}', [ProtocolloController::class, 'destroyAttachment'])->name('protocolli.attachments.destroy');
     Route::get('verbali/prossimo-numero', [VerbaleController::class, 'prossimoNumero'])->name('verbali.prossimo-numero');
     Route::get('verbali/{verbale}/pdf', [VerbaleController::class, 'downloadPdf'])->name('verbali.pdf');
     Route::post('verbali/{verbale}/conferma', [VerbaleController::class, 'conferma'])->name('verbali.conferma');

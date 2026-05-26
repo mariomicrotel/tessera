@@ -589,6 +589,13 @@ class IncassoController extends Controller
 
             $receipt->update(['sent_at' => now()]);
 
+            // Auto-registra nel protocollo uscita
+            try {
+                app(\App\Services\ProtocolloService::class)->registraUscitaRicevuta($receipt, $email);
+            } catch (\Throwable $ignored) {
+                report($ignored);
+            }
+
             return back()->with('flash', [
                 'type'    => 'success',
                 'message' => 'Ricevuta inviata a ' . $email . '.',

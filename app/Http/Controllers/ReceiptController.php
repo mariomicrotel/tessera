@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\EmailTemplate;
 use App\Models\Receipt;
 use App\Models\Settings;
+use App\Services\ProtocolloService;
 use App\Services\ReceiptService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -133,6 +134,14 @@ class ReceiptController extends Controller
             }
 
             $receipt->update(['sent_at' => now()]);
+
+            // Auto-registra nel protocollo uscita
+            try {
+                $receipt->load('member');
+                app(ProtocolloService::class)->registraUscitaRicevuta($receipt, $email);
+            } catch (\Throwable $ignored) {
+                report($ignored);
+            }
 
             return redirect()->route('receipts.show', $receipt)
                 ->with('flash', ['type' => 'success', 'message' => 'Ricevuta inviata a ' . $email . '.']);
