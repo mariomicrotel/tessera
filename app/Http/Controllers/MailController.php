@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Jobs\SyncMailboxJob;
+use App\Models\Attachment;
 use App\Models\MailAccount;
 use App\Models\MailMessage;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class MailController extends Controller
@@ -97,6 +99,19 @@ class MailController extends Controller
             $mailMessage->update(['is_read' => true]);
         }
 
+        // Allegati
+        $attachments = Attachment::withoutGlobalScope('tenant')
+            ->where('attachable_type', MailMessage::class)
+            ->where('attachable_id', $mailMessage->id)
+            ->get()
+            ->map(fn($a) => [
+                'id'            => $a->id,
+                'original_name' => $a->original_name,
+                'mime_type'     => $a->mime_type,
+                'size'          => $a->size,
+                'download_url'  => route('mail.attachment', [$mailMessage->id, $a->id]),
+            ]);
+
         return Inertia::render('Mail/Show', [
             'message' => [
                 'id'              => $mailMessage->id,
@@ -113,8 +128,29 @@ class MailController extends Controller
                 'body_html'       => $mailMessage->body_html,
                 'body_text'       => $mailMessage->body_text,
                 'account'         => $mailMessage->account?->only(['id', 'name', 'email']),
+                'attachments'     => $attachments,
             ],
         ]);
+    }
+
+    /** Download di un allegato (verifica che appartenga al messaggio del tenant) */
+    public function downloadAttachment(MailMessage $mailMessage, Attachment $attachment)
+    {
+        abort_if(
+            $attachment->attachable_type !== MailMessage::class
+            || $attachment->attachable_id !== $mailMessage->id,
+            404
+        );
+
+        if (! Storage::disk($attachment->disk)->exists($attachment->file_path)) {
+            abort(404, 'File non trovato.');
+        }
+
+        return Storage::disk($attachment->disk)->download(
+            $attachment->file_path,
+            $attachment->original_name,
+            ['Content-Type' => $attachment->mime_type]
+        );
     }
 
     // ── Azioni ────────────────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\Attachment;
 use App\Models\MailAccount;
 use App\Models\MailMessage;
 use Illuminate\Bus\Queueable;
@@ -11,6 +12,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Webklex\IMAP\Facades\Client;
 
 /**
@@ -18,8 +20,9 @@ use Webklex\IMAP\Facades\Client;
  *
  * - Scarica i messaggi dal server a partire dall'ultima sincronizzazione
  *   (o da sync_days giorni fa al primo avvio).
- * - Usa il driver "protocol" (pure PHP socket) — non richiede ext-imap.
- * - Idempotente: aggiorna i messaggi già presenti (flag is_read).
+ * - Usa protocol=imap (ImapProtocol — pure PHP socket, no ext-imap).
+ * - Idempotente: aggiorna flags is_read/is_flagged dei messaggi esistenti.
+ * - Salva gli allegati su disco (Storage::disk('local')).
  */
 class SyncMailboxJob implements ShouldQueue
 {
@@ -52,13 +55,13 @@ class SyncMailboxJob implements ShouldQueue
 
         try {
             $client = Client::make([
-                'host'       => $account->imap_host,
-                'port'       => $account->imap_port,
-                'encryption' => $account->imap_encryption === 'none' ? false : $account->imap_encryption,
-                'username'   => $account->imap_username,
-                'password'   => $account->getDecryptedPassword(),
-                'driver'     => 'Protocol', // pure PHP, no ext-imap
+                'host'          => $account->imap_host,
+                'port'          => $account->imap_port,
+                'protocol'      => 'imap',                  // ImapProtocol (pure PHP socket)
+                'encryption'    => $account->imap_encryption === 'none' ? false : $account->imap_encryption,
                 'validate_cert' => false,
+                'username'      => $account->imap_username,
+                'password'      => $account->getDecryptedPassword(),
             ]);
 
             $client->connect();
@@ -97,7 +100,7 @@ class SyncMailboxJob implements ShouldQueue
 
         } catch (\Throwable $e) {
             Log::error("[MailSync] Errore account #{$account->id}: " . $e->getMessage());
-            throw $e; // retries
+            throw $e; // triggers retry
         }
     }
 
@@ -105,46 +108,40 @@ class SyncMailboxJob implements ShouldQueue
     {
         $uid = (int) $msg->uid;
 
-        // Estrai mittente
-        $fromCollection = $msg->getFrom();
-        $fromAddr = $fromCollection->first();
+        // ── Mittente ─────────────────────────────────────────────────────────
+        $fromAddr  = $msg->getFrom()->first();
         $fromEmail = $fromAddr?->mail ?? null;
         $fromName  = $fromAddr?->personal ?? null;
 
-        // Estrai destinatari (To)
+        // ── To / Cc ──────────────────────────────────────────────────────────
         $toAddresses = collect($msg->getTo())->map(fn($a) => [
             'name'  => $a->personal ?? null,
             'email' => $a->mail ?? null,
         ])->values()->toArray();
 
-        // Cc
         $ccAddresses = collect($msg->getCc())->map(fn($a) => [
             'name'  => $a->personal ?? null,
             'email' => $a->mail ?? null,
         ])->values()->toArray();
 
-        // Body
+        // ── Body ─────────────────────────────────────────────────────────────
         $bodyHtml = null;
         $bodyText = null;
-        try {
-            $bodyHtml = $msg->getHTMLBody();
-        } catch (\Throwable) {}
-        try {
-            $bodyText = $msg->getTextBody();
-        } catch (\Throwable) {}
+        try { $bodyHtml = $msg->getHTMLBody(); } catch (\Throwable) {}
+        try { $bodyText = $msg->getTextBody(); } catch (\Throwable) {}
 
-        // Data
-        $sentAt = null;
-        try {
-            $sentAt = Carbon::parse($msg->getDate()->first())->toDateTimeString();
-        } catch (\Throwable) {
-            $sentAt = now()->toDateTimeString();
-        }
+        // ── Data ─────────────────────────────────────────────────────────────
+        $sentAt = now()->toDateTimeString();
+        try { $sentAt = Carbon::parse($msg->getDate()->first())->toDateTimeString(); } catch (\Throwable) {}
 
-        // hasAttachments
+        // ── Flags ────────────────────────────────────────────────────────────
+        $flags        = $msg->getFlags();
+        $isRead       = (bool) $flags->get('Seen');
+        $isFlagged    = (bool) $flags->get('Flagged');
         $hasAttachments = $msg->hasAttachments();
 
-        MailMessage::withoutGlobalScope('tenant')->updateOrCreate(
+        // ── Upsert messaggio ─────────────────────────────────────────────────
+        $record = MailMessage::withoutGlobalScope('tenant')->updateOrCreate(
             [
                 'mail_account_id' => $account->id,
                 'folder'          => $account->imap_folder,
@@ -152,8 +149,8 @@ class SyncMailboxJob implements ShouldQueue
             ],
             [
                 'tenant_id'       => $account->tenant_id,
-                'message_id'      => mb_substr((string)($msg->getMessageId()->first() ?? ''), 0, 500) ?: null,
-                'subject'         => mb_substr((string)($msg->getSubject()->first() ?? '(nessun oggetto)'), 0, 500),
+                'message_id'      => mb_substr((string) ($msg->getMessageId()->first() ?? ''), 0, 500) ?: null,
+                'subject'         => mb_substr((string) ($msg->getSubject()->first() ?? '(nessun oggetto)'), 0, 500),
                 'from_name'       => $fromName  ? mb_substr($fromName,  0, 300) : null,
                 'from_email'      => $fromEmail ? mb_substr($fromEmail, 0, 300) : null,
                 'to_addresses'    => $toAddresses,
@@ -161,10 +158,51 @@ class SyncMailboxJob implements ShouldQueue
                 'sent_at'         => $sentAt,
                 'body_html'       => $bodyHtml,
                 'body_text'       => $bodyText,
-                'is_read'         => (bool) $msg->getFlags()->has('Seen'),
-                'is_flagged'      => (bool) $msg->getFlags()->has('Flagged'),
+                'is_read'         => $isRead,
+                'is_flagged'      => $isFlagged,
                 'has_attachments' => $hasAttachments,
             ]
         );
+
+        // ── Allegati (solo al primo insert) ──────────────────────────────────
+        if ($record->wasRecentlyCreated && $hasAttachments) {
+            $this->saveAttachments($account, $record, $msg);
+        }
+    }
+
+    private function saveAttachments(MailAccount $account, MailMessage $record, $msg): void
+    {
+        $msg->getAttachments()->each(function ($att) use ($account, $record) {
+            try {
+                $originalName = $att->name ?? $att->filename ?? 'allegato';
+                $mimeType     = $att->getMimeType() ?? 'application/octet-stream';
+                $content      = $att->content;
+                $size         = is_string($content) ? strlen($content) : 0;
+
+                if (! $content || $size === 0) {
+                    return;
+                }
+
+                // Percorso: mail-attachments/{tenant_id}/{message_id}/{filename}
+                $safeName = preg_replace('/[^a-zA-Z0-9._\-]/', '_', $originalName);
+                $path     = "mail-attachments/{$account->tenant_id}/{$record->id}/{$safeName}";
+
+                Storage::disk('local')->put($path, $content);
+
+                Attachment::withoutGlobalScope('tenant')->create([
+                    'tenant_id'      => $account->tenant_id,
+                    'attachable_type' => MailMessage::class,
+                    'attachable_id'  => $record->id,
+                    'tag'            => 'mail-attachment',
+                    'file_path'      => $path,
+                    'original_name'  => $originalName,
+                    'mime_type'      => $mimeType,
+                    'size'           => $size,
+                    'disk'           => 'local',
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning("[MailSync] Allegato non salvato per msg#{$record->id}: " . $e->getMessage());
+            }
+        });
     }
 }

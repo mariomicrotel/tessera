@@ -4,7 +4,8 @@ import { Head } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import {
     ArrowLeftIcon, EnvelopeIcon, EnvelopeOpenIcon,
-    TrashIcon, StarIcon, FlagIcon,
+    TrashIcon, StarIcon, FlagIcon, PaperClipIcon,
+    ArrowDownTrayIcon,
 } from '@heroicons/vue/24/outline';
 import { StarIcon as StarSolid } from '@heroicons/vue/24/solid';
 
@@ -41,6 +42,13 @@ function fmtDateFull(iso) {
 function addrList(list) {
     if (!list || !list.length) return '—';
     return list.map(a => a.name ? `${a.name} <${a.email}>` : a.email).join(', ');
+}
+
+function fmtSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
 </script>
 
@@ -147,15 +155,40 @@ function addrList(list) {
                         </div>
                     </div>
 
+                    <!-- Allegati -->
+                    <div v-if="message.attachments && message.attachments.length" class="px-6 py-4 border-t border-gray-100 dark:border-gray-700">
+                        <h4 class="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                            <PaperClipIcon class="size-4" />
+                            Allegati ({{ message.attachments.length }})
+                        </h4>
+                        <ul class="space-y-2">
+                            <li
+                                v-for="att in message.attachments"
+                                :key="att.id"
+                                class="flex items-center gap-3 px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/40 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                <PaperClipIcon class="size-4 shrink-0 text-gray-400" />
+                                <span class="flex-1 min-w-0 text-sm text-gray-800 dark:text-gray-200 truncate">{{ att.original_name }}</span>
+                                <span class="text-xs text-gray-400 shrink-0">{{ fmtSize(att.size) }}</span>
+                                <a
+                                    :href="att.download_url"
+                                    class="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    <ArrowDownTrayIcon class="size-4" />
+                                    Scarica
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+
                     <!-- Footer -->
                     <div class="px-6 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 flex items-center justify-between">
                         <button @click="goBack" class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
                             <ArrowLeftIcon class="size-4" />
                             Torna alla lista
                         </button>
-                        <div v-if="message.has_attachments" class="text-sm text-gray-500 dark:text-gray-400">
-                            📎 Questo messaggio ha degli allegati — visibili nella casella originale.
-                        </div>
                     </div>
                 </div>
             </div>

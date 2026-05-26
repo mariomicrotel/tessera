@@ -149,6 +149,10 @@ class HandleInertiaRequests extends Middleware
             'tessera_modules' => fn () => Tessera::allModules(),
             // Tessera: etichette rinominate (es. "Contabilità" → "Amministrazione semplificata")
             'tessera_labels' => fn () => config('tessera.labels', []),
+            // Badge non-letti posta IMAP (lazy: nessuna query su route pubbliche o senza tenant)
+            'mail_unread_count' => fn () => app()->bound('current_tenant')
+                ? \App\Models\MailMessage::query()->where('is_read', false)->count()
+                : 0,
         ];
     }
 }

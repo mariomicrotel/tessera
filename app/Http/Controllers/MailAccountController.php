@@ -17,29 +17,7 @@ class MailAccountController extends Controller
 
     public function index()
     {
-        $accounts = MailAccount::query()
-            ->withCount('messages')
-            ->orderBy('name')
-            ->get()
-            ->map(fn($a) => [
-                'id'             => $a->id,
-                'name'           => $a->name,
-                'email'          => $a->email,
-                'imap_host'      => $a->imap_host,
-                'imap_port'      => $a->imap_port,
-                'imap_encryption'=> $a->imap_encryption,
-                'imap_username'  => $a->imap_username,
-                'imap_folder'    => $a->imap_folder,
-                'is_active'      => $a->is_active,
-                'sync_days'      => $a->sync_days,
-                'last_synced_at' => $a->last_synced_at?->toIso8601String(),
-                'messages_count' => $a->messages_count,
-                'unread_count'   => $a->unreadCount(),
-            ]);
-
-        return Inertia::render('Mail/Accounts/Index', [
-            'accounts' => $accounts,
-        ]);
+        return redirect()->route('settings.index', ['tab' => 'posta']);
     }
 
     public function create()

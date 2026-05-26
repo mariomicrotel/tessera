@@ -777,6 +777,7 @@ Route::middleware([
         Route::patch('{mailMessage}/read',               [MailController::class, 'markRead'])->name('read');
         Route::patch('{mailMessage}/unread',             [MailController::class, 'markUnread'])->name('unread');
         Route::patch('{mailMessage}/flag',               [MailController::class, 'toggleFlag'])->name('flag');
+        Route::get('{mailMessage}/attachments/{attachment}', [MailController::class, 'downloadAttachment'])->name('attachment');
         Route::delete('{mailMessage}',                   [MailController::class, 'destroy'])->name('destroy');
         Route::get('{mailMessage}',                      [MailController::class, 'show'])->name('show');
     });

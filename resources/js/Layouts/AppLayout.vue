@@ -434,6 +434,10 @@ const logout = () => {
                         <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" :href="route('mail.index')" :active="route().current('mail.*')" class="pt-1">
                             <EnvelopeIcon class="size-5 shrink-0" aria-hidden="true" />
                             Posta
+                            <span
+                                v-if="$page.props.mail_unread_count > 0"
+                                class="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-xs font-bold bg-indigo-600 text-white"
+                            >{{ $page.props.mail_unread_count > 99 ? '99+' : $page.props.mail_unread_count }}</span>
                         </ResponsiveNavLink>
                         <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" class="pt-2">
                             <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('organiVotazioni')">
@@ -981,6 +985,10 @@ const logout = () => {
                                 <NavLink v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" :href="route('mail.index')" :active="route().current('mail.*')" class="mt-1">
                                     <EnvelopeIcon class="size-5 shrink-0" aria-hidden="true" />
                                     Posta
+                                    <span
+                                        v-if="$page.props.mail_unread_count > 0"
+                                        class="ml-auto inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1 rounded-full text-xs font-bold bg-indigo-600 text-white"
+                                    >{{ $page.props.mail_unread_count > 99 ? '99+' : $page.props.mail_unread_count }}</span>
                                 </NavLink>
                                 <!-- Organi e votazioni -->
                                 <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" class="mt-2">
