@@ -760,25 +760,25 @@ Route::middleware([
 
     // ── Mail client (Fase 1) ──────────────────────────────────────────────────
     Route::prefix('mail')->name('mail.')->group(function () {
-        // Inbox + azioni messaggi
-        Route::get('/',                                  [MailController::class, 'index'])->name('index');
-        Route::get('{mailMessage}',                      [MailController::class, 'show'])->name('show');
-        Route::patch('{mailMessage}/read',               [MailController::class, 'markRead'])->name('read');
-        Route::patch('{mailMessage}/unread',             [MailController::class, 'markUnread'])->name('unread');
-        Route::patch('{mailMessage}/flag',               [MailController::class, 'toggleFlag'])->name('flag');
-        Route::delete('{mailMessage}',                   [MailController::class, 'destroy'])->name('destroy');
-        Route::post('sync',                              [MailController::class, 'sync'])->name('sync');
-
-        // Gestione caselle (solo admin)
+        // Gestione caselle prima dei wildcard (solo admin)
         Route::prefix('accounts')->name('accounts.')->group(function () {
             Route::get('/',                              [MailAccountController::class, 'index'])->name('index');
             Route::get('/create',                        [MailAccountController::class, 'create'])->name('create');
             Route::post('/',                             [MailAccountController::class, 'store'])->name('store');
+            Route::post('/test',                         [MailAccountController::class, 'test'])->name('test');
             Route::get('/{mailAccount}/edit',            [MailAccountController::class, 'edit'])->name('edit');
             Route::put('/{mailAccount}',                 [MailAccountController::class, 'update'])->name('update');
             Route::delete('/{mailAccount}',              [MailAccountController::class, 'destroy'])->name('destroy');
-            Route::post('/test',                         [MailAccountController::class, 'test'])->name('test');
         });
+
+        // Inbox + azioni messaggi (wildcard sempre in fondo)
+        Route::get('/',                                  [MailController::class, 'index'])->name('index');
+        Route::post('sync',                              [MailController::class, 'sync'])->name('sync');
+        Route::patch('{mailMessage}/read',               [MailController::class, 'markRead'])->name('read');
+        Route::patch('{mailMessage}/unread',             [MailController::class, 'markUnread'])->name('unread');
+        Route::patch('{mailMessage}/flag',               [MailController::class, 'toggleFlag'])->name('flag');
+        Route::delete('{mailMessage}',                   [MailController::class, 'destroy'])->name('destroy');
+        Route::get('{mailMessage}',                      [MailController::class, 'show'])->name('show');
     });
 
     Route::get('verbali/prossimo-numero', [VerbaleController::class, 'prossimoNumero'])->name('verbali.prossimo-numero');
