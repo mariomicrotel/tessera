@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { CheckIcon, ArrowLeftIcon, BanknotesIcon, BuildingLibraryIcon, BuildingOfficeIcon, CurrencyEuroIcon, DocumentTextIcon, EnvelopeIcon, EyeIcon, PhotoIcon, TrashIcon, GlobeAltIcon, ShieldCheckIcon, CreditCardIcon, SignalIcon, ArrowPathIcon, ExclamationTriangleIcon } from '@heroicons/vue/24/outline';
+import { CheckIcon, ArrowLeftIcon, BanknotesIcon, BuildingLibraryIcon, BuildingOfficeIcon, CurrencyEuroIcon, DocumentTextIcon, EnvelopeIcon, EyeIcon, PhotoIcon, TrashIcon, GlobeAltIcon, ShieldCheckIcon, CreditCardIcon, SignalIcon, ArrowPathIcon, ExclamationTriangleIcon, InboxArrowDownIcon, PencilSquareIcon, PlusIcon, CheckCircleIcon, XCircleIcon } from '@heroicons/vue/24/outline';
 import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputError from '@/Components/InputError.vue';
@@ -54,11 +54,13 @@ const props = defineProps({
     // OpenAPI Company
     openapi_company_token_set:        Boolean,
     openapi_company_daily_limit:      [Number, String],
+    // Caselle email IMAP
+    mail_accounts:                    { type: Array, default: () => [] },
 });
 
 const page = usePage();
 
-const activeTab = ref('quota');
+const activeTab = ref(new URLSearchParams(window.location.search).get('tab') || 'quota');
 const logoFileInput = ref(null);
 const logoUploading = ref(false);
 const logoError = ref('');
@@ -93,6 +95,7 @@ const tabs = computed(() => [
     { id: 'privacy', label: 'Privacy', icon: ShieldCheckIcon },
     ...(props.is_cooperativa ? [{ id: 'cooperativa', label: 'Cooperativa', icon: BuildingLibraryIcon }] : []),
     { id: 'api', label: 'API', icon: SignalIcon },
+    { id: 'posta', label: 'Posta IMAP', icon: InboxArrowDownIcon },
 ]);
 
 const testEmailSending = ref(false);
@@ -233,6 +236,15 @@ async function checkApiCredit() {
     } finally {
         apiChecking.value = false;
     }
+}
+
+function deleteMailAccount(account) {
+    if (!confirm(`Eliminare la casella "${account.name}" e tutti i messaggi associati?`)) return;
+    router.delete(route('mail.accounts.destroy', account.id), { preserveScroll: true });
+}
+function fmtSyncDate(iso) {
+    if (!iso) return 'Mai';
+    return new Date(iso).toLocaleString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 // Testo letterale per la help (evita che Vue interpreti le graffe nel template)
@@ -950,7 +962,89 @@ const placeholderSottotitolo = 'Es: Benvenuti nel sito di \u007B\u007Bnome_assoc
                         </div>
                     </div>
 
-                    <div class="flex gap-2 pt-6 mt-6 border-t border-gray-200 dark:border-gray-600">
+                    <!-- Tab: Posta IMAP -->
+                    <div v-show="activeTab === 'posta'" class="space-y-4">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Caselle email IMAP</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                    Configura le caselle da sincronizzare nella sezione Posta.
+                                </p>
+                            </div>
+                            <a
+                                :href="route('mail.accounts.create')"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700"
+                            >
+                                <PlusIcon class="size-4" />
+                                Aggiungi casella
+                            </a>
+                        </div>
+
+                        <!-- Lista vuota -->
+                        <div v-if="!mail_accounts.length" class="rounded-lg border-2 border-dashed border-gray-200 dark:border-gray-700 p-8 text-center">
+                            <InboxArrowDownIcon class="size-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+                            <p class="text-sm text-gray-500 dark:text-gray-400">Nessuna casella configurata.</p>
+                            <p class="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                                Aggiungi un account IMAP per ricevere email direttamente in Tessera.
+                            </p>
+                        </div>
+
+                        <!-- Tabella caselle -->
+                        <div v-else class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
+                                        <th class="px-4 py-2.5 text-left font-medium text-gray-500 dark:text-gray-400">Nome / Email</th>
+                                        <th class="px-4 py-2.5 text-left font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">Server</th>
+                                        <th class="px-4 py-2.5 text-left font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell">Ultima sync</th>
+                                        <th class="px-4 py-2.5 text-center font-medium text-gray-500 dark:text-gray-400">Msg</th>
+                                        <th class="px-4 py-2.5 text-center font-medium text-gray-500 dark:text-gray-400">Attiva</th>
+                                        <th class="px-4 py-2.5" />
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-700">
+                                    <tr v-for="acc in mail_accounts" :key="acc.id" class="hover:bg-gray-50 dark:hover:bg-gray-700/30">
+                                        <td class="px-4 py-3">
+                                            <p class="font-medium text-gray-900 dark:text-gray-100">{{ acc.name }}</p>
+                                            <p class="text-xs text-gray-500 dark:text-gray-400">{{ acc.email }}</p>
+                                        </td>
+                                        <td class="px-4 py-3 hidden md:table-cell text-xs text-gray-600 dark:text-gray-400">
+                                            {{ acc.imap_host }}:{{ acc.imap_port }}
+                                            <span class="ml-1 px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-500">{{ acc.imap_encryption }}</span>
+                                        </td>
+                                        <td class="px-4 py-3 hidden lg:table-cell text-xs text-gray-500 dark:text-gray-400">
+                                            {{ fmtSyncDate(acc.last_synced_at) }}
+                                        </td>
+                                        <td class="px-4 py-3 text-center text-gray-700 dark:text-gray-300 text-xs">
+                                            {{ acc.messages_count }}
+                                            <span v-if="acc.unread_count > 0" class="text-indigo-600 dark:text-indigo-400 font-semibold">({{ acc.unread_count }})</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-center">
+                                            <CheckCircleIcon v-if="acc.is_active" class="size-4 text-emerald-500 mx-auto" />
+                                            <XCircleIcon v-else class="size-4 text-gray-400 mx-auto" />
+                                        </td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center justify-end gap-1">
+                                                <a :href="route('mail.accounts.edit', acc.id)" class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-indigo-600" title="Modifica">
+                                                    <PencilSquareIcon class="size-4" />
+                                                </a>
+                                                <button type="button" @click="deleteMailAccount(acc)" class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-red-500" title="Elimina">
+                                                    <TrashIcon class="size-4" />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <p class="text-xs text-gray-400 dark:text-gray-500">
+                            La posta viene sincronizzata automaticamente ogni 15 minuti. Puoi avviare una sync manuale dalla sezione
+                            <a :href="route('mail.index')" class="text-indigo-600 dark:text-indigo-400 hover:underline">Posta</a>.
+                        </p>
+                    </div>
+
+                    <div class="flex gap-2 pt-6 mt-6 border-t border-gray-200 dark:border-gray-600" v-show="activeTab !== 'posta'">
                         <PrimaryButton type="submit" :disabled="form.processing"><CheckIcon class="size-4 me-2" aria-hidden="true" />Salva</PrimaryButton>
                         <Link :href="route('dashboard')" class="inline-flex items-center gap-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md font-medium text-xs text-gray-700 dark:text-gray-300 uppercase tracking-widest hover:bg-gray-50 dark:hover:bg-gray-700"><ArrowLeftIcon class="size-4 me-1" aria-hidden="true" />Annulla</Link>
                     </div>

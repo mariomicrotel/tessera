@@ -23,14 +23,16 @@ const form = useForm({
     is_active:        props.account?.is_active        ?? true,
 });
 
+const backUrl = route('settings.index') + '?tab=posta';
+
 function submit() {
     if (isEdit) {
         form.put(route('mail.accounts.update', props.account.id), {
-            onSuccess: () => router.get(route('mail.accounts.index')),
+            onSuccess: () => router.get(backUrl),
         });
     } else {
         form.post(route('mail.accounts.store'), {
-            onSuccess: () => router.get(route('mail.accounts.index')),
+            onSuccess: () => router.get(backUrl),
         });
     }
 }
@@ -210,7 +212,7 @@ const encryptionOptions = ['ssl', 'tls', 'starttls', 'none'];
 
                     <!-- Footer azioni -->
                     <div class="px-6 py-4 flex items-center justify-between gap-3">
-                        <a :href="route('mail.accounts.index')" class="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                        <a :href="backUrl" class="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
                             Annulla
                         </a>
                         <button

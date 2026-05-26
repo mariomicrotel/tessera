@@ -107,11 +107,11 @@ const filterOptions = [
                     </button>
                     <a
                         v-if="$page.props.userRoles?.includes('admin')"
-                        :href="route('mail.accounts.index')"
+                        :href="route('settings.index') + '?tab=posta'"
                         class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
                         <Cog6ToothIcon class="size-4" />
-                        Caselle
+                        Impostazioni
                     </a>
                 </div>
             </div>
