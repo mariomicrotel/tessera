@@ -1,5 +1,5 @@
 <script setup>
-import { CheckIcon, ArrowLeftIcon } from '@heroicons/vue/24/outline';
+import { CheckIcon, ArrowLeftIcon, CodeBracketIcon, PencilSquareIcon } from '@heroicons/vue/24/outline';
 import { computed, ref, watch } from 'vue';
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
@@ -31,6 +31,37 @@ const props = defineProps({
 
 const page = usePage();
 const showConfirmAnnoPrecedenteModal = ref(false);
+
+/* ── Editor ricevuta ── */
+const bodyEditMode = ref('editor');
+
+/** Sostituisce i placeholder nel testo con valori reali/di esempio per l'anteprima. */
+const receiptPreviewHtml = computed(() => {
+    let html = form.receipt_text_override || '';
+    const yr  = String(new Date().getFullYear());
+    const samples = {
+        'nome-associazione': 'La mia Associazione ETS',
+        'receipt_number':    yr + '/0001',
+        'data':              new Date().toLocaleDateString('it-IT'),
+        'amount':            form.amount
+            ? Number(form.amount).toFixed(2).replace('.', ',')
+            : '0,00',
+        'causale': form.description
+            || (form.type === 'donazione' ? 'Erogazione liberale' : 'Quota associativa'),
+        'recipient_name': 'Mario Rossi',
+        'recipient_cf':   'RSSMRA80A01H501Z',
+        'iban':           'IT60X0542811101000000123456',
+        'anno':           yr,
+        'presidente':     'Mario Bianchi',
+        'sede':           'Via Roma 1, 20100 Milano',
+        'sede-legale':    'Via Roma 1, 20100 Milano',
+        'sede-operativa': 'Via Roma 1, 20100 Milano',
+    };
+    for (const [key, val] of Object.entries(samples)) {
+        html = html.split('{{' + key + '}}').join(String(val));
+    }
+    return html;
+});
 
 function normalizeTemplateToHtml(input) {
     const value = (input || '').trim();
@@ -341,9 +372,38 @@ function confirmAnnoPrecedenteProceed() {
                     <input id="issue_receipt" v-model="form.issue_receipt" type="checkbox" class="rounded border-gray-300 dark:border-gray-700 shadow-sm" />
                     <label for="issue_receipt" class="ml-2 text-sm text-gray-700 dark:text-gray-300">Emetti ricevuta</label>
                 </div>
-                <div v-if="form.issue_receipt">
-                    <InputLabel for="receipt_text_override" value="Testo ricevuta (modificabile)" />
+                <!-- ══ Editor + Anteprima ricevuta ══ -->
+                <div v-if="form.issue_receipt" class="space-y-3">
+                    <!-- Intestazione con toggle editor/raw -->
+                    <div class="flex items-center justify-between gap-2">
+                        <InputLabel for="receipt_text_override" value="Testo ricevuta" class="!mb-0" />
+                        <div class="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden shrink-0">
+                            <button
+                                type="button"
+                                :class="bodyEditMode === 'editor'
+                                    ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white'
+                                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
+                                @click="bodyEditMode = 'editor'"
+                            >
+                                <PencilSquareIcon class="size-3.5" /> Editor
+                            </button>
+                            <button
+                                type="button"
+                                :class="bodyEditMode === 'raw'
+                                    ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white'
+                                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
+                                @click="bodyEditMode = 'raw'"
+                            >
+                                <CodeBracketIcon class="size-3.5" /> HTML
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Editor visuale -->
                     <RichTextEditor
+                        v-if="bodyEditMode === 'editor'"
                         id="receipt_text_override"
                         v-model="form.receipt_text_override"
                         placeholder="Testo ricevuta personalizzato (HTML)"
@@ -351,7 +411,28 @@ function confirmAnnoPrecedenteProceed() {
                         :placeholder-items="receiptEditorPlaceholders"
                         enable-table
                     />
+                    <!-- Textarea HTML raw -->
+                    <textarea
+                        v-else
+                        id="receipt_text_override_raw"
+                        v-model="form.receipt_text_override"
+                        rows="10"
+                        class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 font-mono text-xs"
+                        placeholder="<p>Inserisci il testo HTML della ricevuta...</p>"
+                    />
                     <InputError class="mt-1" :message="form.errors.receipt_text_override" />
+
+                    <!-- Anteprima HTML in tempo reale -->
+                    <div class="rounded-md border border-gray-200 dark:border-gray-600 overflow-hidden">
+                        <div class="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                            <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Anteprima ricevuta</span>
+                            <span class="text-xs text-gray-400 dark:text-gray-500">I placeholder sono sostituiti con valori di esempio.</span>
+                        </div>
+                        <div
+                            class="p-4 prose prose-sm max-w-none dark:prose-invert min-h-[100px] bg-white dark:bg-gray-900"
+                            v-html="receiptPreviewHtml"
+                        />
+                    </div>
                 </div>
                 <div class="flex gap-2">
                     <PrimaryButton type="submit" :disabled="form.processing"><CheckIcon class="size-4 me-2" aria-hidden="true" />{{ submitLabel }}</PrimaryButton>

@@ -3,12 +3,14 @@ import {
     ArrowLeftIcon, PencilIcon, TrashIcon,
     DocumentTextIcon, EnvelopeIcon, ArrowPathIcon,
     ArrowDownTrayIcon, ChevronDownIcon, ChevronUpIcon,
-    CheckCircleIcon,
+    CheckCircleIcon, CodeBracketIcon, PencilSquareIcon,
 } from '@heroicons/vue/24/outline';
 import { computed, ref } from 'vue';
 import { Head, Link, router, usePage, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import AttachmentsPanel from '@/Components/AttachmentsPanel.vue';
+import RichTextEditor from '@/Components/RichTextEditor.vue';
+import { receiptEditorPlaceholders } from '@/constants/receiptEditorPlaceholders';
 
 const props = defineProps({
     incasso:                 { type: Object, required: true },
@@ -37,17 +39,51 @@ const fmt         = (d) => d ? new Date(d).toLocaleDateString('it-IT') : '—';
 const fmtDatetime = (d) => d ? new Date(d).toLocaleString('it-IT') : '—';
 
 /* ── Emissione ricevuta ─────────────────────────────────── */
-const showIssueForm      = ref(false);
-const showTextOverride   = ref(false);
+const showIssueForm  = ref(false);
+const bodyEditMode   = ref('editor');
 
 const issueForm = useForm({
     receipt_text_override: props.receiptTemplateText ?? '',
 });
 
+/** Anteprima: sostituisce i placeholder con valori reali dall'incasso. */
+const receiptPreviewHtml = computed(() => {
+    let html = issueForm.receipt_text_override || '';
+    const yr   = String(new Date().getFullYear());
+    const paid = props.incasso.paid_at
+        ? new Date(props.incasso.paid_at).toLocaleDateString('it-IT')
+        : new Date().toLocaleDateString('it-IT');
+    const memberName = props.incasso.member
+        ? `${props.incasso.member.cognome} ${props.incasso.member.nome}`
+        : (props.incasso.donor_name || 'Destinatario');
+    const samples = {
+        'nome-associazione': 'La mia Associazione ETS',
+        'receipt_number':    yr + '/0001',
+        'data':              paid,
+        'amount':            props.incasso.amount
+            ? Number(props.incasso.amount).toFixed(2).replace('.', ',')
+            : '0,00',
+        'causale':           props.incasso.description
+            || (props.incasso.type === 'donazione' ? 'Erogazione liberale' : 'Quota associativa'),
+        'recipient_name':    memberName,
+        'recipient_cf':      '',
+        'iban':              '',
+        'anno':              yr,
+        'presidente':        'Mario Bianchi',
+        'sede':              'Via Roma 1, 20100 Milano',
+        'sede-legale':       'Via Roma 1, 20100 Milano',
+        'sede-operativa':    'Via Roma 1, 20100 Milano',
+    };
+    for (const [key, val] of Object.entries(samples)) {
+        html = html.split('{{' + key + '}}').join(String(val));
+    }
+    return html;
+});
+
 function issueReceipt() {
     issueForm.post(route('incassi.issue-receipt', props.incasso.id), {
         preserveScroll: true,
-        onSuccess: () => { showIssueForm.value = false; showTextOverride.value = false; },
+        onSuccess: () => { showIssueForm.value = false; bodyEditMode.value = 'editor'; },
     });
 }
 
@@ -319,39 +355,83 @@ const canIssueReceipt = computed(() =>
                 </div>
 
                 <!-- Form emissione -->
-                <div v-if="showIssueForm" class="px-5 py-4 space-y-3">
+                <div v-if="showIssueForm" class="px-5 py-4 space-y-4">
                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                        Verrà generata una ricevuta PDF utilizzando il template predefinito.
-                        Puoi personalizzare il testo espandendo la sezione qui sotto.
+                        Verrà generata una ricevuta PDF. Puoi modificare il testo con l'editor
+                        o passare alla modalità HTML raw per interventi avanzati.
+                        L'anteprima in basso mostra il risultato con i dati reali dell'incasso.
                     </p>
 
-                    <form @submit.prevent="issueReceipt" class="space-y-3">
-                        <!-- Toggle testo personalizzato -->
-                        <div>
-                            <button type="button" @click="showTextOverride = !showTextOverride"
-                                class="inline-flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400 hover:underline">
-                                <ChevronUpIcon v-if="showTextOverride" class="size-3" />
-                                <ChevronDownIcon v-else class="size-3" />
-                                {{ showTextOverride ? 'Nascondi testo ricevuta' : 'Personalizza testo ricevuta (opzionale)' }}
-                            </button>
+                    <form @submit.prevent="issueReceipt" class="space-y-4">
 
-                            <div v-if="showTextOverride" class="mt-2">
-                                <label class="block text-xs text-gray-600 dark:text-gray-400 mb-1">
-                                    Testo HTML della ricevuta. Lascia invariato per usare il template predefinito.
+                        <!-- Toggle editor / HTML raw -->
+                        <div>
+                            <div class="flex items-center justify-between gap-2 mb-2">
+                                <label class="text-xs font-medium text-gray-700 dark:text-gray-300">
+                                    Testo ricevuta
                                 </label>
-                                <textarea
-                                    v-model="issueForm.receipt_text_override"
-                                    rows="8"
-                                    class="w-full text-xs font-mono rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100"
-                                    placeholder="Testo HTML personalizzato (opzionale)"
-                                />
-                                <p v-if="issueForm.errors.receipt_text_override"
-                                    class="mt-1 text-xs text-red-600 dark:text-red-400">
-                                    {{ issueForm.errors.receipt_text_override }}
-                                </p>
+                                <div class="flex rounded-lg border border-gray-300 dark:border-gray-600 overflow-hidden shrink-0">
+                                    <button
+                                        type="button"
+                                        :class="bodyEditMode === 'editor'
+                                            ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white'
+                                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
+                                        @click="bodyEditMode = 'editor'"
+                                    >
+                                        <PencilSquareIcon class="size-3.5" /> Editor
+                                    </button>
+                                    <button
+                                        type="button"
+                                        :class="bodyEditMode === 'raw'
+                                            ? 'bg-gray-200 dark:bg-gray-600 text-gray-900 dark:text-white'
+                                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium"
+                                        @click="bodyEditMode = 'raw'"
+                                    >
+                                        <CodeBracketIcon class="size-3.5" /> HTML
+                                    </button>
+                                </div>
                             </div>
+
+                            <!-- Editor visuale TipTap -->
+                            <RichTextEditor
+                                v-if="bodyEditMode === 'editor'"
+                                v-model="issueForm.receipt_text_override"
+                                placeholder="Testo ricevuta (HTML)..."
+                                min-height="220px"
+                                :placeholder-items="receiptEditorPlaceholders"
+                                enable-table
+                            />
+                            <!-- Textarea HTML raw -->
+                            <textarea
+                                v-else
+                                v-model="issueForm.receipt_text_override"
+                                rows="10"
+                                class="block w-full rounded-md border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500 font-mono text-xs"
+                                placeholder="<p>Inserisci il testo HTML della ricevuta...</p>"
+                            />
+                            <p v-if="issueForm.errors.receipt_text_override"
+                                class="mt-1 text-xs text-red-600 dark:text-red-400">
+                                {{ issueForm.errors.receipt_text_override }}
+                            </p>
                         </div>
 
+                        <!-- Anteprima HTML in tempo reale -->
+                        <div class="rounded-md border border-gray-200 dark:border-gray-600 overflow-hidden">
+                            <div class="flex items-center justify-between px-3 py-2 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                                <span class="text-xs font-semibold text-gray-700 dark:text-gray-300">Anteprima ricevuta</span>
+                                <span class="text-xs text-gray-400 dark:text-gray-500">
+                                    Placeholder sostituiti con i dati reali dell'incasso.
+                                </span>
+                            </div>
+                            <div
+                                class="p-4 prose prose-sm max-w-none dark:prose-invert min-h-[100px] bg-white dark:bg-gray-900"
+                                v-html="receiptPreviewHtml"
+                            />
+                        </div>
+
+                        <!-- Pulsanti -->
                         <div class="flex gap-2 pt-1">
                             <button type="submit"
                                 :disabled="issueForm.processing"
