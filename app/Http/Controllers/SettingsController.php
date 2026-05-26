@@ -111,16 +111,19 @@ class SettingsController extends Controller
                 ->orderBy('name')
                 ->get()
                 ->map(fn($a) => [
-                    'id'             => $a->id,
-                    'name'           => $a->name,
-                    'email'          => $a->email,
-                    'imap_host'      => $a->imap_host,
-                    'imap_port'      => $a->imap_port,
-                    'imap_encryption'=> $a->imap_encryption,
-                    'is_active'      => $a->is_active,
-                    'last_synced_at' => $a->last_synced_at?->toIso8601String(),
-                    'messages_count' => $a->messages_count,
-                    'unread_count'   => $a->unreadCount(),
+                    'id'              => $a->id,
+                    'name'            => $a->name,
+                    'email'           => $a->email,
+                    'imap_host'       => $a->imap_host,
+                    'imap_port'       => $a->imap_port,
+                    'imap_encryption' => $a->imap_encryption,
+                    'is_active'       => $a->is_active,
+                    'last_synced_at'  => $a->last_synced_at?->toIso8601String(),
+                    'messages_count'  => $a->messages_count,
+                    'unread_count'    => $a->unreadCount(),
+                    // SMTP
+                    'has_smtp'        => $a->hasSmtp(),
+                    'smtp_from_email' => $a->smtp_from_email ?: $a->email,
                 ]),
         ]);
     }

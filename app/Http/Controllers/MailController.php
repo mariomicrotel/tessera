@@ -7,8 +7,12 @@ use App\Jobs\SyncMailboxJob;
 use App\Models\Attachment;
 use App\Models\MailAccount;
 use App\Models\MailMessage;
+use App\Models\Protocollo;
+use App\Services\ProtocolloService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class MailController extends Controller
@@ -100,7 +104,7 @@ class MailController extends Controller
             $mailMessage->update(['is_read' => true]);
         }
 
-        // Allegati
+        // Allegati ricevuti (da IMAP)
         $attachments = Attachment::withoutGlobalScope('tenant')
             ->where('attachable_type', MailMessage::class)
             ->where('attachable_id', $mailMessage->id)
@@ -112,6 +116,27 @@ class MailController extends Controller
                 'size'          => $a->size,
                 'download_url'  => route('mail.attachment', [$mailMessage->id, $a->id]),
             ]);
+
+        // Prev / Next (stesso account e folder, ordinati per sent_at)
+        $prevId = MailMessage::query()
+            ->where('mail_account_id', $mailMessage->mail_account_id)
+            ->where('folder', $mailMessage->folder)
+            ->where('sent_at', '>', $mailMessage->sent_at)
+            ->orderBy('sent_at')
+            ->value('id');
+
+        $nextId = MailMessage::query()
+            ->where('mail_account_id', $mailMessage->mail_account_id)
+            ->where('folder', $mailMessage->folder)
+            ->where('sent_at', '<', $mailMessage->sent_at)
+            ->orderByDesc('sent_at')
+            ->value('id');
+
+        // Protocollo collegato (se già protocollato)
+        $protocollo = Protocollo::query()
+            ->where('linked_type', MailMessage::class)
+            ->where('linked_id', $mailMessage->id)
+            ->first();
 
         return Inertia::render('Mail/Show', [
             'message' => [
@@ -128,9 +153,16 @@ class MailController extends Controller
                 'has_attachments' => $mailMessage->has_attachments,
                 'body_html'       => $mailMessage->body_html,
                 'body_text'       => $mailMessage->body_text,
+                'folder'          => $mailMessage->folder,
                 'account'         => $mailMessage->account?->only(['id', 'name', 'email']),
                 'attachments'     => $attachments,
             ],
+            'prev_id'    => $prevId,
+            'next_id'    => $nextId,
+            'protocollo' => $protocollo ? [
+                'id'                => $protocollo->id,
+                'numero_formattato' => $protocollo->numero_formattato,
+            ] : null,
         ]);
     }
 
@@ -243,17 +275,18 @@ class MailController extends Controller
     public function send(Request $request)
     {
         $validated = $request->validate([
-            'account_id' => 'required|integer|exists:mail_accounts,id',
-            'to'         => 'required|email',
-            'to_name'    => 'nullable|string|max:200',
-            'cc'         => 'nullable|string',   // CSV di email
-            'bcc'        => 'nullable|string',
-            'subject'    => 'required|string|max:500',
-            'body'       => 'required|string',
+            'account_id'          => 'required|integer|exists:mail_accounts,id',
+            'to'                  => 'required|email',
+            'to_name'             => 'nullable|string|max:200',
+            'cc'                  => 'nullable|string',
+            'bcc'                 => 'nullable|string',
+            'subject'             => 'required|string|max:500',
+            'body'                => 'required|string',
             'reply_to_message_id' => 'nullable|integer|exists:mail_messages,id',
+            'attachments'         => 'nullable|array',
+            'attachments.*'       => 'file|max:10240', // max 10 MB per file
         ]);
 
-        // Verifica che l'account appartenga al tenant corrente
         $account = MailAccount::findOrFail($validated['account_id']);
         abort_unless($account->hasSmtp(), 422, 'Questa casella non ha SMTP configurato.');
 
@@ -261,7 +294,7 @@ class MailController extends Controller
         $cc  = array_filter(array_map('trim', explode(',', $validated['cc']  ?? '')));
         $bcc = array_filter(array_map('trim', explode(',', $validated['bcc'] ?? '')));
 
-        // Reply-To: se è risposta, il reply-to è il mittente originale
+        // Reply-To header: mittente originale se è una risposta
         $replyToEmail = null;
         $replyToName  = null;
         if ($validated['reply_to_message_id'] ?? null) {
@@ -272,20 +305,78 @@ class MailController extends Controller
             }
         }
 
+        // Salva allegati in area temporanea (accessibile al job in coda)
+        $attachmentMeta = [];
+        foreach ($request->file('attachments', []) as $file) {
+            $tempPath = 'mail-temp/' . Str::uuid() . '/' . $file->getClientOriginalName();
+            Storage::disk('local')->put($tempPath, file_get_contents($file->getRealPath()));
+            $attachmentMeta[] = [
+                'temp_path'     => $tempPath,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type'     => $file->getMimeType() ?? 'application/octet-stream',
+            ];
+        }
+
         SendMailJob::dispatch(
             mailAccountId: $account->id,
             to:            $validated['to'],
             toName:        $validated['to_name'] ?? '',
             subject:       $validated['subject'],
-            bodyHtml:      nl2br(e($validated['body'])), // testo → HTML semplice
+            bodyHtml:      nl2br(e($validated['body'])),
             bodyText:      $validated['body'],
             replyTo:       $replyToEmail,
             replyToName:   $replyToName,
             cc:            array_values($cc),
             bcc:           array_values($bcc),
+            attachments:   $attachmentMeta,
         );
 
         return redirect()->route('mail.index')
             ->with('success', 'Messaggio in coda per l\'invio.');
+    }
+
+    /** Protocolla un messaggio ricevuto (crea record Protocollo collegato) */
+    public function protocolla(MailMessage $mailMessage, ProtocolloService $service)
+    {
+        // Evita duplicati
+        $existing = Protocollo::query()
+            ->where('linked_type', MailMessage::class)
+            ->where('linked_id', $mailMessage->id)
+            ->first();
+
+        if ($existing) {
+            return redirect()->route('protocolli.show', $existing->id)
+                ->with('info', 'Messaggio già protocollato come ' . $existing->numero_formattato . '.');
+        }
+
+        $tenant = app('current_tenant');
+
+        $tipo = $mailMessage->folder === 'Sent' ? Protocollo::TIPO_USCITA : Protocollo::TIPO_ENTRATA;
+
+        $mittente = $tipo === Protocollo::TIPO_ENTRATA
+            ? ($mailMessage->from_name ? $mailMessage->from_name . ' <' . $mailMessage->from_email . '>' : $mailMessage->from_email)
+            : null;
+
+        $destinatario = $tipo === Protocollo::TIPO_USCITA
+            ? collect($mailMessage->to_addresses ?? [])
+                ->map(fn($a) => $a['name'] ? $a['name'] . ' <' . $a['email'] . '>' : $a['email'])
+                ->implode(', ')
+            : null;
+
+        $protocollo = $service->crea([
+            'tenant_id'          => $tenant->id,
+            'tipo'               => $tipo,
+            'data_registrazione' => ($mailMessage->sent_at ?? now())->toDateString(),
+            'oggetto'            => $mailMessage->subject ?? '(nessun oggetto)',
+            'mittente'           => $mittente,
+            'destinatario'       => $destinatario,
+            'note'               => 'Protocollato automaticamente dalla posta in arrivo.',
+            'linked_type'        => MailMessage::class,
+            'linked_id'          => $mailMessage->id,
+            'created_by'         => Auth::id(),
+        ]);
+
+        return redirect()->route('protocolli.show', $protocollo->id)
+            ->with('success', 'Messaggio protocollato: ' . $protocollo->numero_formattato . '.');
     }
 }

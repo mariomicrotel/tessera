@@ -1,8 +1,8 @@
 <script setup>
-import { computed } from 'vue';
+import { ref, computed } from 'vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { ArrowLeftIcon, PaperAirplaneIcon } from '@heroicons/vue/24/outline';
+import { ArrowLeftIcon, PaperAirplaneIcon, PaperClipIcon, XMarkIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     accounts: { type: Array, default: () => [] },  // [{id, label}]
@@ -37,7 +37,29 @@ const form = useForm({
     subject:              defaultSubject,
     body:                 defaultBody,
     reply_to_message_id:  isReply ? props.reply_to.id : null,
+    attachments:          [],
 });
+
+// Allegati — gestione lato UI
+const fileInputRef = ref(null);
+
+function onFileChange(e) {
+    const files = Array.from(e.target.files || []);
+    form.attachments = [...form.attachments, ...files];
+    // Reset input per permettere di ri-selezionare lo stesso file
+    if (fileInputRef.value) fileInputRef.value.value = '';
+}
+
+function removeAttachment(index) {
+    form.attachments = form.attachments.filter((_, i) => i !== index);
+}
+
+function fmtSize(bytes) {
+    if (!bytes) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
 
 function fmtDate(iso) {
     if (!iso) return '';
@@ -145,15 +167,46 @@ const hasAccounts = props.accounts.length > 0;
                         <p v-if="form.errors.body" class="text-xs text-red-500 pb-2">{{ form.errors.body }}</p>
                     </div>
 
+                    <!-- Allegati selezionati -->
+                    <div v-if="form.attachments.length" class="px-4 py-3 border-t border-gray-100 dark:border-gray-700 space-y-1.5">
+                        <div
+                            v-for="(file, i) in form.attachments"
+                            :key="i"
+                            class="flex items-center gap-2 text-sm"
+                        >
+                            <PaperClipIcon class="size-4 text-gray-400 shrink-0" />
+                            <span class="flex-1 truncate text-gray-700 dark:text-gray-300">{{ file.name }}</span>
+                            <span class="text-xs text-gray-400 shrink-0">{{ fmtSize(file.size) }}</span>
+                            <button type="button" @click="removeAttachment(i)" class="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-red-500">
+                                <XMarkIcon class="size-4" />
+                            </button>
+                        </div>
+                    </div>
+
                     <!-- Footer -->
                     <div class="px-4 py-3 border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30 flex items-center justify-between gap-3">
-                        <button
-                            type="button"
-                            @click="router.get(route('mail.index'))"
-                            class="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                        >
-                            Annulla
-                        </button>
+                        <div class="flex items-center gap-3">
+                            <button
+                                type="button"
+                                @click="router.get(route('mail.index'))"
+                                class="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                            >
+                                Annulla
+                            </button>
+                            <!-- Pulsante allega file -->
+                            <label class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 cursor-pointer">
+                                <PaperClipIcon class="size-4" />
+                                Allega
+                                <input
+                                    ref="fileInputRef"
+                                    type="file"
+                                    multiple
+                                    class="hidden"
+                                    @change="onFileChange"
+                                    accept="*/*"
+                                />
+                            </label>
+                        </div>
                         <button
                             type="submit"
                             :disabled="form.processing"

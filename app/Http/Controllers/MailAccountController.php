@@ -136,7 +136,7 @@ class MailAccountController extends Controller
             ->with('success', 'Casella eliminata.');
     }
 
-    /** Testa la connessione SMTP senza salvare */
+    /** Testa la connessione SMTP senza salvare (invia email reale) */
     public function testSmtp(Request $request)
     {
         $request->validate([
@@ -149,27 +149,33 @@ class MailAccountController extends Controller
         ]);
 
         try {
-            $enc = $request->smtp_encryption === 'none' ? null : $request->smtp_encryption;
+            // Usa la stessa tecnica di SendMailJob: config dinamica a runtime
+            $mailerName = 'smtp_test_' . uniqid();
+            config(['mail.mailers.' . $mailerName => [
+                'transport'  => 'smtp',
+                'host'       => $request->smtp_host,
+                'port'       => (int) $request->smtp_port,
+                'encryption' => $request->smtp_encryption === 'none' ? null : $request->smtp_encryption,
+                'username'   => $request->smtp_username,
+                'password'   => $request->smtp_password,
+                'timeout'    => 15,
+                'verify_peer' => false,
+            ]]);
 
-            $transport = \Symfony\Component\Mailer\Transport::fromDsn(
-                ($enc === 'ssl' ? 'smtps' : 'smtp') . '://'
-                . urlencode($request->smtp_username) . ':'
-                . urlencode($request->smtp_password) . '@'
-                . $request->smtp_host . ':' . $request->smtp_port
-                . ($enc === 'tls' || $enc === 'starttls' ? '?verify_peer=0' : '?verify_peer=0')
-            );
-
-            $mailer = new \Symfony\Component\Mailer\Mailer($transport);
-
-            $email = (new \Symfony\Component\Mime\Email())
-                ->from($request->smtp_from_email)
+            \Illuminate\Support\Facades\Mail::mailer($mailerName)
                 ->to($request->smtp_from_email)
-                ->subject('[ETS-OK] Test connessione SMTP')
-                ->text('Test connessione SMTP da ETS-OK. Se ricevi questa email, la configurazione è corretta.');
+                ->send(new \App\Mail\DynamicMail(
+                    from:     $request->smtp_from_email,
+                    fromName: 'ETS-OK Test',
+                    subject:  '[ETS-OK] Test connessione SMTP',
+                    bodyHtml: '',
+                    bodyText: 'Test connessione SMTP da ETS-OK. Se ricevi questa email, la configurazione è corretta.',
+                ));
 
-            $mailer->send($email);
-
-            return response()->json(['ok' => true, 'message' => 'Email di test inviata a ' . $request->smtp_from_email]);
+            return response()->json([
+                'ok'      => true,
+                'message' => 'Email di test inviata a ' . $request->smtp_from_email,
+            ]);
         } catch (\Throwable $e) {
             return response()->json(['ok' => false, 'message' => $e->getMessage()], 422);
         }

@@ -995,7 +995,8 @@ const placeholderSottotitolo = 'Es: Benvenuti nel sito di \u007B\u007Bnome_assoc
                                 <thead>
                                     <tr class="bg-gray-50 dark:bg-gray-700/50 border-b border-gray-200 dark:border-gray-700">
                                         <th class="px-4 py-2.5 text-left font-medium text-gray-500 dark:text-gray-400">Nome / Email</th>
-                                        <th class="px-4 py-2.5 text-left font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">Server</th>
+                                        <th class="px-4 py-2.5 text-left font-medium text-gray-500 dark:text-gray-400 hidden md:table-cell">IMAP</th>
+                                        <th class="px-4 py-2.5 text-center font-medium text-gray-500 dark:text-gray-400 hidden sm:table-cell">SMTP</th>
                                         <th class="px-4 py-2.5 text-left font-medium text-gray-500 dark:text-gray-400 hidden lg:table-cell">Ultima sync</th>
                                         <th class="px-4 py-2.5 text-center font-medium text-gray-500 dark:text-gray-400">Msg</th>
                                         <th class="px-4 py-2.5 text-center font-medium text-gray-500 dark:text-gray-400">Attiva</th>
@@ -1011,6 +1012,13 @@ const placeholderSottotitolo = 'Es: Benvenuti nel sito di \u007B\u007Bnome_assoc
                                         <td class="px-4 py-3 hidden md:table-cell text-xs text-gray-600 dark:text-gray-400">
                                             {{ acc.imap_host }}:{{ acc.imap_port }}
                                             <span class="ml-1 px-1 py-0.5 bg-gray-100 dark:bg-gray-700 rounded text-gray-500">{{ acc.imap_encryption }}</span>
+                                        </td>
+                                        <td class="px-4 py-3 text-center hidden sm:table-cell">
+                                            <span v-if="acc.has_smtp" class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-full border border-emerald-200 dark:border-emerald-700">
+                                                <CheckCircleIcon class="size-3" />
+                                                Sì
+                                            </span>
+                                            <span v-else class="text-xs text-gray-400">—</span>
                                         </td>
                                         <td class="px-4 py-3 hidden lg:table-cell text-xs text-gray-500 dark:text-gray-400">
                                             {{ fmtSyncDate(acc.last_synced_at) }}

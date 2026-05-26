@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Mail\DynamicMail;
 use App\Models\MailAccount;
+use App\Models\MailMessage;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -11,12 +12,14 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Invia un'email tramite il mailer SMTP dinamico della casella specificata.
  *
- * Crea a runtime un mailer named 'mail_account_{id}' con le credenziali
- * dell'account, poi usa Mail::mailer() per inviare.
+ * - Registra a runtime un mailer named 'mail_account_{id}' (config dinamica)
+ * - Salva il messaggio inviato in mail_messages (folder='Sent')
+ * - Pulisce i file temporanei degli allegati dopo l'invio
  */
 class SendMailJob implements ShouldQueue
 {
@@ -32,10 +35,12 @@ class SendMailJob implements ShouldQueue
         public readonly string  $subject,
         public readonly string  $bodyHtml,
         public readonly string  $bodyText,
-        public readonly ?string $replyTo     = null,
-        public readonly ?string $replyToName = null,
-        public readonly array   $cc          = [],
-        public readonly array   $bcc         = [],
+        public readonly ?string $replyTo      = null,
+        public readonly ?string $replyToName  = null,
+        public readonly array   $cc           = [],
+        public readonly array   $bcc          = [],
+        /** Array di ['path' => 'storage path', 'name' => 'nome originale', 'mime' => '...'] */
+        public readonly array   $attachments  = [],
     ) {}
 
     public function handle(): void
@@ -51,7 +56,8 @@ class SendMailJob implements ShouldQueue
         $fromName  = $account->smtp_from_name  ?: $account->name;
         $password  = $account->getDecryptedSmtpPassword();
 
-        // Registra un mailer dinamico a runtime con le credenziali dell'account
+        // Registra un mailer dinamico a runtime con le credenziali dell'account.
+        // Ogni account ha il suo nome univoco per evitare conflitti di cache del manager.
         $mailerName = 'mail_account_' . $this->mailAccountId;
         config(['mail.mailers.' . $mailerName => [
             'transport'  => 'smtp',
@@ -64,31 +70,77 @@ class SendMailJob implements ShouldQueue
         ]]);
 
         try {
-            $mailer = Mail::mailer($mailerName);
-
-            if ($this->cc) {
-                $mailer = $mailer->cc($this->cc);
-            }
-            if ($this->bcc) {
-                $mailer = $mailer->bcc($this->bcc);
-            }
-
-            $mailer->to($this->to, $this->toName ?: null)
-                   ->send(new DynamicMail(
-                       from:        $fromEmail,
-                       fromName:    $fromName,
-                       subject:     $this->subject,
-                       bodyHtml:    $this->bodyHtml,
-                       bodyText:    $this->bodyText,
-                       replyTo:     $this->replyTo,
-                       replyToName: $this->replyToName,
-                   ));
+            // ── Invio ─────────────────────────────────────────────────────────
+            Mail::mailer($mailerName)
+                ->to($this->to, $this->toName ?: null)
+                ->cc($this->cc ?: [])
+                ->bcc($this->bcc ?: [])
+                ->send(new DynamicMail(
+                    from:            $fromEmail,
+                    fromName:        $fromName,
+                    subject:         $this->subject,
+                    bodyHtml:        $this->bodyHtml,
+                    bodyText:        $this->bodyText,
+                    replyTo:         $this->replyTo,
+                    replyToName:     $this->replyToName,
+                    attachmentPaths: $this->attachments,
+                ));
 
             Log::info("[SendMail] Inviato a {$this->to} via account #{$this->mailAccountId}");
 
+            // ── Salva in Sent ─────────────────────────────────────────────────
+            $this->saveSentMessage($account, $fromEmail, $fromName);
+
+            // ── Pulizia file temporanei ───────────────────────────────────────
+            $this->cleanupTempFiles();
+
         } catch (\Throwable $e) {
             Log::error("[SendMail] Errore account #{$this->mailAccountId}: " . $e->getMessage());
+            $this->cleanupTempFiles();
             throw $e;
+        }
+    }
+
+    private function saveSentMessage(MailAccount $account, string $fromEmail, string $fromName): void
+    {
+        try {
+            // UID sintetico per messaggi inviati: timestamp in ms (non collide con IMAP UIDs reali)
+            $uid = (int) round(microtime(true) * 1000);
+
+            $toAddresses = [['name' => $this->toName ?: null, 'email' => $this->to]];
+            $ccAddresses = array_map(fn($e) => ['name' => null, 'email' => $e], $this->cc);
+
+            MailMessage::withoutGlobalScope('tenant')->create([
+                'tenant_id'       => $account->tenant_id,
+                'mail_account_id' => $account->id,
+                'folder'          => 'Sent',
+                'uid'             => $uid,
+                'subject'         => $this->subject,
+                'from_name'       => $fromName,
+                'from_email'      => $fromEmail,
+                'to_addresses'    => $toAddresses,
+                'cc_addresses'    => $ccAddresses ?: null,
+                'sent_at'         => now(),
+                'body_html'       => $this->bodyHtml ?: null,
+                'body_text'       => $this->bodyText ?: null,
+                'is_read'         => true,  // messaggi inviati sempre "letti"
+                'is_flagged'      => false,
+                'has_attachments' => count($this->attachments) > 0,
+            ]);
+        } catch (\Throwable $e) {
+            // Non bloccare per errore di salvataggio Sent
+            Log::warning("[SendMail] Impossibile salvare in Sent: " . $e->getMessage());
+        }
+    }
+
+    private function cleanupTempFiles(): void
+    {
+        foreach ($this->attachments as $att) {
+            try {
+                if (! empty($att['temp_path']) && Storage::disk('local')->exists($att['temp_path'])) {
+                    Storage::disk('local')->delete($att['temp_path']);
+                }
+            } catch (\Throwable) {}
         }
     }
 }

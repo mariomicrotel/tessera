@@ -3,14 +3,20 @@ import { router } from '@inertiajs/vue3';
 import { Head } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import {
-    ArrowLeftIcon, EnvelopeIcon, EnvelopeOpenIcon,
-    TrashIcon, StarIcon, FlagIcon, PaperClipIcon,
+    ArrowLeftIcon, EnvelopeIcon,
+    TrashIcon, StarIcon, PaperClipIcon,
     ArrowDownTrayIcon, ArrowUturnLeftIcon,
+    ChevronLeftIcon, ChevronRightIcon,
+    ClipboardDocumentListIcon,
+    CheckBadgeIcon,
 } from '@heroicons/vue/24/outline';
 import { StarIcon as StarSolid } from '@heroicons/vue/24/solid';
 
 const props = defineProps({
-    message: { type: Object, required: true },
+    message:    { type: Object,  required: true },
+    prev_id:    { type: Number,  default: null },
+    next_id:    { type: Number,  default: null },
+    protocollo: { type: Object,  default: null },
 });
 
 function goBack() {
@@ -29,6 +35,11 @@ function destroy() {
     if (confirm('Eliminare questo messaggio dall\'archivio locale?')) {
         router.delete(route('mail.destroy', props.message.id));
     }
+}
+
+function protocolla() {
+    if (props.protocollo) return;
+    router.post(route('mail.protocolla', props.message.id));
 }
 
 function fmtDateFull(iso) {
@@ -50,6 +61,8 @@ function fmtSize(bytes) {
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
+
+const isSent = props.message.folder === 'Sent';
 </script>
 
 <template>
@@ -57,11 +70,28 @@ function fmtSize(bytes) {
         <Head :title="message.subject" />
 
         <template #header>
-            <div class="flex items-center gap-3">
-                <button @click="goBack" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500">
+            <div class="flex items-center gap-2 min-w-0">
+                <button @click="goBack" class="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 shrink-0">
                     <ArrowLeftIcon class="size-5" />
                 </button>
-                <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight truncate max-w-2xl">
+                <!-- Prev / Next -->
+                <button
+                    v-if="prev_id"
+                    @click="router.get(route('mail.show', prev_id))"
+                    class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 shrink-0"
+                    title="Messaggio precedente"
+                >
+                    <ChevronLeftIcon class="size-4" />
+                </button>
+                <button
+                    v-if="next_id"
+                    @click="router.get(route('mail.show', next_id))"
+                    class="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-600 shrink-0"
+                    title="Messaggio successivo"
+                >
+                    <ChevronRightIcon class="size-4" />
+                </button>
+                <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight truncate">
                     {{ message.subject }}
                 </h2>
             </div>
@@ -76,12 +106,16 @@ function fmtSize(bytes) {
                         <div class="flex items-start justify-between gap-4">
                             <!-- Mittente + subject -->
                             <div class="flex-1 min-w-0">
+                                <!-- Badge cartella Sent -->
+                                <div v-if="isSent" class="inline-flex items-center gap-1 mb-2 px-2 py-0.5 text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full border border-blue-200 dark:border-blue-700">
+                                    Inviata
+                                </div>
                                 <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100 mb-3">
                                     {{ message.subject }}
                                 </h3>
                                 <dl class="space-y-1.5 text-sm">
                                     <div class="flex gap-2">
-                                        <dt class="w-16 shrink-0 text-gray-500 dark:text-gray-400">Da</dt>
+                                        <dt class="w-16 shrink-0 text-gray-500 dark:text-gray-400">{{ isSent ? 'Da' : 'Da' }}</dt>
                                         <dd class="text-gray-900 dark:text-gray-100 font-medium">{{ message.from }}</dd>
                                     </div>
                                     <div class="flex gap-2">
@@ -104,47 +138,71 @@ function fmtSize(bytes) {
                             </div>
 
                             <!-- Azioni -->
-                            <div class="flex items-center gap-1 shrink-0">
-                                <a
-                                    :href="route('mail.compose') + '?reply_to=' + message.id"
-                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium transition-colors"
-                                    title="Rispondi"
-                                >
-                                    <ArrowUturnLeftIcon class="size-4" />
-                                    Rispondi
-                                </a>
-                                <button
-                                    @click="markUnread"
-                                    class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-indigo-600"
-                                    title="Segna come non letto"
-                                >
-                                    <EnvelopeIcon class="size-5" />
-                                </button>
-                                <button
-                                    @click="toggleFlag"
-                                    :class="[
-                                        'p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700',
-                                        message.is_flagged ? 'text-amber-500' : 'text-gray-500 hover:text-amber-500'
-                                    ]"
-                                    title="Contrassegna"
-                                >
-                                    <StarSolid v-if="message.is_flagged" class="size-5" />
-                                    <StarIcon v-else class="size-5" />
-                                </button>
-                                <button
-                                    @click="destroy"
-                                    class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-red-500"
-                                    title="Elimina"
-                                >
-                                    <TrashIcon class="size-5" />
-                                </button>
+                            <div class="flex flex-col items-end gap-2 shrink-0">
+                                <!-- Rispondi (solo su email ricevute) -->
+                                <div class="flex items-center gap-1">
+                                    <a
+                                        v-if="!isSent"
+                                        :href="route('mail.compose') + '?reply_to=' + message.id"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium transition-colors"
+                                        title="Rispondi"
+                                    >
+                                        <ArrowUturnLeftIcon class="size-4" />
+                                        Rispondi
+                                    </a>
+                                    <button
+                                        @click="markUnread"
+                                        class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-indigo-600"
+                                        title="Segna come non letto"
+                                    >
+                                        <EnvelopeIcon class="size-5" />
+                                    </button>
+                                    <button
+                                        @click="toggleFlag"
+                                        :class="[
+                                            'p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700',
+                                            message.is_flagged ? 'text-amber-500' : 'text-gray-500 hover:text-amber-500'
+                                        ]"
+                                        title="Contrassegna"
+                                    >
+                                        <StarSolid v-if="message.is_flagged" class="size-5" />
+                                        <StarIcon v-else class="size-5" />
+                                    </button>
+                                    <button
+                                        @click="destroy"
+                                        class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-red-500"
+                                        title="Elimina"
+                                    >
+                                        <TrashIcon class="size-5" />
+                                    </button>
+                                </div>
+
+                                <!-- Protocolla -->
+                                <div>
+                                    <a
+                                        v-if="protocollo"
+                                        :href="route('protocolli.show', protocollo.id)"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 text-xs font-medium hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                                    >
+                                        <CheckBadgeIcon class="size-4" />
+                                        Prot. {{ protocollo.numero_formattato }}
+                                    </a>
+                                    <button
+                                        v-else
+                                        @click="protocolla"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                        title="Registra nel protocollo"
+                                    >
+                                        <ClipboardDocumentListIcon class="size-4" />
+                                        Protocolla
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Corpo email -->
                     <div class="px-6 py-5">
-                        <!-- HTML body in iframe sandboxed -->
                         <div v-if="message.body_html">
                             <iframe
                                 :srcdoc="message.body_html"
@@ -154,7 +212,6 @@ function fmtSize(bytes) {
                                 title="Corpo email"
                             />
                         </div>
-                        <!-- Fallback testo plain -->
                         <div v-else-if="message.body_text">
                             <pre class="whitespace-pre-wrap font-sans text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{{ message.body_text }}</pre>
                         </div>
@@ -197,6 +254,23 @@ function fmtSize(bytes) {
                             <ArrowLeftIcon class="size-4" />
                             Torna alla lista
                         </button>
+                        <!-- Prev/Next nel footer -->
+                        <div class="flex items-center gap-2">
+                            <button
+                                v-if="prev_id"
+                                @click="router.get(route('mail.show', prev_id))"
+                                class="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400"
+                            >
+                                <ChevronLeftIcon class="size-3.5" /> Precedente
+                            </button>
+                            <button
+                                v-if="next_id"
+                                @click="router.get(route('mail.show', next_id))"
+                                class="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-indigo-600 dark:hover:text-indigo-400"
+                            >
+                                Successivo <ChevronRightIcon class="size-3.5" />
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
