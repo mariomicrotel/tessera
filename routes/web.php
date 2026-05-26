@@ -30,6 +30,8 @@ use App\Http\Controllers\CompanyEnrichmentController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\SpesaController;
 use App\Http\Controllers\PrimaNotaController;
+use App\Http\Controllers\MailController;
+use App\Http\Controllers\MailAccountController;
 use App\Http\Controllers\ProtocolloController;
 use App\Http\Controllers\ReceiptController;
 use App\Http\Controllers\ReceiptTemplateController;
@@ -755,6 +757,30 @@ Route::middleware([
     Route::delete('protocolli/{protocollo}', [ProtocolloController::class, 'destroy'])->name('protocolli.destroy');
     Route::post('protocolli/{protocollo}/attachments', [ProtocolloController::class, 'storeAttachment'])->name('protocolli.attachments.store');
     Route::delete('protocolli/{protocollo}/attachments/{attachment}', [ProtocolloController::class, 'destroyAttachment'])->name('protocolli.attachments.destroy');
+
+    // ── Mail client (Fase 1) ──────────────────────────────────────────────────
+    Route::prefix('mail')->name('mail.')->group(function () {
+        // Inbox + azioni messaggi
+        Route::get('/',                                  [MailController::class, 'index'])->name('index');
+        Route::get('{mailMessage}',                      [MailController::class, 'show'])->name('show');
+        Route::patch('{mailMessage}/read',               [MailController::class, 'markRead'])->name('read');
+        Route::patch('{mailMessage}/unread',             [MailController::class, 'markUnread'])->name('unread');
+        Route::patch('{mailMessage}/flag',               [MailController::class, 'toggleFlag'])->name('flag');
+        Route::delete('{mailMessage}',                   [MailController::class, 'destroy'])->name('destroy');
+        Route::post('sync',                              [MailController::class, 'sync'])->name('sync');
+
+        // Gestione caselle (solo admin)
+        Route::prefix('accounts')->name('accounts.')->group(function () {
+            Route::get('/',                              [MailAccountController::class, 'index'])->name('index');
+            Route::get('/create',                        [MailAccountController::class, 'create'])->name('create');
+            Route::post('/',                             [MailAccountController::class, 'store'])->name('store');
+            Route::get('/{mailAccount}/edit',            [MailAccountController::class, 'edit'])->name('edit');
+            Route::put('/{mailAccount}',                 [MailAccountController::class, 'update'])->name('update');
+            Route::delete('/{mailAccount}',              [MailAccountController::class, 'destroy'])->name('destroy');
+            Route::post('/test',                         [MailAccountController::class, 'test'])->name('test');
+        });
+    });
+
     Route::get('verbali/prossimo-numero', [VerbaleController::class, 'prossimoNumero'])->name('verbali.prossimo-numero');
     Route::get('verbali/{verbale}/pdf', [VerbaleController::class, 'downloadPdf'])->name('verbali.pdf');
     Route::post('verbali/{verbale}/conferma', [VerbaleController::class, 'conferma'])->name('verbali.conferma');

@@ -431,6 +431,10 @@ const logout = () => {
                             <InboxArrowDownIcon class="size-5 shrink-0" aria-hidden="true" />
                             Protocollo
                         </ResponsiveNavLink>
+                        <ResponsiveNavLink v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" :href="route('mail.index')" :active="route().current('mail.*')" class="pt-1">
+                            <EnvelopeIcon class="size-5 shrink-0" aria-hidden="true" />
+                            Posta
+                        </ResponsiveNavLink>
                         <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" class="pt-2">
                             <button type="button" class="block w-full inline-flex items-center gap-2 ps-3 pe-4 py-2 border-l-4 border-transparent text-start text-base font-medium text-gray-600 dark:text-gray-400" @click="toggleSection('organiVotazioni')">
                                 <UserGroupIcon class="size-5 shrink-0" aria-hidden="true" />
@@ -972,6 +976,11 @@ const logout = () => {
                                 <NavLink v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" :href="route('protocolli.index')" :active="route().current('protocolli.*')" class="mt-1">
                                     <InboxArrowDownIcon class="size-5 shrink-0" aria-hidden="true" />
                                     Protocollo
+                                </NavLink>
+                                <!-- Posta (voce a sé stante, visibile ad admin e segreteria) -->
+                                <NavLink v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" :href="route('mail.index')" :active="route().current('mail.*')" class="mt-1">
+                                    <EnvelopeIcon class="size-5 shrink-0" aria-hidden="true" />
+                                    Posta
                                 </NavLink>
                                 <!-- Organi e votazioni -->
                                 <div v-if="$page.props.userRoles?.includes('admin') || $page.props.userRoles?.includes('segreteria')" class="mt-2">

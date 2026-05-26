@@ -20,3 +20,11 @@ Schedule::command('consultant:purge-expired-exports')
     ->dailyAt('03:00')
     ->withoutOverlapping()
     ->onOneServer();
+
+// Sincronizzazione caselle email ogni 15 minuti.
+Schedule::call(function () {
+    \App\Models\MailAccount::where('is_active', true)
+        ->each(fn($account) => \App\Jobs\SyncMailboxJob::dispatch($account->id));
+})->everyFifteenMinutes()
+  ->name('mail:sync-all')
+  ->withoutOverlapping();
