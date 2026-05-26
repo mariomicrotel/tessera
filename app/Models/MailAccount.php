@@ -24,14 +24,23 @@ class MailAccount extends Model
         'is_active',
         'sync_days',
         'last_synced_at',
+        // SMTP
+        'smtp_host',
+        'smtp_port',
+        'smtp_encryption',
+        'smtp_username',
+        'smtp_password',
+        'smtp_from_name',
+        'smtp_from_email',
     ];
 
-    protected $hidden = ['imap_password'];
+    protected $hidden = ['imap_password', 'smtp_password'];
 
     protected function casts(): array
     {
         return [
             'imap_port'      => 'integer',
+            'smtp_port'      => 'integer',
             'sync_days'      => 'integer',
             'is_active'      => 'boolean',
             'last_synced_at' => 'datetime',
@@ -47,10 +56,9 @@ class MailAccount extends Model
 
     // ── Accessori / Mutatori ──────────────────────────────────────────────────
 
-    /** Salva la password cifrata con Crypt::encrypt() */
+    /** Salva la password IMAP cifrata */
     public function setImapPasswordAttribute(string $value): void
     {
-        // Evita doppia cifratura (es. durante la modifica se il campo non cambia)
         try {
             Crypt::decrypt($value);
             $this->attributes['imap_password'] = $value; // già cifrata
@@ -59,10 +67,44 @@ class MailAccount extends Model
         }
     }
 
-    /** Restituisce la password in chiaro */
+    /** Restituisce la password IMAP in chiaro */
     public function getDecryptedPassword(): string
     {
         return Crypt::decrypt($this->attributes['imap_password']);
+    }
+
+    /** Salva la password SMTP cifrata */
+    public function setSmtpPasswordAttribute(?string $value): void
+    {
+        if ($value === null || $value === '') {
+            $this->attributes['smtp_password'] = null;
+            return;
+        }
+        try {
+            Crypt::decrypt($value);
+            $this->attributes['smtp_password'] = $value; // già cifrata
+        } catch (\Exception) {
+            $this->attributes['smtp_password'] = Crypt::encrypt($value);
+        }
+    }
+
+    /** Restituisce la password SMTP in chiaro (null se non configurata) */
+    public function getDecryptedSmtpPassword(): ?string
+    {
+        if (empty($this->attributes['smtp_password'])) {
+            return null;
+        }
+        try {
+            return Crypt::decrypt($this->attributes['smtp_password']);
+        } catch (\Exception) {
+            return null;
+        }
+    }
+
+    /** True se la casella ha SMTP configurato */
+    public function hasSmtp(): bool
+    {
+        return ! empty($this->smtp_host) && ! empty($this->smtp_username);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

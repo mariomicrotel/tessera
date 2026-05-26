@@ -5,7 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import {
     ArrowLeftIcon, EnvelopeIcon, EnvelopeOpenIcon,
     TrashIcon, StarIcon, FlagIcon, PaperClipIcon,
-    ArrowDownTrayIcon,
+    ArrowDownTrayIcon, ArrowUturnLeftIcon,
 } from '@heroicons/vue/24/outline';
 import { StarIcon as StarSolid } from '@heroicons/vue/24/solid';
 
@@ -105,6 +105,14 @@ function fmtSize(bytes) {
 
                             <!-- Azioni -->
                             <div class="flex items-center gap-1 shrink-0">
+                                <a
+                                    :href="route('mail.compose') + '?reply_to=' + message.id"
+                                    class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium transition-colors"
+                                    title="Rispondi"
+                                >
+                                    <ArrowUturnLeftIcon class="size-4" />
+                                    Rispondi
+                                </a>
                                 <button
                                     @click="markUnread"
                                     class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-500 hover:text-indigo-600"

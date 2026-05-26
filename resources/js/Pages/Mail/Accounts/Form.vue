@@ -21,6 +21,14 @@ const form = useForm({
     imap_folder:      props.account?.imap_folder      ?? 'INBOX',
     sync_days:        props.account?.sync_days        ?? 30,
     is_active:        props.account?.is_active        ?? true,
+    // SMTP
+    smtp_host:        props.account?.smtp_host        ?? '',
+    smtp_port:        props.account?.smtp_port        ?? 587,
+    smtp_encryption:  props.account?.smtp_encryption  ?? 'tls',
+    smtp_username:    props.account?.smtp_username    ?? '',
+    smtp_password:    '',
+    smtp_from_name:   props.account?.smtp_from_name   ?? '',
+    smtp_from_email:  props.account?.smtp_from_email  ?? '',
 });
 
 const backUrl = route('settings.index') + '?tab=posta';
@@ -75,6 +83,43 @@ async function testConnection() {
 }
 
 const encryptionOptions = ['ssl', 'tls', 'starttls', 'none'];
+
+// Test SMTP
+const smtpTestStatus  = ref(null);
+const smtpTestMessage = ref('');
+const smtpTestLoading = ref(false);
+
+async function testSmtp() {
+    smtpTestLoading.value = true;
+    smtpTestStatus.value  = null;
+    smtpTestMessage.value = '';
+    try {
+        const res = await fetch(route('mail.accounts.test-smtp'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content ?? '',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+                smtp_host:       form.smtp_host,
+                smtp_port:       form.smtp_port,
+                smtp_encryption: form.smtp_encryption,
+                smtp_username:   form.smtp_username,
+                smtp_password:   form.smtp_password,
+                smtp_from_email: form.smtp_from_email || form.email,
+            }),
+        });
+        const data = await res.json();
+        smtpTestStatus.value  = data.ok ? 'ok' : 'error';
+        smtpTestMessage.value = data.message;
+    } catch (e) {
+        smtpTestStatus.value  = 'error';
+        smtpTestMessage.value = 'Errore di rete.';
+    } finally {
+        smtpTestLoading.value = false;
+    }
+}
 </script>
 
 <template>
@@ -166,6 +211,85 @@ const encryptionOptions = ['ssl', 'tls', 'starttls', 'none'];
                                     :required="!isEdit"
                                     class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"
                                 />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sezione: SMTP -->
+                    <div class="px-6 py-5 border-b border-gray-100 dark:border-gray-700">
+                        <h3 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Impostazioni SMTP <span class="font-normal text-gray-400">(per invio/risposta)</span></h3>
+                        <p class="text-xs text-gray-400 dark:text-gray-500 mb-4">Lascia vuoto se vuoi usare la casella solo in lettura.</p>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="sm:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Server SMTP</label>
+                                <input v-model="form.smtp_host" type="text" autocomplete="off"
+                                    placeholder="smtp.gmail.com"
+                                    class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Porta</label>
+                                <input v-model.number="form.smtp_port" type="number" min="1" max="65535"
+                                    class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"
+                                />
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Cifratura</label>
+                                <select v-model="form.smtp_encryption"
+                                    class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"
+                                >
+                                    <option v-for="enc in encryptionOptions" :key="enc" :value="enc">{{ enc.toUpperCase() }}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome mittente</label>
+                                <input v-model="form.smtp_from_name" type="text"
+                                    placeholder="es. Cooperativa XYZ"
+                                    class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"
+                                />
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Username SMTP</label>
+                                <input v-model="form.smtp_username" type="text" autocomplete="off"
+                                    class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                    Password SMTP {{ isEdit ? '(lascia vuoto per non cambiare)' : '' }}
+                                </label>
+                                <input v-model="form.smtp_password" type="password" autocomplete="new-password"
+                                    class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"
+                                />
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email mittente <span class="font-normal text-gray-400">(se diversa dall'email casella)</span></label>
+                            <input v-model="form.smtp_from_email" type="email"
+                                :placeholder="form.email || 'info@cooperativa.it'"
+                                class="w-full sm:w-72 px-3 py-2 text-sm border rounded-lg focus:ring-indigo-500 focus:border-indigo-500 dark:bg-gray-900 dark:border-gray-600 dark:text-gray-100"
+                            />
+                        </div>
+                        <!-- Test SMTP -->
+                        <div class="mt-4 flex items-center gap-3 flex-wrap">
+                            <button
+                                type="button"
+                                @click="testSmtp"
+                                :disabled="smtpTestLoading || !form.smtp_host || !form.smtp_username || (!form.smtp_password && !isEdit)"
+                                class="px-3 py-1.5 text-sm font-medium border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-white dark:hover:bg-gray-700 disabled:opacity-40"
+                            >
+                                {{ smtpTestLoading ? 'Test in corso…' : 'Testa SMTP' }}
+                            </button>
+                            <div v-if="smtpTestStatus" class="flex items-center gap-1.5 text-sm">
+                                <CheckCircleIcon v-if="smtpTestStatus === 'ok'" class="size-5 text-emerald-500" />
+                                <XCircleIcon v-else class="size-5 text-red-500" />
+                                <span :class="smtpTestStatus === 'ok' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">
+                                    {{ smtpTestMessage }}
+                                </span>
                             </div>
                         </div>
                     </div>

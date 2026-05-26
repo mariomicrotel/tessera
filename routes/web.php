@@ -758,18 +758,23 @@ Route::middleware([
     Route::post('protocolli/{protocollo}/attachments', [ProtocolloController::class, 'storeAttachment'])->name('protocolli.attachments.store');
     Route::delete('protocolli/{protocollo}/attachments/{attachment}', [ProtocolloController::class, 'destroyAttachment'])->name('protocolli.attachments.destroy');
 
-    // ── Mail client (Fase 1) ──────────────────────────────────────────────────
+    // ── Mail client (Fase 1+2) ────────────────────────────────────────────────
     Route::prefix('mail')->name('mail.')->group(function () {
-        // Gestione caselle prima dei wildcard (solo admin)
+        // Gestione caselle (solo admin) — PRIMA dei wildcard
         Route::prefix('accounts')->name('accounts.')->group(function () {
             Route::get('/',                              [MailAccountController::class, 'index'])->name('index');
             Route::get('/create',                        [MailAccountController::class, 'create'])->name('create');
             Route::post('/',                             [MailAccountController::class, 'store'])->name('store');
             Route::post('/test',                         [MailAccountController::class, 'test'])->name('test');
+            Route::post('/test-smtp',                    [MailAccountController::class, 'testSmtp'])->name('test-smtp');
             Route::get('/{mailAccount}/edit',            [MailAccountController::class, 'edit'])->name('edit');
             Route::put('/{mailAccount}',                 [MailAccountController::class, 'update'])->name('update');
             Route::delete('/{mailAccount}',              [MailAccountController::class, 'destroy'])->name('destroy');
         });
+
+        // Compose / Scrivi nuova email — PRIMA dei wildcard con segmento variabile
+        Route::get('compose',                            [MailController::class, 'compose'])->name('compose');
+        Route::post('send',                              [MailController::class, 'send'])->name('send');
 
         // Inbox + azioni messaggi (wildcard sempre in fondo)
         Route::get('/',                                  [MailController::class, 'index'])->name('index');

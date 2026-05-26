@@ -7,6 +7,7 @@ import {
     MagnifyingGlassIcon, ArrowPathIcon, BookmarkIcon,
     BookmarkSlashIcon, TrashIcon, StarIcon, Cog6ToothIcon,
     ChevronLeftIcon, ChevronRightIcon, FunnelIcon,
+    PencilSquareIcon,
 } from '@heroicons/vue/24/outline';
 import { StarIcon as StarSolid, BookmarkIcon as BookmarkSolid } from '@heroicons/vue/24/solid';
 
@@ -112,6 +113,13 @@ const filterOptions = [
                     >
                         <Cog6ToothIcon class="size-4" />
                         Impostazioni
+                    </a>
+                    <a
+                        :href="route('mail.compose')"
+                        class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+                    >
+                        <PencilSquareIcon class="size-4" />
+                        Scrivi
                     </a>
                 </div>
             </div>

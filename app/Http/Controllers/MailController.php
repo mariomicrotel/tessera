@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Jobs\SendMailJob;
 use App\Jobs\SyncMailboxJob;
 use App\Models\Attachment;
 use App\Models\MailAccount;
@@ -197,5 +198,94 @@ class MailController extends Controller
     {
         $mailMessage->delete();
         return redirect()->route('mail.index');
+    }
+
+    // ── Compose / Reply / Send ────────────────────────────────────────────────
+
+    /** Mostra form di composizione (nuovo o risposta) */
+    public function compose(Request $request)
+    {
+        $accounts = MailAccount::query()
+            ->where('is_active', true)
+            ->whereNotNull('smtp_host')
+            ->whereNotNull('smtp_username')
+            ->select(['id', 'name', 'email', 'smtp_from_name', 'smtp_from_email'])
+            ->get()
+            ->map(fn ($a) => [
+                'id'    => $a->id,
+                'label' => $a->name . ' <' . ($a->smtp_from_email ?: $a->email) . '>',
+            ]);
+
+        // Se è una risposta, pre-compila i campi
+        $replyTo = null;
+        if ($replyMessageId = $request->input('reply_to')) {
+            $orig = MailMessage::find($replyMessageId);
+            if ($orig) {
+                $replyTo = [
+                    'id'           => $orig->id,
+                    'subject'      => $orig->subject,
+                    'from_email'   => $orig->from_email,
+                    'from_name'    => $orig->from_name,
+                    'sent_at'      => $orig->sent_at?->toIso8601String(),
+                    'body_text'    => $orig->body_text,
+                    'account_id'   => $orig->mail_account_id,
+                ];
+            }
+        }
+
+        return Inertia::render('Mail/Compose', [
+            'accounts' => $accounts,
+            'reply_to' => $replyTo,
+        ]);
+    }
+
+    /** Invia l'email (dispatch a queue) */
+    public function send(Request $request)
+    {
+        $validated = $request->validate([
+            'account_id' => 'required|integer|exists:mail_accounts,id',
+            'to'         => 'required|email',
+            'to_name'    => 'nullable|string|max:200',
+            'cc'         => 'nullable|string',   // CSV di email
+            'bcc'        => 'nullable|string',
+            'subject'    => 'required|string|max:500',
+            'body'       => 'required|string',
+            'reply_to_message_id' => 'nullable|integer|exists:mail_messages,id',
+        ]);
+
+        // Verifica che l'account appartenga al tenant corrente
+        $account = MailAccount::findOrFail($validated['account_id']);
+        abort_unless($account->hasSmtp(), 422, 'Questa casella non ha SMTP configurato.');
+
+        // Parsing CC/BCC da stringa CSV
+        $cc  = array_filter(array_map('trim', explode(',', $validated['cc']  ?? '')));
+        $bcc = array_filter(array_map('trim', explode(',', $validated['bcc'] ?? '')));
+
+        // Reply-To: se è risposta, il reply-to è il mittente originale
+        $replyToEmail = null;
+        $replyToName  = null;
+        if ($validated['reply_to_message_id'] ?? null) {
+            $orig = MailMessage::find($validated['reply_to_message_id']);
+            if ($orig) {
+                $replyToEmail = $orig->from_email;
+                $replyToName  = $orig->from_name;
+            }
+        }
+
+        SendMailJob::dispatch(
+            mailAccountId: $account->id,
+            to:            $validated['to'],
+            toName:        $validated['to_name'] ?? '',
+            subject:       $validated['subject'],
+            bodyHtml:      nl2br(e($validated['body'])), // testo → HTML semplice
+            bodyText:      $validated['body'],
+            replyTo:       $replyToEmail,
+            replyToName:   $replyToName,
+            cc:            array_values($cc),
+            bcc:           array_values($bcc),
+        );
+
+        return redirect()->route('mail.index')
+            ->with('success', 'Messaggio in coda per l\'invio.');
     }
 }
