@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Attachment;
 use App\Models\Conto;
+use App\Models\EmailTemplate;
 use App\Models\Incasso;
 use App\Models\Member;
 use App\Models\PrimaNotaEntry;
@@ -19,6 +20,7 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -310,9 +312,22 @@ class IncassoController extends Controller
     public function show(Incasso $incasso)
     {
         $incasso->load(['member', 'subscription', 'conto', 'receipt', 'primaNotaEntry', 'attachments']);
+
+        $receiptTemplateText = null;
+        if (! $incasso->receipt && ($incasso->member_id || $incasso->donor_name)) {
+            $tipo = match ($incasso->type) {
+                Incasso::TYPE_DONAZIONE => 'incasso_donazione',
+                Incasso::TYPE_ALTRO     => 'incasso_altro',
+                default                 => 'incasso_quota',
+            };
+            $receiptTemplateText = ReceiptTemplate::getBodyForTipo($tipo);
+        }
+
         return Inertia::render('Incassi/Show', [
             'incasso'                => $incasso,
             'uploadMaxFileSizeHuman' => self::uploadMaxFileSizeHuman(),
+            'receiptTemplateText'    => $receiptTemplateText,
+            'memberEmail'            => $incasso->member?->email,
         ]);
     }
 
@@ -452,6 +467,140 @@ class IncassoController extends Controller
             : ($incasso->type === Incasso::TYPE_ALTRO ? 'incassi-generici.index' : 'quote-sociali.index');
 
         return redirect()->route($route)->with('flash', ['type' => 'success', 'message' => 'Incasso aggiornato.']);
+    }
+
+    /**
+     * Emette una ricevuta per un incasso esistente che non ne ha ancora una.
+     */
+    public function issueReceipt(Request $request, Incasso $incasso, ReceiptService $receiptService)
+    {
+        $incasso->load(['receipt', 'member', 'subscription', 'conto']);
+
+        if ($incasso->receipt) {
+            return back()->with('flash', [
+                'type'    => 'info',
+                'message' => 'Ricevuta già emessa: n° ' . $incasso->receipt->number . '.',
+            ]);
+        }
+
+        if (! $incasso->member_id && ! $incasso->donor_name) {
+            return back()->with('flash', [
+                'type'    => 'error',
+                'message' => 'Per emettere la ricevuta è necessario un socio o un donatore.',
+            ]);
+        }
+
+        $request->validate([
+            'receipt_text_override' => ['nullable', 'string', 'max:50000'],
+        ]);
+
+        $overrideText = $request->filled('receipt_text_override')
+            ? $request->input('receipt_text_override')
+            : null;
+
+        // Persisti il testo personalizzato sull'incasso se fornito
+        if ($overrideText !== null) {
+            $incasso->update(['receipt_text_override' => $overrideText]);
+            $incasso->refresh();
+        }
+
+        try {
+            $receipt = $receiptService->generateForIncasso($incasso, $overrideText);
+
+            return back()->with('flash', [
+                'type'    => 'success',
+                'message' => 'Ricevuta n° ' . $receipt->number . ' emessa con successo.',
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with('flash', [
+                'type'    => 'error',
+                'message' => 'Errore nella generazione della ricevuta: ' . $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Invia per email la ricevuta dell'incasso, restando nel contesto incasso.
+     */
+    public function sendReceiptEmail(Request $request, Incasso $incasso)
+    {
+        $incasso->load(['receipt.member']);
+
+        if (! $incasso->receipt) {
+            return back()->with('flash', [
+                'type'    => 'error',
+                'message' => 'Nessuna ricevuta emessa per questo incasso.',
+            ]);
+        }
+
+        $receipt = $incasso->receipt;
+
+        if (! $receipt->file_path || ! Storage::disk('local')->exists($receipt->file_path)) {
+            return back()->with('flash', [
+                'type'    => 'error',
+                'message' => 'File PDF non trovato. Rigenera prima la ricevuta.',
+            ]);
+        }
+
+        $request->validate([
+            'email' => ['required', 'email'],
+        ]);
+
+        $email       = $request->input('email');
+        $appName     = Settings::get('nome_associazione', config('app.name'));
+        $safeNumber  = str_replace(['/', '\\'], '-', $receipt->number);
+        $filename    = 'ricevuta-' . $safeNumber . '.pdf';
+
+        $rawAmount = $receipt->receivable?->amount ?? null;
+        $replacements = [
+            'receipt_number'    => $receipt->number,
+            'receipt_issued_at' => $receipt->issued_at?->format('d/m/Y') ?? '',
+            'appName'           => $appName,
+            'receipt_amount'    => $rawAmount !== null
+                ? number_format((float) $rawAmount, 2, ',', '.')
+                : '',
+            'recipient_name' => $receipt->member
+                ? trim($receipt->member->cognome . ' ' . $receipt->member->nome)
+                : ($receipt->recipient_name ?? ''),
+            'year' => (string) now()->year,
+        ];
+        $rendered = EmailTemplate::render('ricevuta', $replacements);
+
+        try {
+            if ($rendered) {
+                Mail::html($rendered['body'], function ($message) use ($email, $rendered, $receipt, $filename) {
+                    $message->to($email)->subject($rendered['subject']);
+                    $message->attach(Storage::disk('local')->path($receipt->file_path), [
+                        'as'   => $filename,
+                        'mime' => 'application/pdf',
+                    ]);
+                });
+            } else {
+                Mail::send('emails.receipt', ['receipt' => $receipt, 'appName' => $appName], function ($message) use ($email, $appName, $receipt, $filename) {
+                    $message->to($email)->subject('[' . $appName . '] Ricevuta n. ' . $receipt->number);
+                    $message->attach(Storage::disk('local')->path($receipt->file_path), [
+                        'as'   => $filename,
+                        'mime' => 'application/pdf',
+                    ]);
+                });
+            }
+
+            $receipt->update(['sent_at' => now()]);
+
+            return back()->with('flash', [
+                'type'    => 'success',
+                'message' => 'Ricevuta inviata a ' . $email . '.',
+            ]);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return back()->with('flash', [
+                'type'    => 'error',
+                'message' => 'Errore nell\'invio: ' . $e->getMessage(),
+            ]);
+        }
     }
 
     public function destroy(Incasso $incasso)

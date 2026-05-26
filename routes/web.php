@@ -410,6 +410,8 @@ Route::middleware([
     Route::delete('incassi/{incasso}', [IncassoController::class, 'destroy'])->name('incassi.destroy');
     Route::post('incassi/{incasso}/attachments', [IncassoController::class, 'storeAttachment'])->name('incassi.attachments.store');
     Route::delete('incassi/{incasso}/attachments/{attachment}', [IncassoController::class, 'destroyAttachment'])->name('incassi.attachments.destroy');
+    Route::post('incassi/{incasso}/issue-receipt', [IncassoController::class, 'issueReceipt'])->name('incassi.issue-receipt');
+    Route::post('incassi/{incasso}/send-receipt-email', [IncassoController::class, 'sendReceiptEmail'])->name('incassi.send-receipt-email');
     Route::get('donations', fn () => redirect()->route('donazioni.index', ['tenant' => request()->route('tenant')]))->name('donations.redirect');
     Route::get('receipts', [ReceiptController::class, 'index'])->name('receipts.index');
     Route::get('receipts/{receipt}', [ReceiptController::class, 'show'])->name('receipts.show');
