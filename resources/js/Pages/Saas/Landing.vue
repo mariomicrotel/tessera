@@ -17,7 +17,7 @@ defineProps({
                     <div class="flex items-center gap-3">
                         <!-- TODO: Inserire logo Infotel Sistemi qui -->
                         <div class="flex items-center gap-2">
-                            <img src="/images/infotel-logo.svg" alt="Infotel Sistemi" class="h-8 w-auto" />
+                            <img src="/images/infotel-logo.png" alt="Infotel Sistemi" class="h-8 w-auto" />
                             <div class="text-sm font-semibold text-gray-900">Tessera</div>
                         </div>
                     </div>
@@ -352,7 +352,7 @@ defineProps({
                 <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
                     <div>
                         <div class="flex items-center gap-2 mb-4">
-                            <img src="/images/infotel-logo.svg" alt="Infotel Sistemi" class="h-6 w-auto" />
+                            <img src="/images/infotel-logo.png" alt="Infotel Sistemi" class="h-6 w-auto" />
                             <div class="text-sm font-semibold">Tessera</div>
                         </div>
                         <p class="text-gray-400 text-sm">Il gestionale cloud per ETS e cooperative, sviluppato da Infotel Sistemi.</p>
