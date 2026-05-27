@@ -123,6 +123,12 @@ const isScaduta = (d) => d && new Date(d) < new Date();
                                         class="flex-1 text-center text-xs font-medium px-2 py-1.5 rounded-md bg-blue-600 hover:bg-blue-700 text-white transition">
                                         Entra nell'ente →
                                     </a>
+                                    <Link :href="route('consultant.requests.create', e.slug)"
+                                        class="flex items-center gap-1 text-xs px-2 py-1.5 rounded-md border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+                                        title="Crea una nuova richiesta documenti per questo ente">
+                                        <ClipboardDocumentListIcon class="size-4" />
+                                        Nuova richiesta
+                                    </Link>
                                     <Link :href="route('consultant.entities.show', e.slug)"
                                         class="text-xs px-2 py-1.5 rounded-md border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">
                                         Riepilogo
