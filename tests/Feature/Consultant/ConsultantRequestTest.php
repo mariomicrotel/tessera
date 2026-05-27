@@ -66,6 +66,9 @@ it('mostra il form di creazione richiesta (no pagina bianca)', function () {
             ->component('Consultant/Requests/Create')
             ->where('entity.slug', $this->tenant->slug)
             ->where('entity.name', $this->tenant->name)
+            // Il default tenant DEVE essere presente, altrimenti AppLayout
+            // crasha su route() dei link tenant (es. movimenti-amministrativi.index)
+            ->where('ziggy.defaults.tenant', $this->tenant->slug)
         );
 });
 

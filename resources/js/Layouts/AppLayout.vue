@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, watch, computed, nextTick } from 'vue';
+import { ref, onMounted, watch, watchEffect, computed, nextTick } from 'vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import {
     HomeIcon,
@@ -51,6 +51,19 @@ const showingNavigationDropdown = ref(false);
 
 // Ottieni il tenant dai props di Inertia
 const tenant = computed(() => page.props.currentTenant?.slug);
+
+// Mantiene il default 'tenant' di Ziggy allineato al tenant corrente PRIMA del render
+// del template (watchEffect flush 'pre'). Evita "Ziggy error: 'tenant' parameter is
+// required" sui link tenant quando il contesto cambia via navigazione Inertia: il prop
+// reattivo currentTenant è già aggiornato mentre window.Ziggy potrebbe non esserlo ancora
+// (es. ingresso nell'area consulente che bind-a il tenant corrente).
+watchEffect(() => {
+    const slug = tenant.value;
+    if (typeof window === 'undefined' || !slug) return;
+    window.Ziggy = window.Ziggy || {};
+    window.Ziggy.defaults = { ...(window.Ziggy.defaults ?? {}), tenant: slug };
+    if (typeof globalThis !== 'undefined') globalThis.Ziggy = window.Ziggy;
+});
 
 // Tessera feature flags (condivisi via HandleInertiaRequests.share)
 const modules = computed(() => page.props.tessera_modules ?? {});
