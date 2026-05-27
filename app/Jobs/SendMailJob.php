@@ -41,6 +41,10 @@ class SendMailJob implements ShouldQueue
         public readonly array   $bcc          = [],
         /** Array di ['path' => 'storage path', 'name' => 'nome originale', 'mime' => '...'] */
         public readonly array   $attachments  = [],
+        // Threading: message-id a cui si risponde, catena References, thread radice
+        public readonly ?string $inReplyTo    = null,
+        public readonly array   $references   = [],
+        public readonly ?string $threadId     = null,
     ) {}
 
     public function handle(): void
@@ -69,6 +73,10 @@ class SendMailJob implements ShouldQueue
             'timeout'    => 30,
         ]]);
 
+        // Genera un Message-ID univoco per il messaggio in uscita (per il threading futuro)
+        $domain     = substr(strrchr($fromEmail, '@') ?: '@localhost', 1);
+        $ownMessageId = uniqid('ets-', true) . '@' . $domain;
+
         try {
             // ── Invio ─────────────────────────────────────────────────────────
             Mail::mailer($mailerName)
@@ -84,12 +92,15 @@ class SendMailJob implements ShouldQueue
                     replyTo:         $this->replyTo,
                     replyToName:     $this->replyToName,
                     attachmentPaths: $this->attachments,
+                    messageId:       $ownMessageId,
+                    inReplyTo:       $this->inReplyTo,
+                    references:      $this->references,
                 ));
 
             Log::info("[SendMail] Inviato a {$this->to} via account #{$this->mailAccountId}");
 
             // ── Salva in Sent ─────────────────────────────────────────────────
-            $this->saveSentMessage($account, $fromEmail, $fromName);
+            $this->saveSentMessage($account, $fromEmail, $fromName, $ownMessageId);
 
             // ── Pulizia file temporanei ───────────────────────────────────────
             $this->cleanupTempFiles();
@@ -101,7 +112,7 @@ class SendMailJob implements ShouldQueue
         }
     }
 
-    private function saveSentMessage(MailAccount $account, string $fromEmail, string $fromName): void
+    private function saveSentMessage(MailAccount $account, string $fromEmail, string $fromName, string $ownMessageId): void
     {
         try {
             // UID sintetico per messaggi inviati: timestamp in ms (non collide con IMAP UIDs reali)
@@ -110,11 +121,17 @@ class SendMailJob implements ShouldQueue
             $toAddresses = [['name' => $this->toName ?: null, 'email' => $this->to]];
             $ccAddresses = array_map(fn($e) => ['name' => null, 'email' => $e], $this->cc);
 
+            // thread_id: eredita dal thread originale (risposta) o usa il proprio message-id
+            $threadId = $this->threadId ?: $ownMessageId;
+
             MailMessage::withoutGlobalScope('tenant')->create([
                 'tenant_id'       => $account->tenant_id,
                 'mail_account_id' => $account->id,
                 'folder'          => 'Sent',
                 'uid'             => $uid,
+                'message_id'      => $ownMessageId,
+                'in_reply_to'     => $this->inReplyTo,
+                'thread_id'       => $threadId,
                 'subject'         => $this->subject,
                 'from_name'       => $fromName,
                 'from_email'      => $fromEmail,

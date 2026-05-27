@@ -140,6 +140,29 @@ class SyncMailboxJob implements ShouldQueue
         $isFlagged    = (bool) $flags->get('Flagged');
         $hasAttachments = $msg->hasAttachments();
 
+        // ── Threading (In-Reply-To / References) ──────────────────────────────
+        $messageId = mb_substr((string) ($msg->getMessageId()->first() ?? ''), 0, 500) ?: null;
+
+        $inReplyTo = null;
+        try {
+            $inReplyTo = mb_substr(trim(str_replace(['<', '>'], '', (string) ($msg->getInReplyTo()->first() ?? ''))), 0, 500) ?: null;
+        } catch (\Throwable) {}
+
+        // References: lista di message-id, il primo è la radice della conversazione
+        $references = [];
+        try {
+            foreach ($msg->getReferences()->all() as $ref) {
+                $ref = trim(str_replace(['<', '>'], '', (string) $ref));
+                if ($ref !== '') {
+                    $references[] = $ref;
+                }
+            }
+        } catch (\Throwable) {}
+
+        // thread_id = radice delle References (robusto, indipendente dall'ordine di sync),
+        // altrimenti l'In-Reply-To, altrimenti il proprio message-id (è una radice)
+        $threadId = $references[0] ?? $inReplyTo ?? $messageId ?? null;
+
         // ── Upsert messaggio ─────────────────────────────────────────────────
         $record = MailMessage::withoutGlobalScope('tenant')->updateOrCreate(
             [
@@ -149,7 +172,9 @@ class SyncMailboxJob implements ShouldQueue
             ],
             [
                 'tenant_id'       => $account->tenant_id,
-                'message_id'      => mb_substr((string) ($msg->getMessageId()->first() ?? ''), 0, 500) ?: null,
+                'message_id'      => $messageId,
+                'in_reply_to'     => $inReplyTo,
+                'thread_id'       => $threadId ?: ('local-uid-' . $uid),
                 'subject'         => mb_substr((string) ($msg->getSubject()->first() ?? '(nessun oggetto)'), 0, 500),
                 'from_name'       => $fromName  ? mb_substr($fromName,  0, 300) : null,
                 'from_email'      => $fromEmail ? mb_substr($fromEmail, 0, 300) : null,

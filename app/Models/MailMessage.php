@@ -15,6 +15,8 @@ class MailMessage extends Model
         'mail_account_id',
         'uid',
         'message_id',
+        'in_reply_to',
+        'thread_id',
         'folder',
         'subject',
         'from_name',

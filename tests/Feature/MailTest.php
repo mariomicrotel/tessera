@@ -421,6 +421,53 @@ describe('Bozze', function () {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Threading / Conversazioni
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Threading', function () {
+    it('show carica tutti i messaggi dello stesso thread ordinati', function () {
+        $root  = makeMessage(['subject' => 'Domanda', 'message_id' => 'root@x', 'thread_id' => 'root@x', 'sent_at' => now()->subDays(2)]);
+        $reply = makeMessage(['subject' => 'Re: Domanda', 'message_id' => 'reply@x', 'in_reply_to' => 'root@x', 'thread_id' => 'root@x', 'sent_at' => now()->subDay()]);
+        // Messaggio di un altro thread, non deve comparire
+        makeMessage(['subject' => 'Altro', 'message_id' => 'other@x', 'thread_id' => 'other@x']);
+
+        $this->actingAs($this->admin)
+            ->get(route('mail.show', [$this->tenant, $reply]))
+            ->assertInertia(fn ($page) => $page
+                ->where('thread', fn ($t) => count($t) === 2
+                    && collect($t)->pluck('subject')->contains('Domanda')
+                    && collect($t)->pluck('subject')->contains('Re: Domanda')
+                    && ! collect($t)->pluck('subject')->contains('Altro')
+                )
+            );
+    });
+
+    it('una risposta inviata eredita il thread_id del messaggio originale', function () {
+        $orig = makeMessage(['message_id' => 'orig@x', 'thread_id' => 'orig@x']);
+
+        $job = new SendMailJob(
+            mailAccountId: $this->account->id,
+            to:            'mario@example.com',
+            toName:        'Mario',
+            subject:       'Re: Oggetto',
+            bodyHtml:      '',
+            bodyText:      'Risposta',
+            inReplyTo:     $orig->message_id,
+            references:    [$orig->thread_id, $orig->message_id],
+            threadId:      $orig->thread_id,
+        );
+
+        $ref = new ReflectionMethod($job, 'saveSentMessage');
+        $ref->setAccessible(true);
+        $ref->invoke($job, $this->account, 'info@test.it', 'Ente Test', 'ets-new@test.it');
+
+        $sent = MailMessage::withoutGlobalScope('tenant')->where('folder', 'Sent')->latest('id')->first();
+        expect($sent->thread_id)->toBe('orig@x');
+        expect($sent->in_reply_to)->toBe('orig@x');
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SendMailJob — salvataggio in Sent
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -439,7 +486,7 @@ describe('SendMailJob', function () {
 
         $ref    = new ReflectionMethod($job, 'saveSentMessage');
         $ref->setAccessible(true);
-        $ref->invoke($job, $this->account, 'info@test.it', 'Ente Test');
+        $ref->invoke($job, $this->account, 'info@test.it', 'Ente Test', 'ets-msg@test.it');
 
         $sent = MailMessage::withoutGlobalScope('tenant')
             ->where('folder', 'Sent')

@@ -165,6 +165,51 @@ class MailController extends Controller
             ->where('linked_id', $mailMessage->id)
             ->first();
 
+        // ── Conversazione (thread) ────────────────────────────────────────────
+        // Tutti i messaggi con lo stesso thread_id, ordinati cronologicamente.
+        $threadMessages = collect();
+        if ($mailMessage->thread_id) {
+            $threadMessages = MailMessage::query()
+                ->with('account:id,name,email')
+                ->where('thread_id', $mailMessage->thread_id)
+                ->orderBy('sent_at')
+                ->get();
+        }
+        // Fallback: se per qualche motivo il thread è vuoto, includi almeno questo messaggio
+        if ($threadMessages->isEmpty()) {
+            $threadMessages = collect([$mailMessage]);
+        }
+
+        $thread = $threadMessages->map(fn($m) => [
+            'id'              => $m->id,
+            'subject'         => $m->subject ?? '(nessun oggetto)',
+            'from_name'       => $m->from_name,
+            'from_email'      => $m->from_email,
+            'from'            => $m->from,
+            'to_addresses'    => $m->to_addresses,
+            'cc_addresses'    => $m->cc_addresses,
+            'sent_at'         => $m->sent_at?->toIso8601String(),
+            'is_flagged'      => $m->is_flagged,
+            'has_attachments' => $m->has_attachments,
+            'body_html'       => $m->body_html,
+            'body_text'       => $m->body_text,
+            'folder'          => $m->folder,
+            'is_sent'         => $m->folder === 'Sent',
+            'account'         => $m->account?->only(['id', 'name', 'email']),
+            // Allegati per ciascun messaggio del thread
+            'attachments'     => Attachment::withoutGlobalScope('tenant')
+                ->where('attachable_type', MailMessage::class)
+                ->where('attachable_id', $m->id)
+                ->get()
+                ->map(fn($a) => [
+                    'id'            => $a->id,
+                    'original_name' => $a->original_name,
+                    'mime_type'     => $a->mime_type,
+                    'size'          => $a->size,
+                    'download_url'  => route('mail.attachment', [$m->id, $a->id]),
+                ])->values(),
+        ])->values();
+
         return Inertia::render('Mail/Show', [
             'message' => [
                 'id'              => $mailMessage->id,
@@ -184,6 +229,7 @@ class MailController extends Controller
                 'account'         => $mailMessage->account?->only(['id', 'name', 'email']),
                 'attachments'     => $attachments,
             ],
+            'thread'     => $thread,
             'prev_id'    => $prevId,
             'next_id'    => $nextId,
             'protocollo' => $protocollo ? [
@@ -390,14 +436,24 @@ class MailController extends Controller
         $cc  = array_filter(array_map('trim', explode(',', $validated['cc']  ?? '')));
         $bcc = array_filter(array_map('trim', explode(',', $validated['bcc'] ?? '')));
 
-        // Reply-To header: mittente originale se è una risposta
+        // Reply-To header + threading: mittente e catena della conversazione
         $replyToEmail = null;
         $replyToName  = null;
+        $inReplyTo    = null;
+        $references   = [];
+        $threadId     = null;
         if ($validated['reply_to_message_id'] ?? null) {
             $orig = MailMessage::find($validated['reply_to_message_id']);
             if ($orig) {
                 $replyToEmail = $orig->from_email;
                 $replyToName  = $orig->from_name;
+                $inReplyTo    = $orig->message_id;
+                $threadId     = $orig->thread_id;
+                // References: radice del thread + message-id del messaggio a cui si risponde
+                $references   = array_values(array_unique(array_filter([
+                    $orig->thread_id,
+                    $orig->message_id,
+                ])));
             }
         }
 
@@ -425,6 +481,9 @@ class MailController extends Controller
             cc:            array_values($cc),
             bcc:           array_values($bcc),
             attachments:   $attachmentMeta,
+            inReplyTo:     $inReplyTo,
+            references:    $references,
+            threadId:      $threadId,
         );
 
         // Se l'invio proviene da una bozza, eliminala
