@@ -66,7 +66,7 @@ class TenantConsultantInboxController extends Controller
     /**
      * Dettaglio richiesta + form upload risposta.
      */
-    public function requestShow(string $tenantSlug, string $requestId)
+    public function requestShow(string $tenant, string $requestId)
     {
         $tenant = app('current_tenant');
 
@@ -108,7 +108,7 @@ class TenantConsultantInboxController extends Controller
     /**
      * Upload di un file in risposta a una richiesta.
      */
-    public function requestUploadResponse(Request $request, string $tenantSlug, string $requestId)
+    public function requestUploadResponse(Request $request, string $tenant, string $requestId)
     {
         $tenant = app('current_tenant');
 
@@ -190,7 +190,7 @@ class TenantConsultantInboxController extends Controller
         ]);
     }
 
-    public function deliveriesShow(string $tenantSlug, string $deliveryId)
+    public function deliveriesShow(string $tenant, string $deliveryId)
     {
         $tenant = app('current_tenant');
 
@@ -242,7 +242,7 @@ class TenantConsultantInboxController extends Controller
         ]);
     }
 
-    public function deliveryAccept(Request $request, string $tenantSlug, string $deliveryId)
+    public function deliveryAccept(Request $request, string $tenant, string $deliveryId)
     {
         $tenant   = app('current_tenant');
 
@@ -265,7 +265,7 @@ class TenantConsultantInboxController extends Controller
         return back()->with('flash', ['type' => 'success', 'message' => 'Consegna accettata.']);
     }
 
-    public function deliveryContest(Request $request, string $tenantSlug, string $deliveryId)
+    public function deliveryContest(Request $request, string $tenant, string $deliveryId)
     {
         $tenant   = app('current_tenant');
 

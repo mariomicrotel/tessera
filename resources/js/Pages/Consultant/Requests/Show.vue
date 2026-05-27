@@ -2,7 +2,7 @@
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
-import { PaperClipIcon, ClockIcon } from '@heroicons/vue/24/outline';
+import { PaperClipIcon, ClockIcon, ArrowDownTrayIcon, InboxArrowDownIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     entity:    { type: Object, required: true },
@@ -94,21 +94,25 @@ const mimeIcon = (mime) => {
                 <!-- Documenti allegati -->
                 <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
                     <div class="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
-                        <PaperClipIcon class="size-4 text-gray-500 dark:text-gray-400" />
+                        <InboxArrowDownIcon class="size-4 text-gray-500 dark:text-gray-400" />
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            Documenti allegati ({{ richiesta.documenti.length }})
+                            Risposte e documenti ({{ richiesta.documenti.length }})
                         </h3>
                     </div>
                     <div v-if="richiesta.documenti.length === 0" class="px-5 py-8 text-center text-sm text-gray-400">
-                        Nessun documento allegato ancora
+                        Nessuna risposta ricevuta. In attesa che l'ente carichi i documenti.
                     </div>
                     <ul v-else class="divide-y divide-gray-50 dark:divide-gray-700">
                         <li v-for="d in richiesta.documenti" :key="d.id"
                             class="flex items-center gap-3 px-5 py-3">
                             <span class="text-xl">{{ mimeIcon(d.mime_type) }}</span>
                             <div class="flex-1 min-w-0">
-                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                                <p class="text-sm font-medium text-gray-900 dark:text-gray-100 truncate flex items-center gap-2">
                                     {{ d.filename_originale }}
+                                    <span v-if="d.uploaded_as_response"
+                                        class="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                        Risposta del cliente
+                                    </span>
                                 </p>
                                 <div class="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 mt-0.5">
                                     <span>{{ d.size_human }}</span>
@@ -118,6 +122,12 @@ const mimeIcon = (mime) => {
                                 </div>
                                 <p v-if="d.note" class="text-xs text-gray-500 dark:text-gray-400 mt-0.5 italic">{{ d.note }}</p>
                             </div>
+                            <a v-if="d.download_url" :href="d.download_url"
+                                class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                                target="_blank" rel="noopener noreferrer">
+                                <ArrowDownTrayIcon class="size-4" />
+                                Scarica
+                            </a>
                         </li>
                     </ul>
                 </div>

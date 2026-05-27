@@ -9,9 +9,12 @@ use App\Models\ConsultantRequest;
 use App\Models\ConsultantRequestDocument;
 use App\Models\Member;
 use App\Models\Tenant;
+use App\Models\User;
+use App\Notifications\ConsultantRequestCreatedNotification;
 use App\Services\Consultant\ConsultantStatsService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Inertia\Inertia;
 
 /**
@@ -248,9 +251,12 @@ class ConsultantController extends Controller
             'stato'              => ConsultantRequest::STATO_APERTA,
         ]);
 
+        // Notifica admin/segreteria dell'ente della nuova richiesta (mail + in-app)
+        $this->notifyTenantRequestCreated($richiesta);
+
         return redirect()
             ->route('consultant.requests.show', [$tenantSlug, $richiesta->id])
-            ->with('flash', ['type' => 'success', 'message' => 'Richiesta creata con successo.']);
+            ->with('flash', ['type' => 'success', 'message' => 'Richiesta creata. L\'ente è stato notificato.']);
     }
 
     public function requestShow(Request $request, string $tenantSlug, ConsultantRequest $consultantRequest)
@@ -281,7 +287,13 @@ class ConsultantController extends Controller
                     'mime_type'         => $d->mime_type,
                     'note'              => $d->note,
                     'uploaded_by'       => $d->uploadedBy?->name,
+                    'uploaded_as_response' => (bool) $d->uploaded_as_response,
                     'created_at'        => $d->created_at->toDateString(),
+                    'download_url'      => URL::temporarySignedRoute(
+                        'consultant.requests.documents.download',
+                        now()->addHour(),
+                        ['tenantSlug' => $tenant->slug, 'requestId' => $consultantRequest->id, 'documentId' => $d->id],
+                    ),
                 ])->values(),
             ],
         ]);
@@ -309,6 +321,46 @@ class ConsultantController extends Controller
         $consultantRequest->update($validated);
 
         return back()->with('flash', ['type' => 'success', 'message' => 'Richiesta aggiornata.']);
+    }
+
+    /**
+     * Download di un documento di risposta caricato dall'ente (signed URL TTL 1h).
+     */
+    public function requestDocumentDownload(Request $request, string $tenantSlug, int $requestId, int $documentId)
+    {
+        if (! $request->hasValidSignature()) {
+            abort(403, 'Link di download scaduto o non valido.');
+        }
+
+        [$user, $tenant] = $this->resolveConsultantTenant($request, $tenantSlug);
+
+        $richiesta = ConsultantRequest::query()
+            ->where('id', $requestId)
+            ->where('tenant_id', $tenant->id)
+            ->where('consultant_user_id', $user->id)
+            ->firstOrFail();
+
+        $doc = ConsultantRequestDocument::query()
+            ->where('id', $documentId)
+            ->where('consultant_request_id', $richiesta->id)
+            ->firstOrFail();
+
+        return Storage::disk($doc->disk)->download($doc->path, $doc->filename_originale);
+    }
+
+    /**
+     * Notifica admin/segreteria dell'ente alla creazione di una richiesta.
+     */
+    private function notifyTenantRequestCreated(ConsultantRequest $richiesta): void
+    {
+        $admins = User::query()
+            ->whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'segreteria']))
+            ->whereHas('tenants', fn ($q) => $q->where('tenants.id', $richiesta->tenant_id))
+            ->get();
+
+        foreach ($admins as $admin) {
+            $admin->notify(new ConsultantRequestCreatedNotification($richiesta));
+        }
     }
 
     /* ── Note ──────────────────────────────────────────────────────────── */

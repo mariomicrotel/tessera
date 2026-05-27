@@ -25,10 +25,12 @@ class ConsultantRequestDocument extends Model
         'size',
         'mime_type',
         'note',
+        'uploaded_as_response',
     ];
 
     protected $casts = [
-        'size' => 'integer',
+        'size'                 => 'integer',
+        'uploaded_as_response' => 'boolean',
     ];
 
     /* ── Relazioni ─────────────────────────────────────────────────────── */

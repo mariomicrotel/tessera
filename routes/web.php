@@ -207,7 +207,7 @@ Route::middleware([
     Route::get('/dashboard', DashboardController::class)->name('dashboard');
 
     // ── Inbox consulente (Fase 4a — admin/segreteria del tenant) ──────
-    Route::middleware('role:admin|segreteria|contabile')
+    Route::middleware('role:admin,segreteria,contabile')
         ->prefix('consulente-inbox')
         ->name('tenant.consultant-inbox.')
         ->group(function () {
@@ -899,6 +899,10 @@ Route::middleware([
     Route::get('/entities/{tenantSlug}/requests', [ConsultantController::class, 'requestsIndex'])->name('requests.index');
     Route::get('/entities/{tenantSlug}/requests/create', [ConsultantController::class, 'requestCreate'])->name('requests.create');
     Route::post('/entities/{tenantSlug}/requests', [ConsultantController::class, 'requestStore'])->name('requests.store');
+    Route::get('/entities/{tenantSlug}/requests/{requestId}/documents/{documentId}/download',
+        [ConsultantController::class, 'requestDocumentDownload'])
+        ->middleware('signed')
+        ->name('requests.documents.download');
     Route::get('/entities/{tenantSlug}/requests/{consultantRequest}', [ConsultantController::class, 'requestShow'])->name('requests.show');
     Route::put('/entities/{tenantSlug}/requests/{consultantRequest}', [ConsultantController::class, 'requestUpdate'])->name('requests.update');
 
