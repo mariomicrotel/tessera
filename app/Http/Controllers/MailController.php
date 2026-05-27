@@ -37,7 +37,7 @@ class MailController extends Controller
         $accountId = $request->input('account');
         $filter    = $request->input('filter', 'all'); // all | unread | flagged
         $search    = $request->input('search');
-        $box       = $request->input('box', 'received'); // received | sent
+        $box       = $request->input('box', 'received'); // received | sent | drafts
 
         $query = MailMessage::query()
             ->with('account:id,name,email')
@@ -49,11 +49,13 @@ class MailController extends Controller
             ])
             ->orderByDesc('sent_at');
 
-        // Filtro cartella: ricevuti (tutto tranne Sent) vs inviati (Sent)
+        // Filtro cartella: ricevuti (tutto tranne Sent/Drafts) | inviati | bozze
         if ($box === 'sent') {
             $query->where('folder', 'Sent');
+        } elseif ($box === 'drafts') {
+            $query->where('folder', 'Drafts');
         } else {
-            $query->where('folder', '!=', 'Sent');
+            $query->whereNotIn('folder', ['Sent', 'Drafts']);
         }
 
         if ($accountId) {
@@ -81,11 +83,12 @@ class MailController extends Controller
             'subject'         => $m->subject ?? '(nessun oggetto)',
             'from_name'       => $m->from_name,
             'from_email'      => $m->from_email,
-            // Per la vista "inviati" mostriamo il destinatario invece del mittente
+            // Per le viste "inviati"/"bozze" mostriamo il destinatario invece del mittente
             'to_label'        => collect($m->to_addresses ?? [])
                 ->map(fn($a) => $a['name'] ?? $a['email'] ?? null)
                 ->filter()->implode(', ') ?: null,
             'is_sent'         => $m->folder === 'Sent',
+            'is_draft'        => $m->folder === 'Drafts',
             'sent_at'         => $m->sent_at?->toIso8601String(),
             'is_read'         => $m->is_read,
             'is_flagged'      => $m->is_flagged,
@@ -93,20 +96,22 @@ class MailController extends Controller
             'snippet'         => $m->snippet,
         ]);
 
-        // Conteggi non-letti: solo posta ricevuta (Sent è sempre letta)
+        // Conteggi non-letti: solo posta ricevuta (Sent/Drafts sono sempre letti)
         $totalUnread = MailMessage::query()
-            ->where('folder', '!=', 'Sent')
+            ->whereNotIn('folder', ['Sent', 'Drafts'])
             ->where('is_read', false)
             ->count();
 
-        // Conteggio totale inviati (per badge "Inviati")
-        $sentCount = MailMessage::query()->where('folder', 'Sent')->count();
+        // Conteggi per i badge delle cartelle
+        $sentCount  = MailMessage::query()->where('folder', 'Sent')->count();
+        $draftCount = MailMessage::query()->where('folder', 'Drafts')->count();
 
         return Inertia::render('Mail/Inbox', [
             'accounts'     => $accounts,
             'messages'     => $messages,
             'total_unread' => $totalUnread,
             'sent_count'   => $sentCount,
+            'draft_count'  => $draftCount,
             'filters'      => [
                 'account' => $accountId,
                 'filter'  => $filter,
@@ -287,10 +292,78 @@ class MailController extends Controller
             }
         }
 
+        // Se si modifica una bozza, pre-compila il form dalla bozza
+        $draft = null;
+        if ($draftId = $request->input('draft')) {
+            $d = MailMessage::where('folder', 'Drafts')->find($draftId);
+            if ($d) {
+                $toFirst = collect($d->to_addresses ?? [])->first();
+                $draft = [
+                    'id'         => $d->id,
+                    'account_id' => $d->mail_account_id,
+                    'to'         => $toFirst['email'] ?? '',
+                    'to_name'    => $toFirst['name'] ?? '',
+                    'cc'         => collect($d->cc_addresses ?? [])->pluck('email')->implode(', '),
+                    'subject'    => $d->subject,
+                    'body'       => $d->body_text,
+                ];
+            }
+        }
+
         return Inertia::render('Mail/Compose', [
             'accounts' => $accounts,
             'reply_to' => $replyTo,
+            'draft'    => $draft,
         ]);
+    }
+
+    /** Salva (o aggiorna) una bozza */
+    public function saveDraft(Request $request)
+    {
+        $validated = $request->validate([
+            'draft_id'   => 'nullable|integer|exists:mail_messages,id',
+            'account_id' => 'required|integer|exists:mail_accounts,id',
+            'to'         => 'nullable|email',
+            'to_name'    => 'nullable|string|max:200',
+            'cc'         => 'nullable|string',
+            'subject'    => 'nullable|string|max:500',
+            'body'       => 'nullable|string',
+        ]);
+
+        $account = MailAccount::findOrFail($validated['account_id']);
+
+        $toAddresses = ! empty($validated['to'])
+            ? [['name' => $validated['to_name'] ?? null, 'email' => $validated['to']]]
+            : [];
+        $ccAddresses = collect(array_filter(array_map('trim', explode(',', $validated['cc'] ?? ''))))
+            ->map(fn($e) => ['name' => null, 'email' => $e])->values()->all();
+
+        $attrs = [
+            'tenant_id'       => $account->tenant_id,
+            'mail_account_id' => $account->id,
+            'folder'          => 'Drafts',
+            'subject'         => $validated['subject'] ?: '(bozza senza oggetto)',
+            'from_name'       => $account->smtp_from_name ?: $account->name,
+            'from_email'      => $account->smtp_from_email ?: $account->email,
+            'to_addresses'    => $toAddresses,
+            'cc_addresses'    => $ccAddresses ?: null,
+            'sent_at'         => now(),
+            'body_text'       => $validated['body'],
+            'is_read'         => true,
+            'is_flagged'      => false,
+            'has_attachments' => false,
+        ];
+
+        if (! empty($validated['draft_id'])) {
+            $draft = MailMessage::where('folder', 'Drafts')->findOrFail($validated['draft_id']);
+            $draft->update($attrs);
+        } else {
+            $attrs['uid'] = (int) round(microtime(true) * 1000);
+            MailMessage::create($attrs);
+        }
+
+        return redirect()->route('mail.index', ['box' => 'drafts'])
+            ->with('success', 'Bozza salvata.');
     }
 
     /** Invia l'email (dispatch a queue) */
@@ -305,6 +378,7 @@ class MailController extends Controller
             'subject'             => 'required|string|max:500',
             'body'                => 'required|string',
             'reply_to_message_id' => 'nullable|integer|exists:mail_messages,id',
+            'draft_id'            => 'nullable|integer|exists:mail_messages,id',
             'attachments'         => 'nullable|array',
             'attachments.*'       => 'file|max:10240', // max 10 MB per file
         ]);
@@ -352,6 +426,11 @@ class MailController extends Controller
             bcc:           array_values($bcc),
             attachments:   $attachmentMeta,
         );
+
+        // Se l'invio proviene da una bozza, eliminala
+        if ($validated['draft_id'] ?? null) {
+            MailMessage::where('folder', 'Drafts')->find($validated['draft_id'])?->forceDelete();
+        }
 
         return redirect()->route('mail.index')
             ->with('success', 'Messaggio in coda per l\'invio.');

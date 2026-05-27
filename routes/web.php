@@ -775,6 +775,7 @@ Route::middleware([
         // Compose / Scrivi nuova email — PRIMA dei wildcard con segmento variabile
         Route::get('compose',                            [MailController::class, 'compose'])->name('compose');
         Route::post('send',                              [MailController::class, 'send'])->name('send');
+        Route::post('draft',                             [MailController::class, 'saveDraft'])->name('draft');
 
         // Inbox + azioni messaggi (wildcard sempre in fondo)
         Route::get('/',                                  [MailController::class, 'index'])->name('index');

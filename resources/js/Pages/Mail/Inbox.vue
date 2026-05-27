@@ -7,7 +7,7 @@ import {
     MagnifyingGlassIcon, ArrowPathIcon, BookmarkIcon,
     BookmarkSlashIcon, TrashIcon, StarIcon, Cog6ToothIcon,
     ChevronLeftIcon, ChevronRightIcon, FunnelIcon,
-    PencilSquareIcon, PaperAirplaneIcon,
+    PencilSquareIcon, PaperAirplaneIcon, DocumentTextIcon,
 } from '@heroicons/vue/24/outline';
 import { StarIcon as StarSolid, BookmarkIcon as BookmarkSolid } from '@heroicons/vue/24/solid';
 
@@ -16,6 +16,7 @@ const props = defineProps({
     messages:     { type: Object, required: true },
     total_unread: { type: Number, default: 0 },
     sent_count:   { type: Number, default: 0 },
+    draft_count:  { type: Number, default: 0 },
     filters:      { type: Object, default: () => ({}) },
     has_accounts: { type: Boolean, default: false },
 });
@@ -43,7 +44,17 @@ function switchBox(newBox) {
     applyFilters();
 }
 
-const isSentBox = computed(() => box.value === 'sent');
+const isSentBox   = computed(() => box.value === 'sent');
+const isDraftsBox = computed(() => box.value === 'drafts');
+
+// Apertura messaggio: le bozze vanno in modifica (Compose), gli altri in lettura (Show)
+function openMessage(msg) {
+    if (msg.is_draft) {
+        router.get(route('mail.compose'), { draft: msg.id });
+    } else {
+        router.get(route('mail.show', msg.id));
+    }
+}
 
 function goPage(url) {
     if (url) router.get(url, {}, { preserveScroll: true });
@@ -96,13 +107,14 @@ const filterOptions = [
         <template #header>
             <div class="flex items-center justify-between gap-3 flex-wrap">
                 <div class="flex items-center gap-3">
-                    <InboxArrowDownIcon v-if="!isSentBox" class="size-6 text-indigo-500" />
-                    <PaperAirplaneIcon v-else class="size-6 text-indigo-500" />
+                    <DocumentTextIcon v-if="isDraftsBox" class="size-6 text-indigo-500" />
+                    <PaperAirplaneIcon v-else-if="isSentBox" class="size-6 text-indigo-500" />
+                    <InboxArrowDownIcon v-else class="size-6 text-indigo-500" />
                     <div>
                         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                            {{ isSentBox ? 'Posta inviata' : 'Posta in arrivo' }}
+                            {{ isDraftsBox ? 'Bozze' : (isSentBox ? 'Posta inviata' : 'Posta in arrivo') }}
                         </h2>
-                        <p v-if="!isSentBox && total_unread > 0" class="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">
+                        <p v-if="!isSentBox && !isDraftsBox && total_unread > 0" class="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">
                             {{ total_unread }} non letti
                         </p>
                     </div>
@@ -188,6 +200,21 @@ const filterOptions = [
                                     </span>
                                     <span v-if="sent_count > 0" class="text-xs text-gray-400 dark:text-gray-500 font-medium px-1.5 py-0.5">
                                         {{ sent_count }}
+                                    </span>
+                                </button>
+                                <button
+                                    @click="switchBox('drafts')"
+                                    :class="[
+                                        'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-sm rounded-md text-left',
+                                        isDraftsBox ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    ]"
+                                >
+                                    <span class="flex items-center gap-1.5 truncate">
+                                        <DocumentTextIcon class="size-4 shrink-0" />
+                                        Bozze
+                                    </span>
+                                    <span v-if="draft_count > 0" class="text-xs text-gray-400 dark:text-gray-500 font-medium px-1.5 py-0.5">
+                                        {{ draft_count }}
                                     </span>
                                 </button>
                             </nav>
@@ -286,7 +313,7 @@ const filterOptions = [
                                         'group flex items-start gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors cursor-pointer',
                                         !msg.is_read ? 'bg-indigo-50/40 dark:bg-indigo-950/20' : ''
                                     ]"
-                                    @click="router.get(route('mail.show', msg.id))"
+                                    @click="openMessage(msg)"
                                 >
                                     <!-- Indicatore letto/non letto -->
                                     <div class="mt-1 shrink-0">
@@ -297,7 +324,8 @@ const filterOptions = [
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-baseline justify-between gap-2">
                                             <p :class="['text-sm truncate', !msg.is_read ? 'font-semibold text-gray-900 dark:text-gray-100' : 'font-medium text-gray-700 dark:text-gray-300']">
-                                                <span v-if="msg.is_sent" class="text-gray-400 dark:text-gray-500 font-normal">A: </span>{{ msg.is_sent ? (msg.to_label || '(destinatario sconosciuto)') : (msg.from_name || msg.from_email || '(mittente sconosciuto)') }}
+                                                <span v-if="msg.is_draft" class="text-amber-500 font-normal">[Bozza] </span>
+                                                <span v-if="(msg.is_sent || msg.is_draft)" class="text-gray-400 dark:text-gray-500 font-normal">A: </span>{{ (msg.is_sent || msg.is_draft) ? (msg.to_label || '(destinatario non impostato)') : (msg.from_name || msg.from_email || '(mittente sconosciuto)') }}
                                             </p>
                                             <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0">{{ fmtDate(msg.sent_at) }}</span>
                                         </div>

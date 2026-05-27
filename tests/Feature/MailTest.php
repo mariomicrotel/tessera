@@ -341,6 +341,86 @@ describe('MailController protocolla', function () {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Bozze (Drafts)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('Bozze', function () {
+    it('salva una nuova bozza nella cartella Drafts', function () {
+        $this->actingAs($this->admin)
+            ->post(route('mail.draft', $this->tenant), [
+                'account_id' => $this->account->id,
+                'to'         => 'dest@example.com',
+                'subject'    => 'Bozza di prova',
+                'body'       => 'Testo della bozza.',
+            ])
+            ->assertRedirect();
+
+        $draft = MailMessage::where('folder', 'Drafts')->where('subject', 'Bozza di prova')->first();
+        expect($draft)->not->toBeNull();
+        expect($draft->is_read)->toBeTrue();
+        expect($draft->to_addresses)->toBe([['name' => null, 'email' => 'dest@example.com']]);
+    });
+
+    it('aggiorna una bozza esistente invece di crearne una nuova', function () {
+        $draft = makeMessage(['folder' => 'Drafts', 'subject' => 'Originale', 'is_read' => true]);
+
+        $this->actingAs($this->admin)
+            ->post(route('mail.draft', $this->tenant), [
+                'draft_id'   => $draft->id,
+                'account_id' => $this->account->id,
+                'subject'    => 'Modificata',
+                'body'       => 'Nuovo testo.',
+            ])
+            ->assertRedirect();
+
+        expect(MailMessage::where('folder', 'Drafts')->count())->toBe(1);
+        expect($draft->fresh()->subject)->toBe('Modificata');
+    });
+
+    it('le bozze sono escluse dalla posta ricevuta', function () {
+        makeMessage(['subject' => 'Ricevuta']);
+        makeMessage(['folder' => 'Drafts', 'subject' => 'Bozza', 'is_read' => true]);
+
+        $this->actingAs($this->admin)
+            ->get(route('mail.index', $this->tenant))
+            ->assertInertia(fn ($page) => $page
+                ->where('messages.data', fn ($data) => ! collect($data)->pluck('subject')->contains('Bozza'))
+                ->where('draft_count', 1)
+            );
+    });
+
+    it('box=drafts mostra solo le bozze', function () {
+        makeMessage(['subject' => 'Ricevuta']);
+        makeMessage(['folder' => 'Drafts', 'subject' => 'Bozza', 'is_read' => true]);
+
+        $this->actingAs($this->admin)
+            ->get(route('mail.index', ['tenant' => $this->tenant, 'box' => 'drafts']))
+            ->assertInertia(fn ($page) => $page
+                ->where('messages.data', fn ($data) => collect($data)->pluck('subject')->contains('Bozza')
+                    && ! collect($data)->pluck('subject')->contains('Ricevuta'))
+            );
+    });
+
+    it('inviare da una bozza elimina la bozza', function () {
+        Queue::fake();
+        $draft = makeMessage(['folder' => 'Drafts', 'is_read' => true]);
+
+        $this->actingAs($this->admin)
+            ->post(route('mail.send', $this->tenant), [
+                'account_id' => $this->account->id,
+                'to'         => 'dest@example.com',
+                'subject'    => 'Invio da bozza',
+                'body'       => 'Corpo.',
+                'draft_id'   => $draft->id,
+            ])
+            ->assertRedirect(route('mail.index', $this->tenant));
+
+        Queue::assertPushed(SendMailJob::class);
+        expect(MailMessage::withTrashed()->find($draft->id))->toBeNull();
+    });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SendMailJob — salvataggio in Sent
 // ─────────────────────────────────────────────────────────────────────────────
 

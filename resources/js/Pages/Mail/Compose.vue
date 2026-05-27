@@ -2,43 +2,69 @@
 import { ref, computed } from 'vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { ArrowLeftIcon, PaperAirplaneIcon, PaperClipIcon, XMarkIcon } from '@heroicons/vue/24/outline';
+import { ArrowLeftIcon, PaperAirplaneIcon, PaperClipIcon, XMarkIcon, DocumentCheckIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
     accounts: { type: Array, default: () => [] },  // [{id, label}]
     reply_to: { type: Object, default: null },       // messaggio originale se risposta
+    draft:    { type: Object, default: null },       // bozza da modificare
 });
 
 const isReply = !!props.reply_to;
+const isDraft = !!props.draft;
 
 // Pre-compila subject con "Re: " se risposta
-const defaultSubject = isReply
-    ? (props.reply_to.subject?.startsWith('Re:') ? props.reply_to.subject : 'Re: ' + props.reply_to.subject)
-    : '';
+const defaultSubject = isDraft
+    ? (props.draft.subject ?? '')
+    : (isReply
+        ? (props.reply_to.subject?.startsWith('Re:') ? props.reply_to.subject : 'Re: ' + props.reply_to.subject)
+        : '');
 
-const defaultTo      = isReply ? (props.reply_to.from_email ?? '') : '';
-const defaultToName  = isReply ? (props.reply_to.from_name  ?? '') : '';
-const defaultBody    = isReply
-    ? '\n\n---\nIn data ' + fmtDate(props.reply_to.sent_at)
-      + ', ' + (props.reply_to.from_name || props.reply_to.from_email) + ' ha scritto:\n'
-      + (props.reply_to.body_text ?? '').split('\n').map(l => '> ' + l).join('\n')
-    : '';
+const defaultTo      = isDraft ? (props.draft.to ?? '')      : (isReply ? (props.reply_to.from_email ?? '') : '');
+const defaultToName  = isDraft ? (props.draft.to_name ?? '') : (isReply ? (props.reply_to.from_name  ?? '') : '');
+const defaultCc      = isDraft ? (props.draft.cc ?? '')      : '';
+const defaultBody    = isDraft
+    ? (props.draft.body ?? '')
+    : (isReply
+        ? '\n\n---\nIn data ' + fmtDate(props.reply_to.sent_at)
+          + ', ' + (props.reply_to.from_name || props.reply_to.from_email) + ' ha scritto:\n'
+          + (props.reply_to.body_text ?? '').split('\n').map(l => '> ' + l).join('\n')
+        : '');
 
-const defaultAccount = isReply && props.reply_to.account_id
-    ? props.reply_to.account_id
-    : (props.accounts[0]?.id ?? null);
+const defaultAccount = isDraft && props.draft.account_id
+    ? props.draft.account_id
+    : (isReply && props.reply_to.account_id
+        ? props.reply_to.account_id
+        : (props.accounts[0]?.id ?? null));
 
 const form = useForm({
     account_id:           defaultAccount,
     to:                   defaultTo,
     to_name:              defaultToName,
-    cc:                   '',
+    cc:                   defaultCc,
     bcc:                  '',
     subject:              defaultSubject,
     body:                 defaultBody,
     reply_to_message_id:  isReply ? props.reply_to.id : null,
+    draft_id:             isDraft ? props.draft.id : null,
     attachments:          [],
 });
+
+const savingDraft = ref(false);
+function saveDraft() {
+    savingDraft.value = true;
+    router.post(route('mail.draft'), {
+        draft_id:   form.draft_id,
+        account_id: form.account_id,
+        to:         form.to,
+        to_name:    form.to_name,
+        cc:         form.cc,
+        subject:    form.subject,
+        body:       form.body,
+    }, {
+        onFinish: () => { savingDraft.value = false; },
+    });
+}
 
 // Allegati — gestione lato UI
 const fileInputRef = ref(null);
@@ -73,7 +99,7 @@ function submit() {
     form.post(route('mail.send'));
 }
 
-const pageTitle = isReply ? 'Rispondi' : 'Nuova email';
+const pageTitle = isDraft ? 'Modifica bozza' : (isReply ? 'Rispondi' : 'Nuova email');
 const hasAccounts = props.accounts.length > 0;
 </script>
 
@@ -207,14 +233,25 @@ const hasAccounts = props.accounts.length > 0;
                                 />
                             </label>
                         </div>
-                        <button
-                            type="submit"
-                            :disabled="form.processing"
-                            class="inline-flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-                        >
-                            <PaperAirplaneIcon class="size-4" />
-                            {{ form.processing ? 'Invio in corso…' : 'Invia' }}
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button
+                                type="button"
+                                @click="saveDraft"
+                                :disabled="savingDraft || form.processing"
+                                class="inline-flex items-center gap-1.5 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 transition-colors"
+                            >
+                                <DocumentCheckIcon class="size-4" />
+                                {{ savingDraft ? 'Salvataggio…' : 'Salva bozza' }}
+                            </button>
+                            <button
+                                type="submit"
+                                :disabled="form.processing"
+                                class="inline-flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                            >
+                                <PaperAirplaneIcon class="size-4" />
+                                {{ form.processing ? 'Invio in corso…' : 'Invia' }}
+                            </button>
+                        </div>
                     </div>
                 </form>
             </div>
