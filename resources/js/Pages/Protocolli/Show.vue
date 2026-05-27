@@ -29,6 +29,7 @@ const linkedLabel = computed(() => {
     if (t.endsWith('Receipt')) return 'Ricevuta';
     if (t.endsWith('Incasso')) return 'Incasso';
     if (t.endsWith('FatturaAttiva')) return 'Fattura attiva';
+    if (t.endsWith('MailMessage')) return 'Email';
     return 'Documento';
 });
 
@@ -37,12 +38,17 @@ const linkedHref = computed(() => {
     if (!p.linked_type || !p.linked_id) return null;
     if (p.linked_type.endsWith('Receipt')) return route('receipts.show', p.linked_id);
     if (p.linked_type.endsWith('Incasso')) return route('incassi.show', p.linked_id);
+    if (p.linked_type.endsWith('MailMessage')) return route('mail.show', p.linked_id);
     return null;
 });
 
 const linkedNumber = computed(() => {
     const l = props.protocollo.linked;
     if (!l) return null;
+    // Per le email mostriamo l'oggetto invece di un numero
+    if (props.protocollo.linked_type?.endsWith('MailMessage')) {
+        return l.subject ?? '(nessun oggetto)';
+    }
     return l.number ?? l.id;
 });
 
@@ -161,7 +167,7 @@ const attachmentError = computed(() => {
                 <div class="px-5 py-3 border-b border-indigo-100 dark:border-indigo-800 flex items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20">
                     <DocumentTextIcon class="size-4 text-indigo-500" />
                     <h3 class="text-sm font-semibold text-indigo-900 dark:text-indigo-200">
-                        {{ linkedLabel }} collegat{{ linkedLabel === 'Ricevuta' ? 'a' : 'o' }}
+                        {{ linkedLabel }} collegat{{ (linkedLabel === 'Ricevuta' || linkedLabel === 'Email') ? 'a' : 'o' }}
                     </h3>
                 </div>
                 <div class="px-5 py-4 flex items-center justify-between gap-3">

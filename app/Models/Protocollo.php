@@ -100,7 +100,7 @@ class Protocollo extends Model
      * Calcola il prossimo numero progressivo per il tenant e l'anno indicati.
      * Esclude il global scope tenant per poter passare un tenant_id esplicito.
      */
-    public static function nextNumero(int $tenantId, int $anno): int
+    public static function nextNumero(int|string $tenantId, int $anno): int
     {
         $max = static::withoutGlobalScope('tenant')
             ->where('tenant_id', $tenantId)

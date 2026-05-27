@@ -7,7 +7,7 @@ import {
     MagnifyingGlassIcon, ArrowPathIcon, BookmarkIcon,
     BookmarkSlashIcon, TrashIcon, StarIcon, Cog6ToothIcon,
     ChevronLeftIcon, ChevronRightIcon, FunnelIcon,
-    PencilSquareIcon,
+    PencilSquareIcon, PaperAirplaneIcon,
 } from '@heroicons/vue/24/outline';
 import { StarIcon as StarSolid, BookmarkIcon as BookmarkSolid } from '@heroicons/vue/24/solid';
 
@@ -15,6 +15,7 @@ const props = defineProps({
     accounts:     { type: Array,  default: () => [] },
     messages:     { type: Object, required: true },
     total_unread: { type: Number, default: 0 },
+    sent_count:   { type: Number, default: 0 },
     filters:      { type: Object, default: () => ({}) },
     has_accounts: { type: Boolean, default: false },
 });
@@ -22,6 +23,7 @@ const props = defineProps({
 const search  = ref(props.filters.search  ?? '');
 const filter  = ref(props.filters.filter  ?? 'all');
 const account = ref(props.filters.account ?? '');
+const box     = ref(props.filters.box     ?? 'received');
 
 let debounce = null;
 function applyFilters() {
@@ -31,9 +33,17 @@ function applyFilters() {
             search:  search.value  || undefined,
             filter:  filter.value  !== 'all' ? filter.value : undefined,
             account: account.value || undefined,
+            box:     box.value !== 'received' ? box.value : undefined,
         }, { preserveScroll: true, replace: true });
     }, 300);
 }
+
+function switchBox(newBox) {
+    box.value = newBox;
+    applyFilters();
+}
+
+const isSentBox = computed(() => box.value === 'sent');
 
 function goPage(url) {
     if (url) router.get(url, {}, { preserveScroll: true });
@@ -86,12 +96,13 @@ const filterOptions = [
         <template #header>
             <div class="flex items-center justify-between gap-3 flex-wrap">
                 <div class="flex items-center gap-3">
-                    <InboxArrowDownIcon class="size-6 text-indigo-500" />
+                    <InboxArrowDownIcon v-if="!isSentBox" class="size-6 text-indigo-500" />
+                    <PaperAirplaneIcon v-else class="size-6 text-indigo-500" />
                     <div>
                         <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                            Posta in arrivo
+                            {{ isSentBox ? 'Posta inviata' : 'Posta in arrivo' }}
                         </h2>
-                        <p v-if="total_unread > 0" class="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">
+                        <p v-if="!isSentBox && total_unread > 0" class="text-xs text-indigo-600 dark:text-indigo-400 mt-0.5">
                             {{ total_unread }} non letti
                         </p>
                     </div>
@@ -145,7 +156,43 @@ const filterOptions = [
                 <div v-else class="flex gap-4">
 
                     <!-- Sidebar account -->
-                    <aside class="hidden lg:block w-52 shrink-0">
+                    <aside class="hidden lg:block w-52 shrink-0 space-y-3">
+                        <!-- Selettore Ricevuti / Inviati -->
+                        <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                            <nav class="p-2 space-y-0.5">
+                                <button
+                                    @click="switchBox('received')"
+                                    :class="[
+                                        'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-sm rounded-md text-left',
+                                        !isSentBox ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    ]"
+                                >
+                                    <span class="flex items-center gap-1.5 truncate">
+                                        <InboxArrowDownIcon class="size-4 shrink-0" />
+                                        Ricevuti
+                                    </span>
+                                    <span v-if="total_unread > 0" class="text-xs bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 font-semibold px-1.5 py-0.5 rounded-full">
+                                        {{ total_unread }}
+                                    </span>
+                                </button>
+                                <button
+                                    @click="switchBox('sent')"
+                                    :class="[
+                                        'w-full flex items-center justify-between gap-2 px-2 py-1.5 text-sm rounded-md text-left',
+                                        isSentBox ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                                    ]"
+                                >
+                                    <span class="flex items-center gap-1.5 truncate">
+                                        <PaperAirplaneIcon class="size-4 shrink-0" />
+                                        Inviati
+                                    </span>
+                                    <span v-if="sent_count > 0" class="text-xs text-gray-400 dark:text-gray-500 font-medium px-1.5 py-0.5">
+                                        {{ sent_count }}
+                                    </span>
+                                </button>
+                            </nav>
+                        </div>
+
                         <div class="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
                             <div class="px-3 py-2 border-b border-gray-200 dark:border-gray-700">
                                 <p class="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">Caselle</p>
@@ -250,7 +297,7 @@ const filterOptions = [
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-baseline justify-between gap-2">
                                             <p :class="['text-sm truncate', !msg.is_read ? 'font-semibold text-gray-900 dark:text-gray-100' : 'font-medium text-gray-700 dark:text-gray-300']">
-                                                {{ msg.from_name || msg.from_email || '(mittente sconosciuto)' }}
+                                                <span v-if="msg.is_sent" class="text-gray-400 dark:text-gray-500 font-normal">A: </span>{{ msg.is_sent ? (msg.to_label || '(destinatario sconosciuto)') : (msg.from_name || msg.from_email || '(mittente sconosciuto)') }}
                                             </p>
                                             <span class="text-xs text-gray-400 dark:text-gray-500 shrink-0">{{ fmtDate(msg.sent_at) }}</span>
                                         </div>

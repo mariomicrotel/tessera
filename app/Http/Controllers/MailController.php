@@ -37,16 +37,24 @@ class MailController extends Controller
         $accountId = $request->input('account');
         $filter    = $request->input('filter', 'all'); // all | unread | flagged
         $search    = $request->input('search');
+        $box       = $request->input('box', 'received'); // received | sent
 
         $query = MailMessage::query()
             ->with('account:id,name,email')
             ->select([
                 'id', 'mail_account_id', 'uid', 'folder',
-                'subject', 'from_name', 'from_email',
+                'subject', 'from_name', 'from_email', 'to_addresses',
                 'sent_at', 'is_read', 'is_flagged', 'has_attachments',
                 'body_text', 'body_html',  // per snippet
             ])
             ->orderByDesc('sent_at');
+
+        // Filtro cartella: ricevuti (tutto tranne Sent) vs inviati (Sent)
+        if ($box === 'sent') {
+            $query->where('folder', 'Sent');
+        } else {
+            $query->where('folder', '!=', 'Sent');
+        }
 
         if ($accountId) {
             $query->where('mail_account_id', $accountId);
@@ -73,6 +81,11 @@ class MailController extends Controller
             'subject'         => $m->subject ?? '(nessun oggetto)',
             'from_name'       => $m->from_name,
             'from_email'      => $m->from_email,
+            // Per la vista "inviati" mostriamo il destinatario invece del mittente
+            'to_label'        => collect($m->to_addresses ?? [])
+                ->map(fn($a) => $a['name'] ?? $a['email'] ?? null)
+                ->filter()->implode(', ') ?: null,
+            'is_sent'         => $m->folder === 'Sent',
             'sent_at'         => $m->sent_at?->toIso8601String(),
             'is_read'         => $m->is_read,
             'is_flagged'      => $m->is_flagged,
@@ -80,16 +93,25 @@ class MailController extends Controller
             'snippet'         => $m->snippet,
         ]);
 
-        $totalUnread = MailMessage::query()->where('is_read', false)->count();
+        // Conteggi non-letti: solo posta ricevuta (Sent è sempre letta)
+        $totalUnread = MailMessage::query()
+            ->where('folder', '!=', 'Sent')
+            ->where('is_read', false)
+            ->count();
+
+        // Conteggio totale inviati (per badge "Inviati")
+        $sentCount = MailMessage::query()->where('folder', 'Sent')->count();
 
         return Inertia::render('Mail/Inbox', [
             'accounts'     => $accounts,
             'messages'     => $messages,
             'total_unread' => $totalUnread,
+            'sent_count'   => $sentCount,
             'filters'      => [
                 'account' => $accountId,
                 'filter'  => $filter,
                 'search'  => $search,
+                'box'     => $box,
             ],
             'has_accounts' => $accounts->isNotEmpty(),
         ]);

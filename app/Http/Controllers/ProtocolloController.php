@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Attachment;
+use App\Models\MailMessage;
 use App\Models\Protocollo;
 use App\Models\Receipt;
 use App\Services\AttachmentService;
@@ -121,7 +122,8 @@ class ProtocolloController extends Controller
         // Carica l'entità collegata con eventuali relazioni annidate
         if ($protocollo->linked_type && $protocollo->linked_id) {
             $protocollo->loadMorph('linked', [
-                Receipt::class => ['member'],
+                Receipt::class     => ['member'],
+                MailMessage::class => ['account:id,name,email'],
             ]);
         }
 
@@ -141,7 +143,8 @@ class ProtocolloController extends Controller
 
         if ($protocollo->linked_type && $protocollo->linked_id) {
             $protocollo->loadMorph('linked', [
-                Receipt::class => ['member'],
+                Receipt::class     => ['member'],
+                MailMessage::class => ['account:id,name,email'],
             ]);
         }
 
