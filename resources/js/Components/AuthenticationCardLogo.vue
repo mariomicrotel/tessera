@@ -7,7 +7,7 @@ import { Link } from '@inertiajs/vue3';
         <!-- Network GTC Logo -->
         <svg
             class="h-16 w-auto"
-            viewBox="0 0 240 100"
+            viewBox="0 0 275 100"
             fill="none"
             xmlns="http://www.w3.org/2000/svg"
         >
