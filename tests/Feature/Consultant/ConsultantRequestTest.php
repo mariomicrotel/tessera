@@ -58,6 +58,17 @@ afterEach(function () {
     app()->forgetInstance('current_tenant');
 });
 
+it('mostra il form di creazione richiesta (no pagina bianca)', function () {
+    $this->actingAs($this->consultant)
+        ->get(route('consultant.requests.create', $this->tenant->slug))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Consultant/Requests/Create')
+            ->where('entity.slug', $this->tenant->slug)
+            ->where('entity.name', $this->tenant->name)
+        );
+});
+
 it('il consulente crea una richiesta e l\'ente viene notificato', function () {
     Notification::fake();
 
