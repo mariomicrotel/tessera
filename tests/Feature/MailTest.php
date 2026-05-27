@@ -260,7 +260,7 @@ describe('MailController show', function () {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('MailController send', function () {
-    it('dispatcha SendMailJob con i dati corretti', function () {
+    it('dispatcha SendMailJob con HTML come bodyHtml e testo derivato', function () {
         Queue::fake();
 
         $this->actingAs($this->admin)
@@ -269,7 +269,7 @@ describe('MailController send', function () {
                 'to'         => 'destinatario@example.com',
                 'to_name'    => 'Destinatario',
                 'subject'    => 'Test invio',
-                'body'       => 'Corpo del messaggio.',
+                'body'       => '<p>Ciao</p><p>Mondo</p>',
             ])
             ->assertRedirect(route('mail.index', $this->tenant));
 
@@ -277,6 +277,9 @@ describe('MailController send', function () {
             $job->to === 'destinatario@example.com'
             && $job->subject === 'Test invio'
             && $job->mailAccountId === $this->account->id
+            && $job->bodyHtml === '<p>Ciao</p><p>Mondo</p>'
+            && str_contains($job->bodyText, 'Ciao')
+            && ! str_contains($job->bodyText, '<p>')
         );
     });
 
@@ -345,13 +348,13 @@ describe('MailController protocolla', function () {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('Bozze', function () {
-    it('salva una nuova bozza nella cartella Drafts', function () {
+    it('salva una nuova bozza nella cartella Drafts con HTML e testo derivato', function () {
         $this->actingAs($this->admin)
             ->post(route('mail.draft', $this->tenant), [
                 'account_id' => $this->account->id,
                 'to'         => 'dest@example.com',
                 'subject'    => 'Bozza di prova',
-                'body'       => 'Testo della bozza.',
+                'body'       => '<p>Riga uno</p><p>Riga <strong>due</strong></p>',
             ])
             ->assertRedirect();
 
@@ -359,6 +362,10 @@ describe('Bozze', function () {
         expect($draft)->not->toBeNull();
         expect($draft->is_read)->toBeTrue();
         expect($draft->to_addresses)->toBe([['name' => null, 'email' => 'dest@example.com']]);
+        // L'HTML è preservato, il testo è derivato senza tag
+        expect($draft->body_html)->toBe('<p>Riga uno</p><p>Riga <strong>due</strong></p>');
+        expect($draft->body_text)->toContain('Riga uno');
+        expect($draft->body_text)->not->toContain('<p>');
     });
 
     it('aggiorna una bozza esistente invece di crearne una nuova', function () {

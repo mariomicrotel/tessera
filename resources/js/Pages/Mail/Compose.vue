@@ -2,6 +2,7 @@
 import { ref, computed } from 'vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import RichTextEditor from '@/Components/RichTextEditor.vue';
 import { ArrowLeftIcon, PaperAirplaneIcon, PaperClipIcon, XMarkIcon, DocumentCheckIcon } from '@heroicons/vue/24/outline';
 
 const props = defineProps({
@@ -13,6 +14,12 @@ const props = defineProps({
 const isReply = !!props.reply_to;
 const isDraft = !!props.draft;
 
+// Escape HTML per il testo plain citato
+function escapeHtml(s) {
+    return String(s ?? '')
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 // Pre-compila subject con "Re: " se risposta
 const defaultSubject = isDraft
     ? (props.draft.subject ?? '')
@@ -23,13 +30,22 @@ const defaultSubject = isDraft
 const defaultTo      = isDraft ? (props.draft.to ?? '')      : (isReply ? (props.reply_to.from_email ?? '') : '');
 const defaultToName  = isDraft ? (props.draft.to_name ?? '') : (isReply ? (props.reply_to.from_name  ?? '') : '');
 const defaultCc      = isDraft ? (props.draft.cc ?? '')      : '';
-const defaultBody    = isDraft
+
+// Corpo in HTML (il body è ora rich text)
+function buildReplyQuote() {
+    const author = props.reply_to.from_name || props.reply_to.from_email;
+    const quoted = props.reply_to.body_html
+        || (props.reply_to.body_text ? '<p>' + escapeHtml(props.reply_to.body_text).replace(/\n/g, '<br>') + '</p>' : '');
+    return '<p></p><p></p>'
+        + '<blockquote style="border-left:3px solid #d1d5db;margin:0;padding-left:12px;color:#6b7280">'
+        + '<p>In data ' + escapeHtml(fmtDate(props.reply_to.sent_at)) + ', ' + escapeHtml(author) + ' ha scritto:</p>'
+        + quoted
+        + '</blockquote>';
+}
+
+const defaultBody = isDraft
     ? (props.draft.body ?? '')
-    : (isReply
-        ? '\n\n---\nIn data ' + fmtDate(props.reply_to.sent_at)
-          + ', ' + (props.reply_to.from_name || props.reply_to.from_email) + ' ha scritto:\n'
-          + (props.reply_to.body_text ?? '').split('\n').map(l => '> ' + l).join('\n')
-        : '');
+    : (isReply ? buildReplyQuote() : '');
 
 const defaultAccount = isDraft && props.draft.account_id
     ? props.draft.account_id
@@ -180,17 +196,15 @@ const hasAccounts = props.accounts.length > 0;
                         <p v-if="form.errors.subject" class="text-xs text-red-500">{{ form.errors.subject }}</p>
                     </div>
 
-                    <!-- Corpo -->
-                    <div class="px-4 py-2">
-                        <textarea
+                    <!-- Corpo (rich text) -->
+                    <div class="px-4 py-3">
+                        <RichTextEditor
                             v-model="form.body"
-                            required
-                            rows="16"
+                            :hide-placeholders="true"
+                            min-height="300px"
                             placeholder="Scrivi il tuo messaggio…"
-                            class="w-full text-sm border-0 bg-transparent focus:ring-0 resize-none text-gray-800 dark:text-gray-100 placeholder-gray-400 leading-relaxed py-3"
-                            :class="{ 'border-b border-red-400': form.errors.body }"
                         />
-                        <p v-if="form.errors.body" class="text-xs text-red-500 pb-2">{{ form.errors.body }}</p>
+                        <p v-if="form.errors.body" class="text-xs text-red-500 pt-2">{{ form.errors.body }}</p>
                     </div>
 
                     <!-- Allegati selezionati -->

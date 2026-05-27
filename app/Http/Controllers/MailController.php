@@ -307,6 +307,19 @@ class MailController extends Controller
 
     // ── Compose / Reply / Send ────────────────────────────────────────────────
 
+    /** Converte l'HTML del corpo in testo semplice (versione text/plain dell'email) */
+    private function htmlToText(string $html): string
+    {
+        // Converte i blocchi e i <br> in a-capo, poi rimuove i tag residui
+        $text = preg_replace('/<\s*(br)\s*\/?>/i', "\n", $html);
+        $text = preg_replace('/<\/\s*(p|div|h[1-6]|li|blockquote|tr)\s*>/i', "\n", $text);
+        $text = strip_tags($text);
+        $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        // Comprime gli a-capo multipli
+        $text = preg_replace("/\n{3,}/", "\n\n", $text);
+        return trim($text);
+    }
+
     /** Mostra form di composizione (nuovo o risposta) */
     public function compose(Request $request)
     {
@@ -333,6 +346,7 @@ class MailController extends Controller
                     'from_name'    => $orig->from_name,
                     'sent_at'      => $orig->sent_at?->toIso8601String(),
                     'body_text'    => $orig->body_text,
+                    'body_html'    => $orig->body_html,
                     'account_id'   => $orig->mail_account_id,
                 ];
             }
@@ -351,7 +365,7 @@ class MailController extends Controller
                     'to_name'    => $toFirst['name'] ?? '',
                     'cc'         => collect($d->cc_addresses ?? [])->pluck('email')->implode(', '),
                     'subject'    => $d->subject,
-                    'body'       => $d->body_text,
+                    'body'       => $d->body_html ?: $d->body_text,
                 ];
             }
         }
@@ -394,7 +408,8 @@ class MailController extends Controller
             'to_addresses'    => $toAddresses,
             'cc_addresses'    => $ccAddresses ?: null,
             'sent_at'         => now(),
-            'body_text'       => $validated['body'],
+            'body_html'       => $validated['body'],
+            'body_text'       => $this->htmlToText($validated['body'] ?? ''),
             'is_read'         => true,
             'is_flagged'      => false,
             'has_attachments' => false,
@@ -474,8 +489,8 @@ class MailController extends Controller
             to:            $validated['to'],
             toName:        $validated['to_name'] ?? '',
             subject:       $validated['subject'],
-            bodyHtml:      nl2br(e($validated['body'])),
-            bodyText:      $validated['body'],
+            bodyHtml:      $validated['body'], // già HTML dall'editor rich text
+            bodyText:      $this->htmlToText($validated['body']),
             replyTo:       $replyToEmail,
             replyToName:   $replyToName,
             cc:            array_values($cc),

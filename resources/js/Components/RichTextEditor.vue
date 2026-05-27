@@ -62,6 +62,8 @@ const props = defineProps({
     placeholderItems: { type: Array, default: null },
     /** Abilita nodi tabella (HTML table/th/td); necessario per template ricevute con tabelle. */
     enableTable: { type: Boolean, default: false },
+    /** Nasconde il menu "Placeholder" (es. composizione email, dove non c'è sostituzione). */
+    hidePlaceholders: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update:modelValue']);
@@ -346,7 +348,7 @@ onBeforeUnmount(() => {
             <span class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1" aria-hidden="true" />
 
             <!-- Inserisci placeholder -->
-            <div ref="placeholderDropdownRef" class="relative">
+            <div v-if="!hidePlaceholders" ref="placeholderDropdownRef" class="relative">
                 <button
                     type="button"
                     :class="[placeholderDropdownOpen ? 'bg-gray-200 dark:bg-gray-600' : '']"
